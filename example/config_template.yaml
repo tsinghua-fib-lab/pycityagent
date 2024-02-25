@@ -1,0 +1,28 @@
+llm_request:
+  text_request:
+    request_type: qwen
+    api_key: xxx
+    model: xxx
+  img_understand_request:
+    request_type: qwen
+    api_key: xxx
+    model: xxx
+  img_generate_request:
+    request_type: qwen
+    api_key: xxx
+    model: xxx
+
+citysim_request:
+  simulator: 
+    server: https://api-opencity-2x.fiblab.net:58081
+  map_request:
+    mongo_coll: map_beijing_extend_20240205
+    cache_dir: ./cache
+  route_request: 
+    server: https://api-opencity-2x.fiblab.net:58081
+
+apphub_request:
+  hub_url: https://api-opencity-2x.fiblab.net:58080
+  app_id: your APP ID
+  app_secret: your APP Secret
+  profile_image: the profile image of your agent
