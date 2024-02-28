@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=41", "wheel", "setuptools-git-versioning<2"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools-git-versioning]
+enabled = true
+
+[project]
+name = "pycityagent"
+authors = [
+    {name = "Yuwei Yan", email = "pinkgranite86@gmail.com"}
+]
+description = "LLM-based城市模拟器agent构建库"
+keywords = ["agent", "city", "LLM"]
+readme = "README.md"
+license = {file = "LICENSE"}
+dynamic = ["version"]
+requires-python = ">=3.8"
+dependencies = [
+    "dashscope >= 1.14.0",
+    "geojson >= 3.1.0",
+    "numpy >= 1.26.3",
+    "openai >= 1.8.0",
+    "Pillow >= 10.2.0",
+    "pycitysim >= 1.8.0",
+    "citystreetview >= 1.1.0",
+    "PyYAML >= 6.0.1",
+    "Requests >= 2.31.0",
+    "transitions >= 0.9.0"
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/tsinghua-fib-lab/pycityagent"
+Repository = "https://github.com/tsinghua-fib-lab/pycityagent.git"
+Issues = "https://github.com/tsinghua-fib-lab/pycityagent/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pycityagent*"]
