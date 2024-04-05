@@ -23,14 +23,14 @@ class CommondController:
     Commond控制器模组: 连接Brain以及StateTranformer
     Commond Controller module: Used to connect the Brain module and StateTransformer module
     """
-    def __init__(self, agent, config=None) -> None:
+    def __init__(self, agent) -> None:
         '''默认初始化'''
         # TODO: config配置
         self._agent = agent
         self._brain = agent._brain
         self.commond_control = {}
         """
-        控制序列: 与state关联的BrainCommond集合
+        默认控制序列: 与state关联的BrainCommond集合
         Control Hub: connect the state with a BrainCommond collection
         Type: dict[str, list[BrainCommond]]
         Default:
@@ -40,31 +40,35 @@ class CommondController:
             - conve: [whetherUserControl, whetherStopConverse]
             - controled: [whetherEndControl]
         """
-        if config != None:
-            pass
-        else:
-            self.commond_control['idle'] = [
-                Commond('gousercontrol', whetherUserControl),
-                Commond('gotrip', whetherGoTrip),
-                Commond('goshop', whetherGoShop),
-                Commond('goconverse', whetherGoConverse)
-            ]
-            self.commond_control['trip'] = [
-                Commond('gousercontrol', whetherUserControl),
-                Commond('routefailed', whetherRouteFailed),
-                Commond('arrived', whetherTripArrived)
-            ]
-            self.commond_control['shop'] = [
-                Commond('gousercontrol', whetherUserControl),
-                Commond('shopdone', whetherShopFinished)
-            ]
-            self.commond_control['conve'] = [
-                Commond('gousercontrol', whetherUserControl),
-                Commond('convedone', whetherStopConverse)
-            ]
-            self.commond_control['controled'] = [
-                Commond('controlback', whetherEndControl)
-            ]
+
+        self.commond_control['idle'] = [
+            Commond('gousercontrol', whetherUserControl),
+            Commond('gotrip', whetherGoTrip),
+            Commond('goshop', whetherGoShop),
+            Commond('goconverse', whetherGoConverse)
+        ]
+        self.commond_control['trip'] = [
+            Commond('gousercontrol', whetherUserControl),
+            Commond('routefailed', whetherRouteFailed),
+            Commond('arrived', whetherTripArrived)
+        ]
+        self.commond_control['shop'] = [
+            Commond('gousercontrol', whetherUserControl),
+            Commond('shopdone', whetherShopFinished)
+        ]
+        self.commond_control['conve'] = [
+            Commond('gousercontrol', whetherUserControl),
+            Commond('convedone', whetherStopConverse)
+        ]
+        self.commond_control['controled'] = [
+            Commond('controlback', whetherEndControl)
+        ]
+
+    def reset_cc(self):
+        """
+        重置命令控制器
+        """
+        self.commond_control = {}
 
     def insertCommond(self, target_state:list[str], commond:Commond):
         """

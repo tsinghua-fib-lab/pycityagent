@@ -101,26 +101,36 @@ class Agent(Template):
         Agent画像
         The Agent's Image
         """
-        self._brain = Brain(self, brain_config)
+
+        self._brain = Brain(self)
         """
         Agent的大脑
         The Agent's Brain
         """
-        self._ac = ActionController(self)
-        """
-        Agent的行为控制器
-        The Agent's ActionController
-        """
+
         self._cc = CommondController(self)
         """
         Agent的命令控制器
         The Agent's CommondController
         """
+
         self._st = StateTransformer()
         """
         与Agent关联的状态转移器
         The related StateTransformer
         """
+
+        self._ac = ActionController(self)
+        """
+        Agent的行为控制器
+        The Agent's ActionController
+        """
+
+        self._step_with_action = True
+        """
+        Step函数是否包含action执行 —— 当有自定义action需求(特指包含没有指定source的Action)时可置该选项为False并通过自定义方法执行action操作
+        """
+
         # * 默认trip构建
         self.Scheduler.schedule_init()
     
@@ -199,6 +209,35 @@ class Agent(Template):
         """
         self.Brain.Memory.Working.enable_social = False
 
+    def set_step_with_action(self, flag:bool = None):
+        """
+        默认情况置反step_with_action属性: 即True->False, False->True
+        否则根据传入的flag进行设置
+        """
+        if flag != None:
+            self._step_with_action = flag
+        else:
+            self._step_with_action = not self._step_with_action
+
+    def brain_sence_config(self, config:Optional[list]=None):
+        '''
+        感知配置
+
+        Args:
+        - config: 配置选项——包含需要感知的数据类型
+            - time: 时间
+            - poi: 感兴趣地点
+            - position: 可达地点
+            - lane: 周围道路
+            - person: 周围活动person
+            - streetview: 街景
+            - user_message: 用户交互信息
+            - agent_message: 智能体交互信息
+        '''
+        if config == None:
+            return
+        self._brain._sence.set_sence(config)
+
     async def Pause(self):
         """
         暂停Agent行为使Agent进入'pause'状态
@@ -257,7 +296,8 @@ class Agent(Template):
             # * 5. State Transformer工作流
             self._st.trigger(commond)
             # * 6. Action Controller工作流
-            await self._ac.Run()
+            if self._step_with_action:
+                await self._ac.Run()
         if log:
             print(f"---------------------- SIM TIME: {self._simulator.time} ----------------------")
             self.show_yourself()

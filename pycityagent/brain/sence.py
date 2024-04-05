@@ -37,26 +37,46 @@ class Sence(BrainFunction):
         感知半径
         The sence raduis: meter
         """
+
+        self._sence_contents = None
+        """
+        感知内容 如果为None, 则感知所有数据类型
+        Sence content
+        """
+
         self.sence_buffer = {}
         """
         感知Buffer: 用于存储感知到的内容
         Sence Buffer: used to stroe those senced content
         """
+
         self.plugs = []
         """
         感知插件集合
         Collection of SencePlugs
         """
+
         self.plug_buffer = {}
         """
         感知插件结果Buffer: 用于存储感知插件的输出结果
         SencePlug Buffer: used to store those sence plug content
         """
+
         self.enable_streeview = False
         """
         街景感知功能接口, 默认为False
         Interface of streetview function, defualt: False
         """
+
+    def set_sence(self, config: list):
+        """
+        感知配置接口
+
+        Args:
+        - config: 配置选项——包含需要感知的内容
+        """
+        # TODO: check
+        self._sence_contents = config
 
     def add_plugs(self, plugs:list[SencePlug]):
         """
@@ -96,40 +116,48 @@ class Sence(BrainFunction):
             - pois ()
         """
         self.state_influence()
-        # * time
-        self.sence_buffer['time'] = self._agent._simulator.time
+        if self._sence_contents == None or 'time' in self._sence_contents:
+            # * time
+            self.sence_buffer['time'] = self._agent._simulator.time
 
         # * pois
-        self.sence_buffer['pois'] = self.PerceivePoi()
+        if self._sence_contents == None or 'poi' in self._sence_contents:
+            self.sence_buffer['pois'] = self.PerceivePoi()
 
         # * lanes
-        self.sence_buffer['lanes'] = self.PerceiveLane()
-        lane_ids = self.PerceiveLane(only_id=True)
-        self.sence_buffer['lane_ids'] = lane_ids
+        if self._sence_contents == None or 'lane' in self._sence_contents:
+            self.sence_buffer['lanes'] = self.PerceiveLane()
+            lane_ids = self.PerceiveLane(only_id=True)
+            self.sence_buffer['lane_ids'] = lane_ids
 
         # * person
-        self.sence_buffer['persons'] = []
-        for lane_id in lane_ids:
-            self.sence_buffer['persons'] += await self.PerceivePersonInLanes([lane_id])
-        if 'aoi_position' in self._agent.motion['position'].keys():
-            # 说明agent在aoi中
-            persons_aoi = await self.PerceiveAoi(only_person=True)
-            self.sence_buffer['persons'] += persons_aoi
+        if self._sence_contents == None or 'person' in self._sence_contents:
+            lane_ids = self.PerceiveLane(only_id=True)
+            self.sence_buffer['persons'] = []
+            for lane_id in lane_ids:
+                self.sence_buffer['persons'] += await self.PerceivePersonInLanes([lane_id])
+            if 'aoi_position' in self._agent.motion['position'].keys():
+                # 说明agent在aoi中
+                persons_aoi = await self.PerceiveAoi(only_person=True)
+                self.sence_buffer['persons'] += persons_aoi
 
         # * streetview
-        if self.enable_streeview:
-            self.sence_buffer['streetview'] = self.PerceiveStreetView()
-        else:
-            self.sence_buffer['streetview'] = None
+        if self._sence_contents == None or 'streetview' in self._sence_contents:
+            if self.enable_streeview:
+                self.sence_buffer['streetview'] = self.PerceiveStreetView()
+            else:
+                self.sence_buffer['streetview'] = None
 
         # * user message
-        if self._agent.Hub != None:
-            self.sence_buffer['user_messages'] = self.PerceiveUserMessage()
-        else:
-            self.sence_buffer['user_messages'] = []
+        if self._sence_contents == None or 'user_message' in self._sence_contents:
+            if self._agent.Hub != None:
+                self.sence_buffer['user_messages'] = self.PerceiveUserMessage()
+            else:
+                self.sence_buffer['user_messages'] = []
 
         # * agent message
-        self.sence_buffer['social_messages'] = await self.PerceiveMessageFromPerson()
+        if self._sence_contents == None or 'agent_message' in self._sence_contents:
+            self.sence_buffer['social_messages'] = await self.PerceiveMessageFromPerson()
 
         # * 插件感知
         if len(self.plugs) > 0:
@@ -157,6 +185,71 @@ class Sence(BrainFunction):
             persons = resp['states'][0]['persons']
             return persons
         return resp['states'][0]
+
+    async def PerceiveReachablePosition(self, radius:int=None) -> Optional[list[dict]]:
+        '''
+        可达位置感知
+        Reachable Position Perceive
+
+        Args:
+        - radius (int): 感知半径; Perceive radius
+
+        Returns:
+        - List[dict]: 可达位置列表
+            - lane_id (int)
+            - s (float)
+        '''
+        radius_ = self._sence_radius
+        if radius != None:
+            radius_ = radius
+        positions = []
+        if 'aoi_position' in self._agent.motion['position'].keys():
+            # agent in aoi
+            aoi_id = self._agent.motion['position']['aoi_position']['aoi_id']
+            aoi = self._agent._simulator.map.get_aoi(aoi_id)
+            positions = aoi['driving_positions'] + aoi['walking_positions']
+        else:
+            # agent in lane
+            lane_id = self._agent.motion['position']['lane_position']['lane_id']  # 所在lane_id
+            lane = self._agnet._simualtor.map.get_lane(lane_id)  # 获取lane信息
+            agent_s = self._agent.motion['position']['lane_position']['s']  # 所处位置——用s距离表示
+            if agent_s == 0:
+                # 处于当前道路的首部端点位置
+                # 1. 当前道路
+                tmp_s = radius_
+                tmp_s = tmp_s if tmp_s <= lane['length'] else lane['length']
+                positions += [{'lane_id': lane_id, 's': tmp_s}]
+                # 2. 前驱道路
+                pre_lanes = lane['predecessors']
+                for pre_lane in pre_lanes:
+                    pre_lane_id = pre_lane['id']
+                    pre_lane_ = self._agent._simulator.map.get_lane(pre_lane_id)
+                    tmp_s = pre_lane_['length'] - radius_
+                    tmp_s = tmp_s if tmp_s >= 0 else 0
+                    positions += [{'lane_id': pre_lane_id, 's': tmp_s}]
+            elif agent_s == lane['length']:
+                # 处于当前道路的尾部端点位置
+                # 1. 当前道路
+                tmp_s = agent_s - radius_
+                tmp_s = tmp_s if tmp_s >= 0 else 0
+                positions += [{'lane_id': lane_id, 's': tmp_s}]
+                # 2. 后继道路
+                suc_lanes = lane['successors']
+                for suc_lane in suc_lanes:
+                    suc_lane_id = suc_lane['id']
+                    suc_lane_ = self._agent._simulator.map.get_lane(suc_lane_id)
+                    tmp_s = radius_
+                    tmp_s = tmp_s if tmp_s <= suc_lane_['length'] else suc_lane_['length']
+                    positions += [{'lane_id': suc_lane_id, 's': tmp_s}]
+            else:
+                # 非端点位置
+                neg_s = agent_s - radius_
+                neg_s = neg_s if neg_s >= 0 else 0
+                positions += [{'lans_id': lane_id, 's': neg_s}]
+                pos_s = agent_s + radius_
+                pos_s = pos_s if pos_s <= lane['length'] else lane['length']
+                positions += [{'lans_id': lane_id, 's': pos_s}]
+        return positions
 
     def PerceivePoi(self, radius:int=None, category:str=None):
         """

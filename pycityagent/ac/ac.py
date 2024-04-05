@@ -1,9 +1,10 @@
-from typing import Any
-from .trip import TripAction
-from .shop import ShopAction
-from .converse import ConverseAction
-from .controled import ControledAction
-from .idle import IdleAction
+from typing import Any, Optional, Union
+from .action import Action
+from .citizen_actions.trip import TripAction
+from .citizen_actions.shop import ShopAction
+from .citizen_actions.converse import ConverseAction
+from .citizen_actions.controled import ControledAction
+from .citizen_actions.idle import IdleAction
 
 class ActionController:
     """
@@ -11,40 +12,50 @@ class ActionController:
     Agent Controller: Connect with AppHub and Simulator
     Note: Actions are predefined. By now, user defined actions are not supported
     """
-    def __init__(self, agent, config=None) -> None:
+    def __init__(self, agent) -> None:
         self._agent = agent
-        self._trip = TripAction(agent)
-        self._shop = ShopAction(agent)
-        self._converse = ConverseAction(agent)
-        self._control = ControledAction(agent)
-        self._idle = IdleAction(agent)
-        self._config = config
+        self.action_chain = {}
+        self.reset_ac()
 
     async def Run(self):
-        # TODO: 后期补充相关扩展接口，应该根据state-action关联模块进行（为了方便用户定义更加丰富的状态）
-        if self._agent.state == 'idle':
-            await self._idle()
-        elif self._agent.state == 'trip':
-            await self._trip()
-        elif self._agent.state == 'conve':
-            await self._converse()
-        elif self._agent.state == 'shop':
-            await self._shop()
-        elif self._agent.state == 'controled':
-            await self._control()
+        agent_state = self._agent.state
+        if agent_state in self.action_chain.keys():
+            for action in self.action_chain[agent_state]:
+                await action.Forward()
 
-    @property
-    def TripAction(self):
-        return self._trip
-    
-    @property
-    def ShopAction(self):
-        return self._shop
-    
-    @property
-    def ConveAction(self):
-        return self._converse
-    
-    @property
-    def ControlAction(self):
-        return self._controls
+    def reset_ac(self):
+        """
+        重置Action Controller
+        Reset action controller
+        """
+        self.action_chain.clear()
+        for state in self._agent._st.machine.states.keys():
+            self.action_chain[state] = []
+        self._init_actions()
+        
+    def set_ac(self, states:list[str]):
+        """
+        设置ac
+        """
+        self.action_chain.clear()
+        for state in states:
+            self.action_chain[state] = []
+
+    def add_actions(self, state:str, actions:Union[Action, list[Action]]):
+        """
+        添加Action到目标动作链
+        """
+        if type(actions) == Action:
+            self.action_chain[state].append(actions)
+        else:
+            self.action_chain[state] += actions
+
+    def _init_actions(self):
+        """
+        构建初始化动作链——适用于citizen类型的agent
+        """
+        self.action_chain['trip'] = [TripAction(self._agent)]
+        self.action_chain['shop'] = [ShopAction(self._agent)]
+        self.action_chain['conve'] = [ConverseAction(self._agent)]
+        self.action_chain['controled'] = [ControledAction(self._agent)]
+        self.action_chain['idle'] = [IdleAction(self._agent)]

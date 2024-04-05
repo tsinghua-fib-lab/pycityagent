@@ -1,11 +1,14 @@
 import time
-from .action import Action
+from typing import Callable, Any
+
+from pycityagent.ac.action import ActionType
+from ..action import Action
 from pycitysim.apphub import AgentMessage
 
 class ConverseAction(Action):
     '''Converse行为控制器'''
-    def __init__(self, agent) -> None:
-        super().__init__(agent)
+    def __init__(self, agent, sources: list[str] = None, before: Callable[[list], Any] = None) -> None:
+        super().__init__(agent, ActionType.Comp, sources, before)
 
     async def Forward(self):
         target_agent_ids = self._agent.Brain.Memory.Working.Reason['agent_message_handle_resp'][0]

@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 
 class StateTransformer:
     """
-    State Transformer模块: 控制agent状态转移
-    The State Transformer module: used to control the transformation of agent's state
+    默认State Transformer模块: 控制agent状态转移
+    Default State Transformer module: used to control the transformation of agent's state
 
     Doc:
     - 基于transitions()构建 https://github.com/tyarkoni/transitions
@@ -46,7 +46,6 @@ class StateTransformer:
 
     def __init__(self, config=None):
         self.pre_state = None
-        # TODO: 后续添加扩展接口
         # Initialize the state machine
         self.machine = Machine(model=self, states=StateTransformer.states, initial='idle')
 
@@ -81,11 +80,43 @@ class StateTransformer:
         self.machine.add_transition(trigger='gousercontrol', source='*', dest='controled')
         self.machine.add_transition(trigger='controlback', source='controled', dest='idle')
 
+    def reset_state_transformer(self, states:list[str], initial:str):
+        """
+        重置状态控制器——重置后状态转化器没有任何可用transition
+
+        Args:
+        - states (list[str]): a list of states
+        - initial (str): initial state
+        """
+        self.machine = Machine(model=self, states=states, initial=initial)
+
+    def add_transition(self, trigger:str, source: str, dest:str, before=None, after=None):
+        """
+        添加状态转换
+        Add state transition
+
+        Args:
+        - trigger (str): 用于唤醒该状态转换器
+        - source (str): 源状态, 如为'*' 表示任意状态皆可作为源状态
+        - dest (str): 目标状态, 如为'=' 表示目标状态与原状态相同
+        - defore (func): 即状态转化后执行的操作
+        - after (func): 即状态转化前执行的操作
+        """
+        self.machine.add_transition(trigger=trigger, source=source, dest=dest, before=before, after=after)
+
     def state_remember(self):
+        """
+        记住当前状态并存储于pre_state属性中
+        Remember current state and store it to 'pre_state' attribute
+        """
         if self.state != 'paused':  # 避免重复Pause
             self.pre_state = self.state
 
     def pause_back(self):
+        """
+        从原状态恢复, 即恢复为pre_state记录的状态
+        Recover from pre_state
+        """
         if self.pre_state == 'trip':
             self.active_trip()
         elif self.pre_state == 'shop':

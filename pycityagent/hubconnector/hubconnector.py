@@ -74,7 +74,7 @@ class HubConnector:
             Image.open(profile_img)
         )
 
-    def Update(self, messages:Optional[list[AgentMessage]]=None, streetview:Image=None, longlat:list[float]=None, pop:str=None):
+    def Update(self, messages:Optional[list[AgentMessage]]=None, streetview:Image.Image=None, longlat:list[float]=None, pop:str=None):
         """
         交互更新
         FrontEnd Related Update

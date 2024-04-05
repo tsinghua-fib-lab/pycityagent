@@ -1,14 +1,57 @@
 from abc import ABC, abstractclassmethod
-from typing import Any
+from typing import Callable, Any
 
+class ActionType:
+    """
+    行动类型枚举 所有行动本质上为数据推送
+    Action Type enumeration, all actions are essentially data push
+
+    Types:
+    - Sim = 1, 用于表示与模拟器对接的行动
+    - Hub = 2, 用于表示与AppHub(前端)对接的行动
+    - Comp = 3, 表示综合类型 (可能同时包含与Sim以及Hub的交互)
+    """
+    Sim = 1
+    Hub = 2
+    Comp = 3
 class Action:
-    def __init__(self, agent) -> None:
-        '''默认初始化'''
+    def __init__(self, agent, type:ActionType, sources: list[str] = None, before:Callable[[list], Any] = None) -> None:
+        '''
+        默认初始化
+        
+        Args:
+        - agent (Agent): the related agent
+        - type (ActionType)
+        - source (str): 数据来源, 默认为None, 如果为None则会从接收用户传入的数据作为Forward函数参数, 否则从WM.Reason数据缓存中取对应数据作为参数
+        - before (function): 数据处理方法, 用于当Reason缓存中的参数与标准格式不符时使用
+        '''
         self._agent = agent
+        self._type = type
+        self._sources = sources
+        self._before = before
+
+    def get_source(self):
+        """
+        获取source数据
+        """
+        if self._source != None:
+            sources = []
+            for source in self._sources:
+                sources.append(self._agent.Brain.Memory.Working.Reason[source])
+            if self._before != None:
+                sources = self._before(sources)
+            return sources
+        else:
+            return None
 
     @abstractclassmethod
     async def Forward(self):
         '''接口函数'''
 
-    async def __call__(self) -> Any:
-        await self.Forward()
+class SimAction(Action):
+    def __init__(self, agent, sources: list[str] = None, before: Callable[[list], Any] = None) -> None:
+        super().__init__(agent, ActionType.Sim, sources, before)
+
+class HubAction(Action):
+    def __init__(self, agent, sources: list[str] = None, before: Callable[[list], Any] = None) -> None:
+        super().__init__(agent, ActionType.Hub, sources, before)
