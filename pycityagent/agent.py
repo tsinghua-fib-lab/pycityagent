@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Union
+from typing import Optional, Union, Callable
 import PIL.Image as Image
 from PIL.Image import Image
 import asyncio
@@ -10,22 +10,30 @@ from pycityagent.urbanllm import UrbanLLM
 from .urbanllm import UrbanLLM
 from .brain.brain import Brain
 from .hubconnector.hubconnector import HubConnector
-from .image.image import AgentImage
-from .ac.ac import ActionController
-from .cc.cc import CommondController
-from .st.st import StateTransformer
+from .ac import ActionController
+from .cc import CommandController
+from .st import StateTransformer
 
+class AgentType:
+    """
+    Agent类型
+
+    - Citizen = 1, 指城市居民类型agent——行动受城市规则限制
+    - Func = 2, 功能型agent——行动规则宽松——本质上模拟器无法感知到Func类型的agent
+    """
+    Citizen = 1
+    Func = 2
 
 class Template:
     """
     The basic template of Agent
     """
-    def __init__(self, name, server, soul:UrbanLLM=None, simulator=None, id:int=None) -> None:
-        self.agent_name = name
+    def __init__(self, name, server, type:AgentType, soul:UrbanLLM=None, simulator=None) -> None:
+        self._name = name
         self._client = CityClient(server)
+        self._type = type
         self._soul = soul
         self._simulator = simulator
-        self._id = id
 
     def add_soul(self, llm_engine:UrbanLLM):
         """
@@ -59,47 +67,16 @@ class Agent(Template):
             self, 
             name:str, 
             server:str, 
+            type:AgentType,
             soul:UrbanLLM=None, 
-            simulator=None, 
-            id:int=None, 
-            base=None,
-            motion=None,
-            brain_config:Optional[dict]=None,
-            scratch_file:str=None,
-            selfie:bool = False,
-            connect_to_hub:bool=False,
-            hub_url:str=None,
-            app_id:int=None,
-            app_secret:str=None,
-            profile_img:str=None
+            simulator=None
         ) -> None:
-        super().__init__(name, server, soul, simulator, id)
-        self.base = base
+        super().__init__(name, server, type, soul, simulator)
+
+        self._hub_connector = None
         """
-        Agent/Person的基本属性, Agent指被代理的Person, Person指模拟器中的背景人
-        The base attributes of Agent/Person. Agent is the Person being represented. Persons are background persons in simulator
-        - https://cityproto.sim.fiblab.net/#city.agent.v2.Agent
-        """
-        self.motion = motion
-        """
-        Agent/Person的运动信息
-        The motion information of Agent/Person
-        - https://cityproto.sim.fiblab.net/#city.agent.v2.AgentMotion
-        """
-        if connect_to_hub:
-            self._hub_connector = HubConnector(
-                hub_url=hub_url,
-                app_id=app_id,
-                app_secret=app_secret,
-                agent=self,
-                profile_img=profile_img
-            )
-        else:
-            self._hub_connector = None
-        self._image = AgentImage(self, scratch_file, selfie)
-        """
-        Agent画像
-        The Agent's Image
+        HubConnector: 用于和AppHub对接——可以通过Agent.connectToHub进行绑定
+        HubConnector: the connection between agent and AppHub, you can use 'Agent.connectToHub' to create the connection
         """
 
         self._brain = Brain(self)
@@ -108,7 +85,7 @@ class Agent(Template):
         The Agent's Brain
         """
 
-        self._cc = CommondController(self)
+        self._cc = CommandController(self)
         """
         Agent的命令控制器
         The Agent's CommondController
@@ -130,9 +107,6 @@ class Agent(Template):
         """
         Step函数是否包含action执行 —— 当有自定义action需求(特指包含没有指定source的Action)时可置该选项为False并通过自定义方法执行action操作
         """
-
-        # * 默认trip构建
-        self.Scheduler.schedule_init()
     
     def ConnectToHub(self, config:dict):
         """
@@ -152,6 +126,31 @@ class Agent(Template):
             agent=self,
             profile_img=profile_img
         )
+
+    def set_streetview_config(self, config:dict):
+        """
+        街景感知配置
+        - engine: baidumap / googlemap
+        - mapAK: your baidumap AK (if baidumap)
+        - proxy: your googlemap proxy (if googlemap, optional)
+        """
+        if 'engine' in config:
+            if config['engine'] == 'baidumap':
+                self.Brain.Sence._engine = config['engine']
+                if 'mapAK' in config:
+                    self.Brain.Sence._baiduAK = config['mapAK']
+                else:
+                    print("ERROR: Please Provide a baidumap AK")
+            elif config['engine'] == 'googlemap':
+                self.Brain.Sence._engine = config['engine']
+                if 'proxy' in config:
+                    self.Brain.Sence._googleProxy = config['proxy']
+                else:
+                    print("ERROR: Please provide a googlemap proxy")
+            else:
+                print("ERROR: Wrong engine, only baidumap / googlemap are available")
+        else:
+            print("ERROR: Please provide a streetview engine, baidumap / googlemap")
     
     def enable_streetview(self):
         """
@@ -181,34 +180,6 @@ class Agent(Template):
         """
         self._brain.Memory.Working.enable_user_interaction = False
 
-    def enable_economy_behavior(self):
-        """
-        开启经济模拟相关功能(例如购物)
-        Enable Economy function. Shopping for instance.
-        """
-        self.Brain.Memory.Working.enable_economy = True
-
-    def disable_economy_behavior(self):
-        """
-        关闭经济模拟相关功能
-        Disable Economy function
-        """
-        self.Brain.Memory.Working.enable_economy = False
-
-    def enable_social_behavior(self):
-        """
-        开启社交相关功能
-        Enable Social function
-        """
-        self.Brain.Memory.Working.enable_social = True
-
-    def diable_social_behavior(self):
-        """
-        关闭社交相关功能
-        Disable Social function
-        """
-        self.Brain.Memory.Working.enable_social = False
-
     def set_step_with_action(self, flag:bool = None):
         """
         默认情况置反step_with_action属性: 即True->False, False->True
@@ -218,8 +189,9 @@ class Agent(Template):
             self._step_with_action = flag
         else:
             self._step_with_action = not self._step_with_action
+        
 
-    def brain_sence_config(self, config:Optional[list]=None):
+    def sence_config(self, sence_content:Optional[list]=None, sence_radius:int=None):
         '''
         感知配置
 
@@ -234,27 +206,10 @@ class Agent(Template):
             - user_message: 用户交互信息
             - agent_message: 智能体交互信息
         '''
-        if config == None:
-            return
-        self._brain._sence.set_sence(config)
-
-    async def Pause(self):
-        """
-        暂停Agent行为使Agent进入'pause'状态
-        Pause the Agent, making the agent 'pause'
-
-        """
-        req = {'person_id': self.base['id'], 'schedules': []}
-        await self._client.person_service.SetSchedule(req)
-        self.Scheduler.unset_schedule()
-        self._st.trigger('pause')
-
-    async def Active(self):
-        """
-        恢复Agent行为
-        Recover from 'pause'
-        """
-        self._st.pause_back()
+        if sence_content != None:
+            self._brain._sence.set_sence(sence_content)
+        if sence_radius != None:
+            self._brain._sence.set_sence_radius(sence_radius)
 
     async def Run(self, round:int=1, interval:int=1, log:bool=True):
         """
@@ -278,50 +233,8 @@ class Agent(Template):
         单步Agent执行流
         Single step entrance
         (Not recommended, use Run() method)
-
-        Args:
-        - log (bool): 是否输出log信息. Whether console log message
         """
-        if self.state != 'paused':
-            # * 1. 模拟器时间更新
-            await self._simulator.GetTime()
-            # * 2. 拉取Agent最新状态
-            resp = await self._client.person_service.GetPerson({'person_id':self._id})
-            self.base = resp['base']
-            self.motion = resp['motion']
-            # * 3. Brain工作流
-            await self._brain.Run()
-            # * 4. Commond Controller工作流
-            commond = await self._cc.Run()
-            # * 5. State Transformer工作流
-            self._st.trigger(commond)
-            # * 6. Action Controller工作流
-            if self._step_with_action:
-                await self._ac.Run()
-        if log:
-            print(f"---------------------- SIM TIME: {self._simulator.time} ----------------------")
-            self.show_yourself()
-    
-    def show_yourself(self):
-        """
-        Log信息输出
-        Pring log message
-        """
-        print(f"【State Message】: {self.state}")
-        motion_message = ''''''
-        motion_message += f'''行为状态: {self.motion['status']}, '''
-        if 'lane_position' in self.motion['position'].keys():
-            motion_message += f'''位置信息: lane-{self.motion['position']['lane_position']['lane_id']}'''
-        else:
-            motion_message += f'''位置信息: aoi-{self.motion['position']['aoi_position']['aoi_id']}'''
-        motion_message += f'''-[x: {self.motion['position']['xy_position']['x']}, y: {self.motion['position']['xy_position']['y']}]'''
-        print(f'【Simulator Motion Message】: \n{motion_message}')
-        print(self.Scheduler)
-    
-    @property
-    def Image(self):
-        """The Agent's Image"""
-        return self._image
+        pass
     
     @property
     def Soul(self):
@@ -337,16 +250,11 @@ class Agent(Template):
     def ActionController(self):
         """The Agents's ActionController"""
         return self._ac
-
-    @property
-    def Scheduler(self):
-        """The Agent's Scheduler"""
-        return self._brain.Memory.Working.scheduler
     
     @property
     def state(self):
         """The state of the Agent"""
-        return self._st.state
+        return self._st.machine.state
     
     @property
     def StateTransformer(self):
@@ -357,3 +265,8 @@ class Agent(Template):
     def Hub(self):
         """The connected AppHub"""
         return self._hub_connector
+    
+    @property
+    def CommandController(self):
+        """The command controller"""
+        return self._cc

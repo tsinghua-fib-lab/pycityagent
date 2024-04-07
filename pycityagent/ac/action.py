@@ -15,7 +15,7 @@ class ActionType:
     Hub = 2
     Comp = 3
 class Action:
-    def __init__(self, agent, type:ActionType, sources: list[str] = None, before:Callable[[list], Any] = None) -> None:
+    def __init__(self, agent, type:ActionType, source: str = None, before:Callable[[list], Any] = None) -> None:
         '''
         默认初始化
         
@@ -27,7 +27,7 @@ class Action:
         '''
         self._agent = agent
         self._type = type
-        self._sources = sources
+        self._source = source
         self._before = before
 
     def get_source(self):
@@ -35,12 +35,10 @@ class Action:
         获取source数据
         """
         if self._source != None:
-            sources = []
-            for source in self._sources:
-                sources.append(self._agent.Brain.Memory.Working.Reason[source])
+            source = self._agent.Brain.Memory.Working.Reason[self._source]
             if self._before != None:
-                sources = self._before(sources)
-            return sources
+                source = self._before(source)
+            return source
         else:
             return None
 
@@ -49,9 +47,9 @@ class Action:
         '''接口函数'''
 
 class SimAction(Action):
-    def __init__(self, agent, sources: list[str] = None, before: Callable[[list], Any] = None) -> None:
-        super().__init__(agent, ActionType.Sim, sources, before)
+    def __init__(self, agent, source: str = None, before: Callable[[list], Any] = None) -> None:
+        super().__init__(agent, ActionType.Sim, source, before)
 
 class HubAction(Action):
-    def __init__(self, agent, sources: list[str] = None, before: Callable[[list], Any] = None) -> None:
-        super().__init__(agent, ActionType.Hub, sources, before)
+    def __init__(self, agent, source: str = None, before: Callable[[list], Any] = None) -> None:
+        super().__init__(agent, ActionType.Hub, source, before)

@@ -42,13 +42,14 @@ class StateTransformer:
             - controlback: controled -> idle
     - Note: 目前不支持状态扩展
     """
-    states = ['idle', 'trip', 'shop', 'conve', 'paused', 'controled']
+    _states = ['idle', 'trip', 'shop', 'conve', 'paused', 'controled']
 
     def __init__(self, config=None):
         self.pre_state = None
         # Initialize the state machine
-        self.machine = Machine(model=self, states=StateTransformer.states, initial='idle')
-
+        self.machine = Machine(states=StateTransformer._states, initial='idle')
+        self.machine._transition_queue
+        
         # idle
         self.machine.add_transition(trigger='gotrip', source='idle', dest='trip')
         self.machine.add_transition(trigger='goshop', source='idle', dest='shop')
@@ -88,7 +89,9 @@ class StateTransformer:
         - states (list[str]): a list of states
         - initial (str): initial state
         """
-        self.machine = Machine(model=self, states=states, initial=initial)
+        self.machine = Machine(states=states, initial=initial)
+        self.machine.add_transition(trigger='nothing', source='*', dest='=')
+
 
     def add_transition(self, trigger:str, source: str, dest:str, before=None, after=None):
         """
@@ -125,3 +128,6 @@ class StateTransformer:
             self.active_conve()
         elif self.pre_sate == 'idle':
             self.active_idle()
+
+    def trigger(self, command:str):
+        self.machine.trigger(command)

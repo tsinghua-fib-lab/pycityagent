@@ -5,7 +5,7 @@ from .trip import *
 from .conve import *
 from .user import *
 
-class Commond:
+class Command:
     """
     BrainCommond: 即脑部发出的指令; The commond from Agent's Brain
 
@@ -18,7 +18,7 @@ class Commond:
         self.target = target
         self.user_func = user_func
 
-class CommondController:
+class CommandController:
     """
     Commond控制器模组: 连接Brain以及StateTranformer
     Commond Controller module: Used to connect the Brain module and StateTransformer module
@@ -28,7 +28,7 @@ class CommondController:
         # TODO: config配置
         self._agent = agent
         self._brain = agent._brain
-        self.commond_control = {}
+        self.command_line = {}
         """
         默认控制序列: 与state关联的BrainCommond集合
         Control Hub: connect the state with a BrainCommond collection
@@ -41,36 +41,36 @@ class CommondController:
             - controled: [whetherEndControl]
         """
 
-        self.commond_control['idle'] = [
-            Commond('gousercontrol', whetherUserControl),
-            Commond('gotrip', whetherGoTrip),
-            Commond('goshop', whetherGoShop),
-            Commond('goconverse', whetherGoConverse)
+        self.command_line['idle'] = [
+            Command('gousercontrol', whetherUserControl),
+            Command('gotrip', whetherGoTrip),
+            Command('goshop', whetherGoShop),
+            Command('goconverse', whetherGoConverse)
         ]
-        self.commond_control['trip'] = [
-            Commond('gousercontrol', whetherUserControl),
-            Commond('routefailed', whetherRouteFailed),
-            Commond('arrived', whetherTripArrived)
+        self.command_line['trip'] = [
+            Command('gousercontrol', whetherUserControl),
+            Command('routefailed', whetherRouteFailed),
+            Command('arrived', whetherTripArrived)
         ]
-        self.commond_control['shop'] = [
-            Commond('gousercontrol', whetherUserControl),
-            Commond('shopdone', whetherShopFinished)
+        self.command_line['shop'] = [
+            Command('gousercontrol', whetherUserControl),
+            Command('shopdone', whetherShopFinished)
         ]
-        self.commond_control['conve'] = [
-            Commond('gousercontrol', whetherUserControl),
-            Commond('convedone', whetherStopConverse)
+        self.command_line['conve'] = [
+            Command('gousercontrol', whetherUserControl),
+            Command('convedone', whetherStopConverse)
         ]
-        self.commond_control['controled'] = [
-            Commond('controlback', whetherEndControl)
+        self.command_line['controled'] = [
+            Command('controlback', whetherEndControl)
         ]
 
     def reset_cc(self):
         """
         重置命令控制器
         """
-        self.commond_control = {}
+        self.command_line = {}
 
-    def insertCommond(self, target_state:list[str], commond:Commond):
+    def insert_command(self, target_state:list[str], command:Command):
         """
         插入指令
         Insert Commond: This function will insert the commond to those control sequences show in target_state
@@ -80,10 +80,10 @@ class CommondController:
         - commond (Comond): the commond to be inserted
         """
         for target in target_state:
-            if target in self.commond_control.keys():
-                self.commond_control.append(commond)
+            if target in self.command_line.keys():
+                self.command_line[target].append(command)
             else:
-                self.commond_control[target] = [commond]
+                self.command_line[target] = [command]
 
     async def Run(self):
         """
@@ -96,9 +96,9 @@ class CommondController:
             - If there is a 'True' of function, returns the target commond
             - Else, return 'nothing' commond
         """
-        if self._agent.state not in self.commond_control.keys():
+        if self._agent.state not in self.command_line.keys():
             print(f"No commond control line match with current state: {self._agent.state}")
-        control_line = self.commond_control[self._agent.state]  # 获取agent状态对应的控制链
+        control_line = self.command_line[self._agent.state]  # 获取agent状态对应的控制链
         for control in control_line:
             result = await control.user_func(self._agent.Brain.Memory.Working)
             if result:

@@ -16,12 +16,19 @@ class ActionController:
         self._agent = agent
         self.action_chain = {}
         self.reset_ac()
+        self._init_actions()
 
     async def Run(self):
         agent_state = self._agent.state
         if agent_state in self.action_chain.keys():
             for action in self.action_chain[agent_state]:
                 await action.Forward()
+
+    def clear_ac(self):
+        """
+        清空AC
+        """
+        self.action_chain.clear()
 
     def reset_ac(self):
         """
@@ -31,7 +38,6 @@ class ActionController:
         self.action_chain.clear()
         for state in self._agent._st.machine.states.keys():
             self.action_chain[state] = []
-        self._init_actions()
         
     def set_ac(self, states:list[str]):
         """
@@ -45,7 +51,7 @@ class ActionController:
         """
         添加Action到目标动作链
         """
-        if type(actions) == Action:
+        if issubclass(type(actions), Action) or isinstance(actions, Action):
             self.action_chain[state].append(actions)
         else:
             self.action_chain[state] += actions

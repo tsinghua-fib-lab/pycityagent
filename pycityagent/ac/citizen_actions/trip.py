@@ -13,9 +13,10 @@ class TripAction(Action):
     async def Forward(self):
         now = self._agent.Scheduler.now
         if now.is_set:
+            # TODO: 目前仅支持传输一张图片至前端
             '''之前已经将schedule同步至模拟器了'''
             if self._agent.Hub != None:
-                self._agent.Hub.Update(streetview=self._agent.Brain.Sence.sence_buffer['streetview'])
+                self._agent.Hub.Update(streetview=self._agent.Brain.Sence.sence_buffer['streetview'][0])
         else:
             '''同步schedule至模拟器'''
             self._agent.Scheduler.now.is_set = True

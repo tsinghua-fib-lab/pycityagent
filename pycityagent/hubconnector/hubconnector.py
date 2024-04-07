@@ -18,21 +18,9 @@ class HubConnector:
                             app_id=app_id,
                             app_secret=app_secret
                         )
-        if agent == None:
-            self._agent = None
-            self._agent_id = None
-        else:
-            self._agent = agent
-            try:
-                self._agent_id = self._client.bind_person(
-                    self._agent.base['id'], 
-                    self._agent.agent_name, 
-                    Image.open(profile_img)
-                )
-            except Exception as e:
-                traceback.print_exc()
-                print(e)
-                self._agent_id = 7
+        self._agent = agent
+        self._agent_id = None
+        self._profile_img = profile_img
         self.messageBuffer:list[AgentMessage] = []
         """
         用于存储历史前端交互信息
@@ -55,23 +43,26 @@ class HubConnector:
             app_secret=app_secret
         )
 
-    def BindAgent(self, agent, profile_img:str):
+    def BindCitizenAgent(self):
         """
-        绑定Agent
+        将CitizenAgent绑定到绑定Agent
         Bind an Agent through AppHub
-
-        Args:
-        - agent (Agent): the Agent needs to be bind with
-        - profile_img (str) : the path of profile_img, which will be shown in frontend and dashboard
         """
-        if self._client == None:
-            print("Not Connect To AppHub Yet")
-            return
-        self._agent = agent
         self._agent_id = self._client.bind_person(
-            self._agent.base['id'], 
-            self._agent.agent_name, 
-            Image.open(profile_img)
+            self._agent._id, 
+            self._agent._name, 
+            Image.open(self._profile_img)
+        )
+
+    def InsertFuncAgent(self):
+        """
+        将FuncAgent插入到AppHub中
+        Insert the Func Agent to AppHub
+        """
+        self._agent_id = self._client.bind_func(
+            self._agent._id,
+            self._agent._name,
+            Image.open(self._profile_img)
         )
 
     def Update(self, messages:Optional[list[AgentMessage]]=None, streetview:Image.Image=None, longlat:list[float]=None, pop:str=None):
@@ -100,12 +91,13 @@ class HubConnector:
             print("AppHub: Not Bind Agent Yet")
             return
         else:
-            pop_ = self._agent.agent_name
+            pop_ = self._agent._name
             if pop != None:
                 pop_ = self._agent.agent_name + ": " + pop
-            longlat_ = [self._agent.motion['position']['longlat_position']['longitude'], self._agent.motion['position']['longlat_position']['latitude']]
             if longlat != None:
                 longlat_ = longlat
+            else:
+                longlat_ = [self._agent.motion['position']['longlat_position']['longitude'], self._agent.motion['position']['longlat_position']['latitude']]
             
             self._client.update_agent_map(
                 agent_id = self._agent_id, 

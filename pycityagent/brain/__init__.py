@@ -7,4 +7,4 @@ from .scheduler import *
 from .sence import *
 from .static import *
 
-__all__ = [Brain, BrainFunction, MemoryController, Memory, MemoryPersistence, MemoryRetrive, MemoryReason, MemoryType, ScheduleType, Scheduler, Sence, SencePlug, POI_TYPE_DICT]
+__all__ = [Brain, BrainFunction, MemoryController, Memory, WorkingMemory, LTMemory, MemoryPersistence, MemoryRetrive, MemoryReason, MemoryType, ScheduleType, Scheduler, Sence, SencePlug, POI_TYPE_DICT]

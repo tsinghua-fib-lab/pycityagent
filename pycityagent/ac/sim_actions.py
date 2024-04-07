@@ -1,8 +1,7 @@
 import time
 from typing import Callable, Optional, Any
-from .action import Action
-from action import SimAction
-from brain.scheduler import TripSchedule
+from .action import SimAction
+from ..brain.scheduler import TripSchedule
 
 class SetSchedule(SimAction):
     """

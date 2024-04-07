@@ -79,7 +79,7 @@ class MemoryRetrive:
     - user_func (function): the defined function used for retriving
     - des (str): description of this Retrive module
     """
-    def __init__(self, source:str, out:str, user_func, des:str) -> None:
+    def __init__(self, source:str, out:str, user_func, des:str="None") -> None:
         self.source = source
         self.out = out
         self.user_func = user_func
@@ -210,14 +210,58 @@ class WorkingMemory(WMemory):
         用于存储感知内容
         Store the sence content
         """
+
         self.scheduler = Scheduler(agent)
         """
         关联的规划器
         The related Scheduler
         """
+
         self.Reason = {}
         """
-        用于存储Reason结果的buffer: key值为MemoryReason.out
+        用于存储Reason结果的buffer: key值为Memory.Reason.out
+        """
+
+        # * user message related
+        self.current_target = None
+        """
+        当前的目标
+        Agent's current target
+        """
+
+        self.has_user_command = False
+        """
+        是否有用户指令
+        Whether there have user commond
+        """
+
+        self.user_converse_buffer = BASE_CONVERSE_DIALOG+[{'role': 'system', 'content': ""}]
+        """
+        存储用户对话信息
+        Store user conversation content
+        """
+
+        self.understanding_prompt = [
+            {'role': 'system', 'content': '请你根据用户的输入内容，判断用户向你发起对话的用意并返回结果，返回的结果只能是[对话]或[控制]中的一个'},
+            {'role': 'system', 'content': '其中[对话]表示用户只是想与你进行常规对话；[控制]表示用户想要控制你的行动'},
+            {'role': 'system', 'content': '例如用户输入: 你好, 你的返回结果为: 对话'},
+            {'role': 'system', 'content': '例如用户输入: 你现在立刻去附近买菜, 你的返回结果为: 控制'}
+        ]
+        """
+        用于判断user对话意图的基础system role dialog
+        The basic system role dialog used for interpreting converse intent, converse or commond
+        """
+
+        self.msg_user_unhandle = []  # unhandle user messages
+        """
+        存储未处理的用户消息
+        Store unhandled user messages
+        """
+
+        self.msg_user_processing = []  # processing user messages
+        """
+        存储正在处理的用户信息
+        Store working user messages
         """
 
         # * agent social
@@ -253,44 +297,6 @@ class WorkingMemory(WMemory):
         """
         存储正在进行对话的person_id
         Store the target person_id of conversations that still working
-        """
-
-        # * user message related
-        self.current_target = None
-        """
-        当前的目标
-        Agent's current target
-        """
-        self.has_user_command = False
-        """
-        是否有用户指令
-        Whether there have user commond
-        """
-        self.user_converse_buffer = BASE_CONVERSE_DIALOG+[{'role': 'system', 'content': self._agent.Image.get_profile()}]
-        """
-        存储用户对话信息
-        Store user conversation content
-        """
-        self.understanding_prompt = [
-            {'role': 'system', 'content': '请你根据用户的输入内容，判断用户向你发起对话的用意并返回结果，返回的结果只能是[对话]或[控制]中的一个'},
-            {'role': 'system', 'content': '其中[对话]表示用户只是想与你进行常规对话；[控制]表示用户想要控制你的行动'},
-            {'role': 'system', 'content': '例如用户输入: 你好, 你的返回结果为: 对话'},
-            {'role': 'system', 'content': '例如用户输入: 你现在立刻去附近买菜, 你的返回结果为: 控制'}
-        ]
-        """
-        用于判断user对话意图的基础system role dialog
-        The basic system role dialog used for interpreting converse intent, converse or commond
-        """
-
-        self.msg_user_unhandle = []  # unhandle user messages
-        """
-        存储未处理的用户消息
-        Store unhandled user messages
-        """
-        self.msg_user_processing = []  # processing user messages
-        """
-        存储正在处理的用户信息
-        Store working user messages
         """
 
         # * config
@@ -450,15 +456,18 @@ class WorkingMemory(WMemory):
 
     async def runReason(self):
         '''推理模块执行'''
-        reason_line = self.reason[self._agent.state]
-        for reason in reason_line:
-            if reason.retrives == None:
-                self.Reason[reason.out] = await reason.user_func(self)
-            else:
-                retrives = {}
-                for retrive in reason.retrives:
-                    retrives[retrive.out] = await retrive.user_func(getattr(self.LTM, retrive.source))
-                self.Reason[reason.out] = await reason.user_func(self, retrives)
+        if self._agent.state in self.reason:
+            reason_line = self.reason[self._agent.state]
+            for reason in reason_line:
+                if reason.retrives == None:
+                    self.Reason[reason.out] = await reason.user_func(self)
+                else:
+                    retrives = {}
+                    for retrive in reason.retrives:
+                        retrives[retrive.out] = await retrive.user_func(getattr(self.LTM, retrive.source))
+                    self.Reason[reason.out] = await reason.user_func(self, retrives)
+        else:
+            print("Warning: No reason line for current agent's state")
 
     async def runPersistence(self):
         '''持久化模块执行'''
@@ -467,11 +476,15 @@ class WorkingMemory(WMemory):
             await persis.user_func(self, mem)
 
     def set_user_converse_background(self):
-        self.user_converse_buffer[2]['content'] = self._agent.Image.get_profile()
+        self.user_converse_buffer[3]['content'] = self._agent.Image.get_profile()
 
     @property
     def LTM(self):
         return self._agent.Brain.Memory
+    
+    @property
+    def Image(self):
+        return self._agent.Image
 
 class SpatialMemory(LTMemory):
     """
