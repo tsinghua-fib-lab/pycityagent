@@ -19,7 +19,7 @@ citysim_request:
     mongo_coll: map_beijing_extend_20240205
     cache_dir: ./cache
   route_request: 
-    server: https://api-opencity-2x.fiblab.net:58081
+    server: xxx
 
 apphub_request:
   hub_url: https://api-opencity-2x.fiblab.net:58080
