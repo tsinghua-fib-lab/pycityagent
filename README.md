@@ -13,7 +13,7 @@
 - ![framwork](./static/framework.png)
 
 ### Workflow of CityAgent
-- ![workflow](./static/workflow.png)
+- ![workflow](./static/workflow_1.png)
 
 ## Hands On - By An Easy Demo
 ### Apply for your App
