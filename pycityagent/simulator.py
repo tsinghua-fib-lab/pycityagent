@@ -1,10 +1,11 @@
 from pycitysim import *
-from pycitysim.sidecar import OnlyClientSidecar
+from pycitysim.routing import RoutingClient
 from pycitysim.sim import CityClient
 from typing import Optional, Union
 from datetime import datetime, timedelta
 import asyncio
-from .agent import Agent
+from .agent_citizen import CitizenAgent
+from .agent_func import FuncAgent
 
 class SimPerceive:
     """
@@ -44,6 +45,7 @@ class Simulator:
             mongo_coll = config['map_request']['mongo_coll'],
             cache_dir = config['map_request']['cache_dir'],
         )
+        self.routing = RoutingClient(self.config['route_request']['server'], True)
         self.time = 0
 
     # * Agent相关
@@ -72,7 +74,7 @@ class Simulator:
             resp.motions = motions
             return resp
 
-    async def GetAgent(self, name:str=None, id:int=None):
+    async def GetCitizenAgent(self, name:str, id:int):
         """
         获取agent
         Get Agent
@@ -82,46 +84,44 @@ class Simulator:
         - id int: 即绑定的person的id the id of person that you try to bind with
         
         Returns:
-        - Agent
+        - CitizenAgent
         """
         await self.GetTime()
-        name_ = "张三"
-        if name != None:
-            name_ = name
-        if id == None:
-            base = self._client.person_service.default_person()
-            agent = Agent(
-                name_, 
-                self.config['simulator']['server'], 
-                simulator=self, 
-                id=id, 
-                base=base,
-            )
-        else:
-            resp = await self._client.person_service.GetPerson({"person_id": id})
-            base = resp['base']
-            motion = resp['motion']
-            agent = Agent(
-                name_, 
-                self.config['simulator']['server'], 
-                simulator=self, 
-                id=id, 
-                base=base,
-                motion=motion,
-            )
-        if 'streetview_request' in self.config.keys():
-            agent.Brain.Sence._streetview_engine = self.config['streetview_request']['engine']
-            if agent.Brain.Sence._streetview_engine == 'baidumap':
-                agent.Brain.Sence._streetviewAK = self.config['streetview_request']['mapAK']
-            elif agent.Brain.Sence._streetview_engine == 'googlemap':
-                if 'proxy' in self.config['streetview_request'].keys():
-                    agent.Brain.Sence._streetviewProxy = self.config['streetview_request']['proxy']
-            else:
-                agent.Brain.Sence._streetview_engine = ""
-                print("Wrong Streetview Engine")
+        resp = await self._client.person_service.GetPerson({"person_id": id})
+        base = resp['base']
+        motion = resp['motion']
+        agent = CitizenAgent(
+            name, 
+            self.config['simulator']['server'], 
+            simulator=self, 
+            id=id, 
+            base=base,
+            motion=motion
+        )
+        agent.set_streetview_config(self.config['streetview_request'])
         return agent
 
-    def InsertAgent(self, profile):
+    async def GetFuncAgent(self, id:int, name:str):
+        """
+        获取一个Func Agent模板
+
+        Args:
+        - name (str): the name of your agent
+        - id (int): the unique id of agent
+
+        Returns:
+        - FuncAgent
+        """
+        agent = FuncAgent(
+                    name,
+                    id+10000000,
+                    self.config['simulator']['server'],
+                    simulator=self
+                )
+        agent.set_streetview_config(self.config['streetview_request'])
+        return agent
+
+    def InsertCitizenAgent(self, profile):
         """
         插入agent
         Insert Agent

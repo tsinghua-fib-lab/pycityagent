@@ -13,7 +13,7 @@ async def main():
     smi = Simulator(config['citysim_request'])
     
     # get the person by person_id, return agent
-    agent = await smi.GetAgent("name_of_agent", 8)
+    agent = await smi.GetCitizenAgent("name_of_agent", 8)
 
     # Help you build unique agent by scratch/profile
     agent.Image.load_scratch('scratch_template.json')
@@ -24,6 +24,7 @@ async def main():
 
     # Connect to apphub so you can interact with your agent in front end
     agent.ConnectToHub(config['apphub_request'])
+    agent.Bind()
 
     # Creat the soul (a LLM processor actually)
     llmConfig = LLMConfig(config['llm_request'])

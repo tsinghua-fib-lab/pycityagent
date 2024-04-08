@@ -45,10 +45,12 @@ citysim_request:
   map_request:
     mongo_coll: map_beijing_extend_20240205
     cache_dir: ./cache
+  route_request: 
+    server: http://api-opencity-2x.fiblab.net:58082
   streetview_request:
     engine: baidumap / googlemap
-    mapAK: your baidumap AK (if baidumap)
-    proxy: your googlemap proxy (if googlemap, optional)
+    mapAK: baidumap api-key (if you use baidumap engine)
+    proxy: googlemap proxy (if you use googlemap engine)
 
 apphub_request:
   hub_url: https://api-opencity-2x.fiblab.net:58080
@@ -59,31 +61,56 @@ apphub_request:
 - Forget about **citysim_request**, let's focus on the other two.
 
 #### LLM_REQUEST
-- As you can tell, the whole CityAgent is based on the LLM, by now, there are three different parts of config items: **text_request**, **img_understand_request** and **img_generate_request**
+- As you can see, the whole CityAgent is based on the LLM, by now, there are three different parts of config items: **text_request**, **img_understand_request** and **img_generate_request**
 - By now, we support [**qwen**](https://tongyi.aliyun.com/) and [**openai**](https://openai.com/)
     - `Notice: Our environments are basically conducted with qwen. If you prefer to use openai, then you may encounter hardships. AND fell free to issue us.`
 - Get your **api_key** and chooce your **model**s
 
-### CITYSIM_REQUEST
-- There are no need to change the 'simulator' and 'map_request' config
-- 'streetview_request': this is the config used for streetview
-  - By now, we support 'baidumap' and 'googlemap'
-  - If you use 'baidumap', then you need to apply for a mapAK
-  - If you use 'googlemap', then you can config your own proxy by 'proxy' attribute
+#### CITYSIM_REQUEST
+- Most of the configuration options in this part are determined, such as **simulator.server**, **map_request.mongo_coll**, **route_request.server**
+- **map_request.cache_dir**: used for storing map data your machine, you can justify the target dir as you wish (**create the dir first**)
+- **streetview_request**: used for obtaining streetview images, by now, we support baidumap engine and googlemap engine
+  - if you choose baidumap engine, you need to get a baidumap api-key
+    ``` yaml
+    streetview_request:
+      engine: baidumap
+      mapAK: xxxx
+    ```
+  - if you choose googlemap engine, you need to provide your proxy address, for example:
+    ``` yaml
+    streetview_request:
+      engine: googlemap
+      proxy: 
+        http: http://xxxx
+        https: https://xxxx
+    ```
 
 #### APPHUB_REQUEST
-- This is basically used to connect with the backend.
+- Used for creating the connection between backend server and client.
 - Put your **app_id** and **app_secret** here.
+  - Create your account and apply in [Opencity website](https://opencity.fiblab.net/)
 
 ### Installation
-- Install from **pip** easily.
-```shell
-pip install pycityagent
-```
+#### PyPI Installation
+  - Install from **pip** easily.
+  ```shell
+  pip install pycityagent
+  ```
+
+#### Install from source code
+- Clone this repo
+- Install required packages
+  ``` shell
+  pip install -r requirements.txt
+  ```
+- Install **libGL.so.1**, if you ara using Linux with a suitable package manager: (apt for instance)
+  ``` shell
+  apt-get install libgl1
+  ```
 
 ### CODE and RUN
 - Check the **example** folder and copy files from it (`Remember replace the config file`)
-- Look at the Demo:
+- Look at the Demo: (A citizen Agent demo)
 ```python
 import yaml
 from pycityagent.simulator import Simulator
@@ -100,7 +127,7 @@ async def main():
     smi = Simulator(config['citysim_request'])
     
     # get the person by person_id, return agent
-    agent = await smi.GetAgent("name_of_agent", 8)
+    agent = await smi.GetCitizenAgent("name_of_agent", 8)
 
     # Help you build unique agent by scratch/profile
     agent.Image.load_scratch('scratch_template.json')
@@ -111,6 +138,7 @@ async def main():
 
     # Connect to apphub so you can interact with your agent in front end
     agent.ConnectToHub(config['apphub_request'])
+    agent.Bind()
 
     # Creat the soul (a LLM processor actually)
     llmConfig = LLMConfig(config['llm_request'])

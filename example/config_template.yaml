@@ -18,10 +18,12 @@ citysim_request:
   map_request:
     mongo_coll: map_beijing_extend_20240205
     cache_dir: ./cache
+  route_request: 
+    server: http://api-opencity-2x.fiblab.net:58082
   streetview_request:
     engine: baidumap / googlemap
-    mapAK: your baidumap AK (if baidumap)
-    proxy: your googlemap proxy (if googlemap, optional)
+    mapAK: baidumap api-key (if you use baidumap engine)
+    proxy: googlemap proxy (if you use googlemap engine)
 
 apphub_request:
   hub_url: https://api-opencity-2x.fiblab.net:58080

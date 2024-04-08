@@ -1,3 +1,3 @@
 from .image import *
 
-__all__ = [AgentImage, AgentScratch]
+__all__ = [Image, CitizenImage, Scratch, CitizenScratch]

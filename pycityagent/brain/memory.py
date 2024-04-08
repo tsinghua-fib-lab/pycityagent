@@ -33,6 +33,41 @@ class MemoryType:
     LTM = 1
     WM = 2
 
+class Memory(BrainFunction):
+    """
+    记忆模板类
+    The template class of Memory: defined as a BrainFunction
+    """
+    def __init__(self, agent, type:MemoryType) -> None:
+        super().__init__(agent)
+        self.type = type
+    
+    def Forward(self, x):
+        """
+        数据工作流
+        The data workflow
+        """
+
+    def MemorySave(self):
+        """
+        记忆存储
+        Save Memory
+        """
+
+    def MemoryLoad(self, x):
+        """
+        记忆恢复
+        Load Memory
+        """
+
+class WMemory(Memory):
+    def __init__(self, agent) -> None:
+        super().__init__(agent, MemoryType.WM)
+
+class LTMemory(Memory):
+    def __init__(self, agent) -> None:
+        super().__init__(agent, MemoryType.LTM)
+
 class MemoryRetrive:
     """
     用于从LTM中获取对应信息
@@ -42,11 +77,16 @@ class MemoryRetrive:
     - source (str): the name of source LTM
     - out (str): the output name of retrived information
     - user_func (function): the defined function used for retriving
+    - des (str): description of this Retrive module
     """
-    def __init__(self, source:str, out:str, user_func) -> None:
+    def __init__(self, source:str, out:str, user_func, des:str="None") -> None:
         self.source = source
         self.out = out
         self.user_func = user_func
+        self.des = des
+
+    def __str__(self) -> str:
+        return self.des
 
 class MemoryReason:
     """
@@ -56,12 +96,17 @@ class MemoryReason:
     Args:
     - out (str): the output name of memory reason
     - user_func (function): the defined function used for reasoning
+    - des (str): description of this Reason module
     - retrivees (Optional[list[MemoryRetrive]]): a list of MemoryRetrive block that help to get related information from LTM
     """
-    def __init__(self, out:str, user_func, retrives:Optional[list[MemoryRetrive]]=None) -> None:
+    def __init__(self, out:str, user_func, des:str, retrives:Optional[list[MemoryRetrive]]=None) -> None:
         self.out = out
         self.user_func = user_func
         self.retrives = retrives
+        self.des = des
+
+    def __str__(self) -> str:
+        return self.des
 
 class MemoryPersistence:
     """
@@ -71,25 +116,38 @@ class MemoryPersistence:
     Args:
     - target (str): the name of target LTM
     - user_func (function): the defined function used for persistence
+    - des (str): description of the Persistence module
     """
-    def __init__(self, target: str, user_func) -> None:
+    def __init__(self, target: str, user_func, des:str) -> None:
         self.target = target  # 指代的是目标记忆体
         self.user_func = user_func  # 用户注入的可执行函数
+        self.des = des
+
+    def __str__(self) -> str:
+        return self.des
 
 class MemoryController:
     """
     记忆管理器
     Memory Controller
     """
-    def __init__(self, agent, memory_config:dict=None) -> None:
+    def __init__(self, agent) -> None:
         self._agent = agent
         self._soul = agent._soul
-        if memory_config != None:
-            pass
-        else:
-            self._wm = WorkingMemory(agent)
-            self._spatial = SpatialMemory(agent)
-            self._social = SocialMemory(agent)
+        self._wm = WorkingMemory(agent)
+        self._spatial = SpatialMemory(agent)
+        self._social = SocialMemory(agent)
+
+    def add_LTM(self, name:str, ltm: LTMemory):
+        """
+        添加LTM
+        Add a LTM
+
+        Args:
+        - name (str): the attribute name, you can use the LTM by '.name'
+        - ltm (LTMemory)
+        """
+        setattr(self, name, ltm)
 
     async def Forward(self):
         """
@@ -140,53 +198,70 @@ class MemoryController:
     def Hub(self):
         return self._agent._hub
 
-class Memory(BrainFunction):
-    """
-    记忆模板类
-    The template class of Memory: defined as a BrainFunction
-    """
-    def __init__(self, agent, type:MemoryType) -> None:
-        super().__init__(agent)
-        self.type = type
-    
-    def Forward(self, x):
-        """
-        数据工作流
-        The data workflow
-        """
-
-    def MemorySave(self):
-        """
-        记忆存储
-        Save Memory
-        """
-
-    def MemoryLoad(self, x):
-        """
-        记忆恢复
-        Load Memory
-        """
-
-class WorkingMemory(Memory):
+class WorkingMemory(WMemory):
     """
     当前工作记忆
     Working Memory
     """
     def __init__(self, agent) -> None:
-        super().__init__(agent, MemoryType.WM)
+        super().__init__(agent)
         self.sence = None
         """
         用于存储感知内容
         Store the sence content
         """
+
         self.scheduler = Scheduler(agent)
         """
         关联的规划器
         The related Scheduler
         """
+
         self.Reason = {}
         """
-        用于存储Reason结果的buffer: key值为MemoryReason.out
+        用于存储Reason结果的buffer: key值为Memory.Reason.out
+        """
+
+        # * user message related
+        self.current_target = None
+        """
+        当前的目标
+        Agent's current target
+        """
+
+        self.has_user_command = False
+        """
+        是否有用户指令
+        Whether there have user commond
+        """
+
+        self.user_converse_buffer = BASE_CONVERSE_DIALOG+[{'role': 'system', 'content': ""}]
+        """
+        存储用户对话信息
+        Store user conversation content
+        """
+
+        self.understanding_prompt = [
+            {'role': 'system', 'content': '请你根据用户的输入内容，判断用户向你发起对话的用意并返回结果，返回的结果只能是[对话]或[控制]中的一个'},
+            {'role': 'system', 'content': '其中[对话]表示用户只是想与你进行常规对话；[控制]表示用户想要控制你的行动'},
+            {'role': 'system', 'content': '例如用户输入: 你好, 你的返回结果为: 对话'},
+            {'role': 'system', 'content': '例如用户输入: 你现在立刻去附近买菜, 你的返回结果为: 控制'}
+        ]
+        """
+        用于判断user对话意图的基础system role dialog
+        The basic system role dialog used for interpreting converse intent, converse or commond
+        """
+
+        self.msg_user_unhandle = []  # unhandle user messages
+        """
+        存储未处理的用户消息
+        Store unhandled user messages
+        """
+
+        self.msg_user_processing = []  # processing user messages
+        """
+        存储正在处理的用户信息
+        Store working user messages
         """
 
         # * agent social
@@ -224,44 +299,6 @@ class WorkingMemory(Memory):
         Store the target person_id of conversations that still working
         """
 
-        # * user message related
-        self.current_target = None
-        """
-        当前的目标
-        Agent's current target
-        """
-        self.has_user_command = False
-        """
-        是否有用户指令
-        Whether there have user commond
-        """
-        self.user_converse_buffer = BASE_CONVERSE_DIALOG+[{'role': 'system', 'content': self._agent.Image.get_profile()}]
-        """
-        存储用户对话信息
-        Store user conversation content
-        """
-        self.understanding_prompt = [
-            {'role': 'system', 'content': '请你根据用户的输入内容，判断用户向你发起对话的用意并返回结果，返回的结果只能是[对话]或[控制]中的一个'},
-            {'role': 'system', 'content': '其中[对话]表示用户只是想与你进行常规对话；[控制]表示用户想要控制你的行动'},
-            {'role': 'system', 'content': '例如用户输入: 你好, 你的返回结果为: 对话'},
-            {'role': 'system', 'content': '例如用户输入: 你现在立刻去附近买菜, 你的返回结果为: 控制'}
-        ]
-        """
-        用于判断user对话意图的基础system role dialog
-        The basic system role dialog used for interpreting converse intent, converse or commond
-        """
-
-        self.msg_user_unhandle = []  # unhandle user messages
-        """
-        存储未处理的用户消息
-        Store unhandled user messages
-        """
-        self.msg_user_processing = []  # processing user messages
-        """
-        存储正在处理的用户信息
-        Store working user messages
-        """
-
         # * config
         self.enable_user_interaction = True
         self.enable_economy = True
@@ -269,7 +306,7 @@ class WorkingMemory(Memory):
 
         # * 信息提取
         self.retrive = {
-            'getfamilier': MemoryRetrive('Social', 'familiers', getfamilier)
+            'getfamilier': MemoryRetrive('Social', 'familiers', getfamilier, "source: social(LTM), destination: familiers")
         }
         """
         记忆索引模块集合
@@ -281,28 +318,28 @@ class WorkingMemory(Memory):
         # * reason - 推理/判断功能
         self.reason = {
             'idle': [
-                MemoryReason("hasUserControl", hasUserControl),
-                MemoryReason("startTrip", startTrip),
-                MemoryReason("agent_message_handle_resp", handleConve, [self.retrive['getfamilier']]),
-                MemoryReason("startConve", startConve),
-                MemoryReason("startShop", startShop)
+                MemoryReason("hasUserControl", hasUserControl, "(idle) weather has user control"),
+                MemoryReason("startTrip", startTrip, "(idle) weather to start trip"),
+                MemoryReason("agent_message_handle_resp", handleConve, "(idle) reason the responce for agent messages", [self.retrive['getfamilier']]),
+                MemoryReason("startConve", startConve, "(idle) weather start conversing with other agent"),
+                MemoryReason("startShop", startShop, "(idle) weather start shopping")
             ],
             'trip': [
-                MemoryReason("hasUserControl", hasUserControl),
-                MemoryReason("routeFailed", routeFailed),
-                MemoryReason("tripArrived", tripArrived)
+                MemoryReason("hasUserControl", hasUserControl, "(trip) weather has user control"),
+                MemoryReason("routeFailed", routeFailed, "(trip) weather route failed"),
+                MemoryReason("tripArrived", tripArrived, "(trip) weather arrived at the destination of current trip")
             ],
             'conve': [
-                MemoryReason("hasUserControl", hasUserControl),
-                MemoryReason("agent_message_handle_resp", handleConve, [self.retrive['getfamilier']]),
-                MemoryReason("endConve", endConve),
+                MemoryReason("hasUserControl", hasUserControl, "(conve) weather has user control"),
+                MemoryReason("agent_message_handle_resp", handleConve, "(conve) reason reason the responce for agent messages", [self.retrive['getfamilier']]),
+                MemoryReason("endConve", endConve, "(conve) weather end conversation"),
             ],
             'shop': [
-                 MemoryReason("hasUserControl", hasUserControl),
-                 MemoryReason("endShop", endShop)
+                 MemoryReason("hasUserControl", hasUserControl, "(shop) weather has user control"),
+                 MemoryReason("endShop", endShop, "(shop) weather end shop")
             ],
             'controled': [
-                MemoryReason("endUserControl", endUserControl)
+                MemoryReason("endUserControl", endUserControl, "(controled) weather end user control")
             ]
         }
         """
@@ -315,12 +352,62 @@ class WorkingMemory(Memory):
 
         # * persistence - 记忆持久化
         self.persistence = [
-            MemoryPersistence('Spatial', spacialPersistence)
+            MemoryPersistence('Spatial', spacialPersistence, "source: WM, destination: spatial(LTM)")
         ]
         """
         记忆持久化模块集合
         The collection of MemoryPersistence blocks
         """
+
+    def reset_retrive(self):
+        """
+        重置WM的retrive模块
+        """
+        self.retrive = {}
+
+    def add_retrive(self, name:str, retrive:MemoryRetrive):
+        """
+        添加索引模块
+
+        Args:
+        - name (str): the name of the retrive module
+        - retrive (MemoryRetrive)
+        """
+        self.retrive[name] = retrive
+
+    def reset_reason(self):
+        """
+        重置WM的推理模块
+        """
+        self.reason = {}
+
+    def add_reason(self, state:str, reason:MemoryReason):
+        """
+        添加Reason模块
+
+        Args:
+        - state (str): 该推理模块会在什么状态下被激活
+        - reason (MemoryReason)
+        """
+        if state in self.reason.keys():
+            self.reason[state].append(reason)
+        else:
+            self.reason[state] = [reason]
+
+    def reset_persistence(self):
+        """
+        重置WM的persistence模块
+        """
+        self.persistence = []
+
+    def add_persistence(self, persistence:MemoryPersistence):
+        """
+        添加持久化模块
+
+        Args:
+        - persistence (MemoryPersistence)
+        """
+        self.persistence.append(persistence)
 
     async def Forward(self):
         """
@@ -369,15 +456,18 @@ class WorkingMemory(Memory):
 
     async def runReason(self):
         '''推理模块执行'''
-        reason_line = self.reason[self._agent.state]
-        for reason in reason_line:
-            if reason.retrives == None:
-                self.Reason[reason.out] = await reason.user_func(self)
-            else:
-                retrives = {}
-                for retrive in reason.retrives:
-                    retrives[retrive.out] = await retrive.user_func(getattr(self.LTM, retrive.source))
-                self.Reason[reason.out] = await reason.user_func(self, retrives)
+        if self._agent.state in self.reason:
+            reason_line = self.reason[self._agent.state]
+            for reason in reason_line:
+                if reason.retrives == None:
+                    self.Reason[reason.out] = await reason.user_func(self)
+                else:
+                    retrives = {}
+                    for retrive in reason.retrives:
+                        retrives[retrive.out] = await retrive.user_func(getattr(self.LTM, retrive.source))
+                    self.Reason[reason.out] = await reason.user_func(self, retrives)
+        else:
+            print("Warning: No reason line for current agent's state")
 
     async def runPersistence(self):
         '''持久化模块执行'''
@@ -386,13 +476,17 @@ class WorkingMemory(Memory):
             await persis.user_func(self, mem)
 
     def set_user_converse_background(self):
-        self.user_converse_buffer[2]['content'] = self._agent.Image.get_profile()
+        self.user_converse_buffer[3]['content'] = self._agent.Image.get_profile()
 
     @property
     def LTM(self):
         return self._agent.Brain.Memory
+    
+    @property
+    def Image(self):
+        return self._agent.Image
 
-class SpatialMemory(Memory):
+class SpatialMemory(LTMemory):
     """
     空间记忆 (LTM)
     SpatialMemory (LTM)
@@ -406,7 +500,7 @@ class SpatialMemory(Memory):
         - relation (str): the relation between Agent and the location, '我在这里任职' for instance
     """
     def __init__(self, agent) -> None:
-        super().__init__(agent, MemoryType.LTM)
+        super().__init__(agent)
         self.constant = []
         """
         以列表形式存储的空间记忆: 基于文件载入的
@@ -480,7 +574,7 @@ class SpatialMemory(Memory):
         temp = self.constant + self.sence
         return json.dumps(temp, indent=0)
 
-class SocialMemory(Memory):
+class SocialMemory(LTMemory):
     """
     社交记忆 (LTM)
     Social Memory (LTM)
@@ -493,7 +587,7 @@ class SocialMemory(Memory):
         - learned (str): the information that Agent learned about the target person, '他最近在学习AI' for instance
     """
     def __init__(self, agent) -> None:
-        super().__init__(agent, MemoryType.LTM)
+        super().__init__(agent)
         self.familiers = []
         """
         以列表形式存储社交记忆

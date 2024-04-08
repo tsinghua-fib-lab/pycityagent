@@ -2,29 +2,44 @@ from typing import Optional
 import json
 from abc import ABC, abstractclassmethod
 
-class ProfileTemplate:
-    """
-    profile模板类
-    The template class of Agent Profile
-    """
-    def __init__(self) -> None:
-        pass
 
-    @abstractclassmethod
-    def to_dialog(self) -> list[dict]:
+class Image:
+    """
+    Image模块: 智能体画像
+    Agent's Image module: Defines the uniqueness of Agent
+    """
+    def __init__(self, agent) -> None:
+        self._agent = agent
+        self.scratch = Scratch()
+    
+    def get_profile(self):
         """
-        将Profile转化为LLM可用的dialog的抽象函数
-        The abstract method that turns Agent's profile to LLM standard dialog
-        """
+        获取Agent的Scratch Profile信息
+        Get the Scratch Profile message
 
-class AgentImage:
+        Returns:
+        - (str)
+        """
+        return self.scratch.get_profile_content()
+    
+    def load_scratch(self, scratch_file:str):
+        """
+        加载基于文件的Profile加载
+        Load Profile based on file
+
+        Args:
+        - scratch_file (str): the path of scratch_file
+        """
+        self.scratch.load(scratch_file)
+
+class CitizenImage(Image):
     """
     Agent Image模块: 用户画像控制
     Agent's Image module: Defines the uniqueness of Agent
     """
     def __init__(self, agent, scratch_file:str=None, selfie:bool=False) -> None:
         self._agent = agent
-        self.scratch = AgentScratch()
+        self.scratch = CitizenScratch()
         """
         Agent的Scratch信息: 用于描述Agent的基本属性
         Scratch: Used to describe the basic info of Agent
@@ -48,7 +63,7 @@ class AgentImage:
         if scratch_file != None:
             self.scratch.load(scratch_file)
         else:
-            self.scratch.name = self._agent.agent_name
+            self.scratch.name = self._agent._name
             self.scratch.age = profile['age']
             education = profile['education']
             if education < 3:
@@ -72,26 +87,6 @@ class AgentImage:
             # TODO: 补充自拍
             pass
 
-    def get_profile(self):
-        """
-        获取Agent的Scratch Profile信息
-        Get the Scratch Profile message
-
-        Returns:
-        - (str)
-        """
-        return self.scratch.get_profile_content()
-    
-    def load_scratch(self, scratch_file:str):
-        """
-        加载基于文件的Profile加载
-        Load Profile based on file
-
-        Args:
-        - scratch_file (str): the path of scratch_file
-        """
-        self.scratch.load(scratch_file)
-
     def load_selfie(self, selfie_file:str):
         """
         基于图像的Selfie加载
@@ -103,17 +98,8 @@ class AgentImage:
         """
         print("Not Implemented")
 
-class AgentScratch():
-    def __init__(self, scratch:Optional[dict]=None) -> None:
-        self.name = None
-        self.age = None
-        self.education = None
-        self.gender = None
-        self.consumption = None
-        self.innate = ''
-        self.learned = ''
-        self.currently = ''
-        self.lifestyle = ''
+class Scratch:
+    def __init__(self, scratch: Optional[dict]=None) -> None:
         if scratch != None:
             self.forward(scratch)
 
@@ -133,6 +119,25 @@ class AgentScratch():
             json_str = f.read()
             scratch = json.loads(json_str)
             self.forward(scratch)
+
+    def get_profile_content(self):
+        text = ""
+        for attr_name, attr_value in self.__dict__.items():
+            text += f"{attr_name}: {attr_value}\n"
+        return text
+
+class CitizenScratch(Scratch):
+    def __init__(self, scratch:Optional[dict]=None) -> None:
+        super().__init__(scratch=scratch)
+        self.name = None
+        self.age = None
+        self.education = None
+        self.gender = None
+        self.consumption = None
+        self.innate = ''
+        self.learned = ''
+        self.currently = ''
+        self.lifestyle = ''
     
     def get_str_lifestyle(self):
         return self.lifestyle
@@ -152,7 +157,6 @@ class AgentScratch():
         text += f'近期状态: {self.currently}\n'
         text += f'生活习惯: {self.lifestyle}\n'
         return text
-
 
     def __str__(self):
         return str(self.__dict__)
