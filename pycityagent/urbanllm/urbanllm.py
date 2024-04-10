@@ -82,7 +82,7 @@ class UrbanLLM:
         """
         ppt = "如何理解这幅图像？"
         if prompt != None:
-            ppt += prompt
+            ppt = prompt
         dialog = [{
             'role': 'user',
             'content': [
@@ -101,7 +101,7 @@ class UrbanLLM:
             print(response.code)  # The error code.
             return "Error"
 
-    def img_generate(self, prompt, size:str='512*512', quantity:int = 1):
+    def img_generate(self, prompt:str, size:str='512*512', quantity:int = 1):
         """
         图像生成
         Image generation

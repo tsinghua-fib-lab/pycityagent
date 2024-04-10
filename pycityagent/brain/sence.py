@@ -297,7 +297,8 @@ class Sence(BrainFunction):
         - List[dict]: 可达位置列表
             - lane_id (int)
             - s (float)
-            - longlat (Tuple[float, float]): [longitude, latitude]
+            - xy (Tuple[float, float]): (x, y)
+            - longlat (Tuple[float, float]): (longitude, latitude)
             - type (str): 'driving' / 'walking' / 'unspecified'
         '''
         radius_ = self._sence_radius
@@ -318,6 +319,7 @@ class Sence(BrainFunction):
                 positions.append({
                     'lane_id': driving_positions[i]['lane_id'], 
                     's': driving_positions[i]['s'],
+                    'xy': (driving_gates[i]['x'], driving_gates[i]['y']),
                     'longlat': longlat,
                     'type': 'driving'
                 })
@@ -326,6 +328,7 @@ class Sence(BrainFunction):
                 positions.append({
                     'lane_id': walking_positions[i]['lane_id'], 
                     's': walking_positions[i]['s'],
+                    'xy': (walking_gates[i]['x'], walking_gates[i]['y']),
                     'longlat': longlat,
                     'type': 'walking'
                 })
@@ -343,7 +346,11 @@ class Sence(BrainFunction):
                 x, y = get_xy_in_lane(nodes, tmp_s)
                 longlat = self._agent._simulator.map.xy2lnglat(x=x, y=y)
                 type = copy.deepcopy(self._lane_type_mapping.get(lane['type'], 'unspecified'))
-                positions += [{'lane_id': lane_id, 's': tmp_s, 'longlat': longlat, 'type': type}]
+                positions += [{'lane_id': lane_id, 
+                               's': tmp_s, 
+                               'xy': (x, y),
+                               'longlat': longlat, 
+                               'type': type}]
 
                 # 2. 前驱道路
                 pre_lanes = lane['predecessors']
@@ -356,7 +363,11 @@ class Sence(BrainFunction):
                     x, y = get_xy_in_lane(pre_lane_nodes, tmp_s, 'back')
                     longlat = self._agent._simulator.map.xy2lnglat(x=x, y=y)
                     type = self._lane_type_mapping.get(pre_lane_['type'], 'unspecified')
-                    positions += [{'lane_id': pre_lane_id, 's': tmp_s, 'longlat': longlat, 'type': type}]
+                    positions += [{'lane_id': pre_lane_id, 
+                                   's': tmp_s, 
+                                   'xy': (x, y),
+                                   'longlat': longlat, 
+                                   'type': type}]
             elif agent_s == lane['length']:
                 # 处于当前道路的尾部端点位置
                 # 1. 当前道路
@@ -365,7 +376,11 @@ class Sence(BrainFunction):
                 x, y = get_xy_in_lane(nodes, tmp_s, 'back')
                 longlat = self._agent._simulator.map.xy2loglat(x=x, y=y)
                 type = self._lane_type_mapping.get(lane['type'], 'unspecified')
-                positions += [{'lane_id': lane_id, 's': tmp_s, 'longlat': longlat, 'type': type}]
+                positions += [{'lane_id': lane_id, 
+                               's': tmp_s, 
+                               'xy': (x, y),
+                               'longlat': longlat, 
+                               'type': type}]
 
                 # 2. 后继道路
                 suc_lanes = lane['successors']
@@ -378,7 +393,11 @@ class Sence(BrainFunction):
                     x, y = get_xy_in_lane(suc_lane_nodes, tmp_s)
                     longlat = self._agent._simulator.map.xy2loglat(x=x, y=y)
                     type = self._lane_type_mapping.get(lane['type'], 'unspecified')
-                    positions += [{'lane_id': suc_lane_id, 's': tmp_s, 'longlat': longlat, 'type': type}]
+                    positions += [{'lane_id': suc_lane_id, 
+                                   's': tmp_s, 
+                                   'xy': (x, y),
+                                   'longlat': longlat, 
+                                   'type': type}]
             else:
                 # 非端点位置
                 neg_s = agent_s - radius_
@@ -386,14 +405,22 @@ class Sence(BrainFunction):
                 x, y = get_xy_in_lane(nodes, neg_s, 'back')
                 longlat = self._agent._simulator.map.xy2loglat(x=x, y=y)
                 type = self._lane_type_mapping.get(lane['type'], 'unspecified')
-                positions += [{'lans_id': lane_id, 's': neg_s, 'longlat': longlat, 'type': type}]
+                positions += [{'lans_id': lane_id, 
+                               's': neg_s, 
+                               'xy': (x, y),
+                               'longlat': longlat, 
+                               'type': type}]
 
                 pos_s = agent_s + radius_
                 pos_s = pos_s if pos_s <= lane['length'] else lane['length']
                 x, y = get_xy_in_lane(nodes, pos_s)
                 longlat = self._agent._simulator.map.xy2loglat(x=x, y=y)
                 type = self._lane_type_mapping.get(lane['type'], 'unspecified')
-                positions += [{'lans_id': lane_id, 's': neg_s, 'longlat': longlat, 'type': type}]
+                positions += [{'lans_id': lane_id, 
+                               's': neg_s, 
+                               'xy': (x, y),
+                               'longlat': longlat, 
+                               'type': type}]
         return positions
 
     async def PerceivePoi(self, radius:int=None, category:str=None):
