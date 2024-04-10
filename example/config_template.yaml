@@ -1,8 +1,9 @@
 llm_request:
   text_request:
-    request_type: qwen
+    request_type: openai / qwen
     api_key: xxx
     model: xxx
+    http_client: xxx (if you use opanai and want to use your own backend LLM model)
   img_understand_request:
     request_type: qwen
     api_key: xxx

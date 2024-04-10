@@ -27,9 +27,10 @@
 ```yaml
 llm_request:
   text_request:
-    request_type: qwen
+    request_type: openai / qwen
     api_key: xxx
     model: xxx
+    http_client: xxx (if you use opanai and want to use your own backend LLM model)
   img_understand_request:
     request_type: qwen
     api_key: xxx
@@ -64,7 +65,8 @@ apphub_request:
 - As you can see, the whole CityAgent is based on the LLM, by now, there are three different parts of config items: **text_request**, **img_understand_request** and **img_generate_request**
 - By now, we support [**qwen**](https://tongyi.aliyun.com/) and [**openai**](https://openai.com/)
     - `Notice: Our environments are basically conducted with qwen. If you prefer to use openai, then you may encounter hardships. AND fell free to issue us.`
-- Get your **api_key** and chooce your **model**s
+- Get your **api_key** and chooce your **model**
+- If you want to use your backend models, set the **http_client** (only available when using **openai**)
 
 #### CITYSIM_REQUEST
 - Most of the configuration options in this part are determined, such as **simulator.server**, **map_request.mongo_coll**, **route_request.server**

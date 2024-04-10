@@ -41,10 +41,12 @@ class UrbanLLM:
         Returns:
         - (str): the response content
         """
+        client = None if self.config.text['http_client'] == None else self.config.text['http_client']
         if self.config.text['request_type'] == 'openai':
             client = OpenAI(
                 api_key=self.config.text['api_key'], 
-                base_url=self.config.text['api_base']
+                base_url=self.config.text['api_base'],
+                http_client=client
             )
             response = client.chat.completions.create(
                 model=self.config.text['model'],
@@ -53,7 +55,6 @@ class UrbanLLM:
             )
             return response.choices[0].message.content
         elif self.config.text['request_type'] == 'qwen':
-
             response = dashscope.Generation.call(
                 model=self.config.text['model'],
                 api_key=self.config.text['api_key'],
