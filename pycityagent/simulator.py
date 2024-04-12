@@ -45,7 +45,7 @@ class Simulator:
             mongo_coll = config['map_request']['mongo_coll'],
             cache_dir = config['map_request']['cache_dir'],
         )
-        self.routing = RoutingClient(self.config['route_request']['server'], True)
+        self.routing = RoutingClient(self.config['route_request']['server'])
         self.time = 0
 
     # * Agent相关
