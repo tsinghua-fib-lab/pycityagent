@@ -32,13 +32,18 @@ class UrbanLLM:
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
 
-    def text_request(self, dialog:list[dict]) -> str:
+    def text_request(self, dialog:list[dict], temperature:float=1, max_tokens:int=None, top_p:float=None, frequency_penalty:float=None, presence_penalty:float=None) -> str:
         """
         文本相关请求
         Text request
 
         Args:
         - dialog (list[dict]): 标准的LLM文本dialog. The standard text LLM dialog
+        - temperature (float): default 1, used in openai
+        - max_tokens (int): default None, used in openai
+        - top_p (float): default None, used in openai
+        - frequency_penalty (float): default None, used in openai
+        - presence_penalty (float): default None, used in openai
 
         Returns:
         - (str): the response content
@@ -55,7 +60,11 @@ class UrbanLLM:
             response = client.chat.completions.create(
                 model=self.config.text['model'],
                 messages=dialog,
-                temperature=1.0,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                top_p=top_p,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty
             )
             return response.choices[0].message.content
         elif self.config.text['request_type'] == 'qwen':
