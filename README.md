@@ -30,7 +30,7 @@ llm_request:
     request_type: openai / qwen
     api_key: xxx
     model: xxx
-    http_client: xxx (if you use opanai and want to use your own backend LLM model)
+    (api_base): xxx (this is an optional config, if you use opanai and want to use your own backend LLM model, default to "https://api.openai.com/v1")
   img_understand_request:
     request_type: qwen
     api_key: xxx
@@ -66,7 +66,8 @@ apphub_request:
 - By now, we support [**qwen**](https://tongyi.aliyun.com/) and [**openai**](https://openai.com/)
     - `Notice: Our environments are basically conducted with qwen. If you prefer to use openai, then you may encounter hardships. AND fell free to issue us.`
 - Get your **api_key** and chooce your **model**
-- If you want to use your backend models, set the **http_client** (only available when using **openai**)
+- If you want to use your backend models, set the **api_base** (only available when using **openai**)
+  - default value: "https://api.openai.com/v1"
 
 #### CITYSIM_REQUEST
 - Most of the configuration options in this part are determined, such as **simulator.server**, **map_request.mongo_coll**, **route_request.server**

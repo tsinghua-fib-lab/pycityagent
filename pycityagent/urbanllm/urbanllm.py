@@ -19,6 +19,8 @@ class LLMConfig:
     ) -> None:
         self.config = config
         self.text = config['text_request']
+        if 'api_base' in self.text.keys() and self.text['api_base'] == 'None':
+            self.text['api_base'] = None
         self.image_u = config['img_understand_request']
         self.image_g = config['img_generate_request']
 
@@ -41,12 +43,14 @@ class UrbanLLM:
         Returns:
         - (str): the response content
         """
-        client = None if self.config.text['http_client'] == None else self.config.text['http_client']
+        if 'api_base' in self.config.text.keys():
+            api_base = self.config.text['api_base']
+        else:
+            api_base = None
         if self.config.text['request_type'] == 'openai':
             client = OpenAI(
                 api_key=self.config.text['api_key'], 
-                base_url=self.config.text['api_base'],
-                http_client=client
+                base_url=api_base,
             )
             response = client.chat.completions.create(
                 model=self.config.text['model'],
@@ -75,7 +79,7 @@ class UrbanLLM:
         Image understanding
 
         Args:
-        - img_path: 图像的绝对路径. The absolute path of selected Image
+        - img_path: 目标图像的路径. The path of selected Image
         - prompt: 理解提示词 - 例如理解方向. The understanding prompts
 
         Returns:

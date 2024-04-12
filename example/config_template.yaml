@@ -3,7 +3,7 @@ llm_request:
     request_type: openai / qwen
     api_key: xxx
     model: xxx
-    http_client: xxx (if you use opanai and want to use your own backend LLM model)
+    (api_base): xxx (this is an optional config, if you use opanai and want to use your own backend LLM model, default to "https://api.openai.com/v1")
   img_understand_request:
     request_type: qwen
     api_key: xxx
