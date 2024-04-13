@@ -1,3 +1,5 @@
+"""UrbanLLM: 智能能力类及其定义"""
+
 from openai import OpenAI
 from http import HTTPStatus
 import dashscope

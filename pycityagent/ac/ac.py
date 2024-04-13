@@ -1,3 +1,5 @@
+"""命令控制器类及其定义"""
+
 from typing import Any, Optional, Union
 from .action import Action
 from .citizen_actions.trip import TripAction

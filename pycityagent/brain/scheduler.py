@@ -1,3 +1,5 @@
+"""规划器相关类及定义"""
+
 from enum import Enum
 import random
 import time as Time
@@ -21,6 +23,7 @@ class ScheduleType(Enum):
     OTHER = 3
 
 class Schedule:
+    """Schedule基类——为多种Schedule提供基础模板"""
     def __init__(self, type) -> None:
         '''默认初始化'''
         self.type = type

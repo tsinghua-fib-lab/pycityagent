@@ -1,3 +1,5 @@
+"""记忆相关类与定义"""
+
 from typing import Any, Optional
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -61,10 +63,12 @@ class Memory(BrainFunction):
         """
 
 class WMemory(Memory):
+    """WMemory: Working Memory工作记忆类"""
     def __init__(self, agent) -> None:
         super().__init__(agent, MemoryType.WM)
 
 class LTMemory(Memory):
+    """LTMemory: Long-Term Memory长时记忆类"""
     def __init__(self, agent) -> None:
         super().__init__(agent, MemoryType.LTM)
 

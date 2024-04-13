@@ -1,3 +1,5 @@
+"""Action类及其定义"""
+
 from abc import ABC, abstractclassmethod
 from typing import Callable, Any
 
@@ -15,6 +17,9 @@ class ActionType:
     Hub = 2
     Comp = 3
 class Action:
+    """
+    - Action
+    """
     def __init__(self, agent, type:ActionType, source: str = None, before:Callable[[list], Any] = None) -> None:
         '''
         默认初始化
@@ -47,9 +52,11 @@ class Action:
         '''接口函数'''
 
 class SimAction(Action):
+    """SimAction: 模拟器关联Action"""
     def __init__(self, agent, source: str = None, before: Callable[[list], Any] = None) -> None:
         super().__init__(agent, ActionType.Sim, source, before)
 
 class HubAction(Action):
+    """HubAction: Apphub关联Action"""
     def __init__(self, agent, source: str = None, before: Callable[[list], Any] = None) -> None:
         super().__init__(agent, ActionType.Hub, source, before)

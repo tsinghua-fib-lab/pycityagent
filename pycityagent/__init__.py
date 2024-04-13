@@ -1,3 +1,7 @@
+"""
+Pycityagent: 城市智能体构建框架
+"""
+
 from .simulator import Simulator
 from .agent import Agent
 from .agent_citizen import CitizenAgent

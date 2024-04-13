@@ -1,3 +1,5 @@
+"""命令控制器定义"""
+
 from typing import Any
 from .idle import *
 from .shop import *

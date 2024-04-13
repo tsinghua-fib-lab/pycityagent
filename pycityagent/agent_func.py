@@ -1,3 +1,5 @@
+"""FuncAgent: 功能性智能体及其定义"""
+
 from pycityagent.urbanllm import UrbanLLM
 from .urbanllm import UrbanLLM
 from .agent import Agent, AgentType
@@ -18,16 +20,33 @@ class FuncAgent(Agent):
             soul:UrbanLLM=None, 
             simulator=None, 
         ) -> None:
+        """
+        初始化 Init
+
+        Args:
+        - name (str): 智能体名称; name of your agent
+        - id (int): 智能体Id; id of your agent
+        - server (str): 模拟器grpc服务地址; server address of simulator
+        - soul (UrbanLLM): 基础模型模块; base model
+        - simulator (Simulator): 模拟器对象; simulator
+        """
+
         super().__init__(name, server, AgentType.Func, soul, simulator)
         self._id = id
+        """
+        - 智能体Id
+        - Agent's id
+        """
+
         self._image = Image(self)
         """
-        Func Agent画像——支持自定义内容
+        - Func Agent画像——支持自定义内容
         """
 
         self.motion = {'id': id, 'position': {}, 'direction': 0}
         """
         Func Agent状态信息——与agent的sence高度相关
+        Keys:
         - id (int): 即agent id
         - position (https://cityproto.sim.fiblab.net/#city.geo.v2.Position): 即agent当前的位置描述信息
             - lane_position (dict): 当position中包含该key时表示agent当前位于lane上——与aoi_position不可同时存在
@@ -49,8 +68,8 @@ class FuncAgent(Agent):
 
     async def init_position_aoi(self, aoi_id:int):
         """
-        将agent的位置初始化到指定aoi
-        根据指定aoi设置aoi_position, longlat_position以及xy_position
+        - 将agent的位置初始化到指定aoi
+        - 根据指定aoi设置aoi_position, longlat_position以及xy_position
         """
         if aoi_id in self._simulator.map.aois:
             aoi = self._simulator.map.aois[aoi_id]
@@ -64,8 +83,8 @@ class FuncAgent(Agent):
 
     def Bind(self):
         """
-        将智能体绑定到AppHub
-        Bind the Agent with AppHub
+        - 将智能体绑定到AppHub
+        - Bind the Agent with AppHub
         """
         if self._hub_connector == None:
             print("ERROR: connect with apphub first")
@@ -74,7 +93,7 @@ class FuncAgent(Agent):
 
     def set_image(self, image: Image):
         """
-        设置image——支持自由扩展Image
+        - 设置image——支持自由扩展Image
         """
         self._image = image
 
@@ -104,12 +123,14 @@ class FuncAgent(Agent):
     
     def show_yourself(self):
         """
-        Log信息输出
-        Pring log message
+        - Log信息输出
+        - Pring log message
         """
         pass
 
     @property
     def Image(self):
-        """The Agent's Image"""
+        """
+        - The Agent's Image
+        """
         return self._image

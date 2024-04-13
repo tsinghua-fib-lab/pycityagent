@@ -1,5 +1,5 @@
 """
-Static Resources: Poi Type association; Type prefix.
+静态数据支持; Static Resources: Poi Type association; Type prefix.
 """
 POI_TYPE_DICT = {
     "100000": "\u7f8e\u98df",

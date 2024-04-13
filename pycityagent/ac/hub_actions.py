@@ -1,3 +1,5 @@
+"""AppHub关联Action定义"""
+
 from typing import Callable, Optional, Any
 from pycitysim.apphub import AgentMessage
 from .action import HubAction

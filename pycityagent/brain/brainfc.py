@@ -1,3 +1,4 @@
+"""大脑功能模板类"""
 class BrainFunction:
     """
     大脑功能模块模板类

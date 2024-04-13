@@ -1,3 +1,5 @@
+"""大脑感知相关类及其定义"""
+
 from typing import Optional, Union
 from datetime import datetime
 import math
@@ -335,7 +337,7 @@ class Sence(BrainFunction):
         else:
             # agent in lane
             lane_id = self._agent.motion['position']['lane_position']['lane_id']  # 所在lane_id
-            lane = copy.deepcopy(self._agnet._simualtor.map.get_lane(lane_id))  # 获取lane信息
+            lane = copy.deepcopy(self._agent._simulator.map.get_lane(lane_id))  # 获取lane信息
             agent_s = self._agent.motion['position']['lane_position']['s']  # 所处位置——用s距离表示
             nodes = lane['center_line']['nodes']
             if agent_s == 0:
@@ -374,7 +376,7 @@ class Sence(BrainFunction):
                 tmp_s = agent_s - radius_
                 tmp_s = tmp_s if tmp_s >= 0 else 0
                 x, y = get_xy_in_lane(nodes, tmp_s, 'back')
-                longlat = self._agent._simulator.map.xy2loglat(x=x, y=y)
+                longlat = self._agent._simulator.map.xy2lnglat(x=x, y=y)
                 type = self._lane_type_mapping.get(lane['type'], 'unspecified')
                 positions += [{'lane_id': lane_id, 
                                's': tmp_s, 
@@ -391,7 +393,7 @@ class Sence(BrainFunction):
                     tmp_s = radius_
                     tmp_s = tmp_s if tmp_s <= suc_lane_['length'] else suc_lane_['length']
                     x, y = get_xy_in_lane(suc_lane_nodes, tmp_s)
-                    longlat = self._agent._simulator.map.xy2loglat(x=x, y=y)
+                    longlat = self._agent._simulator.map.xy2lnglat(x=x, y=y)
                     type = self._lane_type_mapping.get(lane['type'], 'unspecified')
                     positions += [{'lane_id': suc_lane_id, 
                                    's': tmp_s, 
@@ -403,7 +405,7 @@ class Sence(BrainFunction):
                 neg_s = agent_s - radius_
                 neg_s = neg_s if neg_s >= 0 else 0
                 x, y = get_xy_in_lane(nodes, neg_s, 'back')
-                longlat = self._agent._simulator.map.xy2loglat(x=x, y=y)
+                longlat = self._agent._simulator.map.xy2lnglat(x=x, y=y)
                 type = self._lane_type_mapping.get(lane['type'], 'unspecified')
                 positions += [{'lans_id': lane_id, 
                                's': neg_s, 
@@ -414,7 +416,7 @@ class Sence(BrainFunction):
                 pos_s = agent_s + radius_
                 pos_s = pos_s if pos_s <= lane['length'] else lane['length']
                 x, y = get_xy_in_lane(nodes, pos_s)
-                longlat = self._agent._simulator.map.xy2loglat(x=x, y=y)
+                longlat = self._agent._simulator.map.xy2lnglat(x=x, y=y)
                 type = self._lane_type_mapping.get(lane['type'], 'unspecified')
                 positions += [{'lans_id': lane_id, 
                                's': neg_s, 

@@ -1,3 +1,5 @@
+"""Apphub客户端定义"""
+
 from typing import Optional
 import geojson
 from pycitysim.apphub import AppHubClient, AgentMessage, UserMessage

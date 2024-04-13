@@ -1,3 +1,5 @@
+"""智能体画像类及其定义"""
+
 from typing import Optional
 import json
 from abc import ABC, abstractclassmethod
@@ -99,6 +101,7 @@ class CitizenImage(Image):
         print("Not Implemented")
 
 class Scratch:
+    """智能体基础信息"""
     def __init__(self, scratch: Optional[dict]=None) -> None:
         if scratch != None:
             self.forward(scratch)
@@ -127,6 +130,7 @@ class Scratch:
         return text
 
 class CitizenScratch(Scratch):
+    """CitizenAgent基础信息"""
     def __init__(self, scratch:Optional[dict]=None) -> None:
         super().__init__(scratch=scratch)
         self.name = None

@@ -1,4 +1,4 @@
-'''Agent大脑功能组织单位'''
+'''智能体大脑'''
 
 from .brain import *
 from .brainfc import *

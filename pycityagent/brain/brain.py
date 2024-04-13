@@ -1,3 +1,4 @@
+"""大脑类"""
 from abc import ABC, abstractmethod
 from typing import Optional
 from .scheduler import Scheduler
@@ -6,8 +7,8 @@ from .memory import MemoryController
 
 class Brain:
     """
-    大脑模块
-    Brain Module
+    大脑类
+    Brain Class
     """
     def __init__(self, agent) -> None:
         self._agent = agent

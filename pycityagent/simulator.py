@@ -1,24 +1,26 @@
-from pycitysim import *
-from pycitysim.routing import RoutingClient
-from pycitysim.sim import CityClient
+"""Simulator: 城市模拟器类及其定义"""
+
 from typing import Optional, Union
 from datetime import datetime, timedelta
 import asyncio
+from pycitysim import *
+from pycitysim.routing import RoutingClient
+from pycitysim.sim import CityClient
 from .agent_citizen import CitizenAgent
 from .agent_func import FuncAgent
 
 class SimPerceive:
     """
-    模拟器感知
-    Simulator Perceive
+    - 模拟器感知
+    - Simulator Perceive
     """
     def __init__(self, simualtor) -> None:
         self._simulator=simualtor
     
     async def PerceiveAoisByIds(self, ids:Optional[list[int]]):
         """
-        Simulator视角下的AOI感知
-        Perceive AOI from Simulator
+        - Simulator视角下的AOI感知
+        - Perceive AOI from Simulator
 
         Args:
         - ids list[int]: list of aoi id
@@ -32,21 +34,50 @@ class SimPerceive:
 
 class Simulator:
     """
-    模拟器
-    Simulator
+    - 模拟器主类
+    - Simulator Class
     """
     def __init__(self, config) -> None:
         self.config = config
+        """
+        - 模拟器配置
+        - simulator config
+        """
+
         self._client = CityClient(self.config['simulator']['server'], secure=True)
+        """
+        - 模拟器grpc客户端
+        - grpc client of simulator
+        """
+
         self._perceive = SimPerceive(self)
+        """
+        - 模拟器感知
+        - Perceive of simulator
+        """
+
         self.map = map.Map(
             mongo_uri = "mongodb://sim:FiblabSim1001@mgo.db.fiblab.tech:8635/",
             mongo_db = "srt",
             mongo_coll = config['map_request']['mongo_coll'],
             cache_dir = config['map_request']['cache_dir'],
         )
+        """
+        - 模拟器地图对象
+        - Simulator map object
+        """
+
         self.routing = RoutingClient(self.config['route_request']['server'])
+        """
+        - 导航服务grpc客户端
+        - grpc client of routing service
+        """
+
         self.time = 0
+        """
+        - 模拟城市当前时间
+        - The current time of simulator
+        """
 
     # * Agent相关
     def FindAgentsByArea(self, req: dict, status=None):

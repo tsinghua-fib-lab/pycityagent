@@ -1,3 +1,5 @@
+"""StateTransformer: 状态控制器类及其定义"""
+
 from transitions import Machine
 from abc import ABC, abstractmethod
 
