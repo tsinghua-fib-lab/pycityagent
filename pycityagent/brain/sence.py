@@ -421,7 +421,7 @@ class Sence(BrainFunction):
                 longlat = self._agent._simulator.map.xy2lnglat(x=x, y=y)
                 type = self._lane_type_mapping.get(lane['type'], 'unspecified')
                 positions += [{'lane_id': lane_id, 
-                               's': neg_s, 
+                               's': pos_s, 
                                'xy': (x, y),
                                'longlat': longlat, 
                                'type': type}]
