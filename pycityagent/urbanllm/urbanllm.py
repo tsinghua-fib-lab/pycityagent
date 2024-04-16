@@ -3,12 +3,16 @@
 from openai import OpenAI
 from http import HTTPStatus
 import dashscope
-from urllib.parse import urlparse, unquote
-from pathlib import PurePosixPath
 import requests
 from dashscope import ImageSynthesis
 from PIL import Image
 from io import BytesIO
+from typing import Union
+import base64
+
+def encode_image(image_path):
+  with open(image_path, "rb") as image_file:
+    return base64.b64encode(image_file.read()).decode('utf-8')
 
 class LLMConfig:
     """
@@ -84,14 +88,14 @@ class UrbanLLM:
             print("ERROR: Wrong Config")
             return "wrong config"
 
-    def img_understand(self, img_path:str, prompt:str=None) -> str:
+    def img_understand(self, img_path:Union[str, list[str]], prompt:str=None) -> str:
         """
         图像理解
         Image understanding
 
         Args:
-        - img_path: 目标图像的路径. The path of selected Image
-        - prompt: 理解提示词 - 例如理解方向. The understanding prompts
+        - img_path (Union[str, list[str]]): 目标图像的路径, 既可以是一个路径也可以是包含多张图片路径的list. The path of selected Image
+        - prompt (str): 理解提示词 - 例如理解方向. The understanding prompts
 
         Returns:
         - (str): the understanding content
@@ -99,22 +103,70 @@ class UrbanLLM:
         ppt = "如何理解这幅图像？"
         if prompt != None:
             ppt = prompt
-        dialog = [{
-            'role': 'user',
-            'content': [
-                {'image': 'file://' + img_path},
-                {'text': ppt}
-            ]
-        }]
-        response = dashscope.MultiModalConversation.call(
-                    model=self.config.image_u['model'],
-                    api_key=self.config.image_u['api_key'],
-                    messages=dialog
-                )
-        if response.status_code == HTTPStatus.OK:
-            return response.output.choices[0]['message']['content']
+        if self.config.image_u['request_type'] == 'openai':
+            if 'api_base' in self.config.image_u.keys():
+                api_base = self.config.image_u['api_base']
+            else:
+                api_base = None
+            client = OpenAI(
+                api_key=self.config.text['api_key'], 
+                base_url=api_base,
+            )
+            content = []
+            content.append({'type': 'text', 'text': ppt})
+            if isinstance(img_path, str):
+                base64_image = encode_image(img_path)
+                content.append({
+                    'type': 'image_url', 
+                    'image_url': {
+                            'url': f"data:image/jpeg;base64,{base64_image}"
+                        }
+                })
+            elif isinstance(img_path, list) and all(isinstance(item, str) for item in img_path):
+                for item in img_path:
+                    base64_image = encode_image(item)
+                    content.append({
+                        'type': 'image_url',
+                        'image_url': {
+                            'url': f"data:image/jpeg;base64,{base64_image}"
+                        }
+                    })
+            response = client.chat.completions.create(
+                model=self.config.image_u['model'],
+                messages=[{
+                    'role': 'user',
+                    'content': content
+                }]
+            )
+            return response.choices[0].message.content
+        elif self.config.image_u['request_type'] == 'qwen':
+            content = []
+            if isinstance(img_path, str):
+                content.append({'image': 'file://' + img_path})
+                content.append({'text': ppt})
+            elif isinstance(img_path, list) and all(isinstance(item, str) for item in img_path):
+                for item in img_path:
+                    content.append({
+                        'image': 'file://' + item
+                    })
+                content.append({'text': ppt})
+
+            dialog = [{
+                'role': 'user',
+                'content': content
+            }]
+            response = dashscope.MultiModalConversation.call(
+                        model=self.config.image_u['model'],
+                        api_key=self.config.image_u['api_key'],
+                        messages=dialog
+                    )
+            if response.status_code == HTTPStatus.OK:
+                return response.output.choices[0]['message']['content']
+            else:
+                print(response.code)  # The error code.
+                return "Error"
         else:
-            print(response.code)  # The error code.
+            print("ERROR: wrong image understanding type, only 'openai' and 'openai' is available")
             return "Error"
 
     def img_generate(self, prompt:str, size:str='512*512', quantity:int = 1):

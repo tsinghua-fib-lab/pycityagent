@@ -32,9 +32,10 @@ llm_request:
     model: xxx
     (api_base): xxx (this is an optional config, if you use opanai and want to use your own backend LLM model, default to "https://api.openai.com/v1")
   img_understand_request:
-    request_type: qwen
+    request_type: openai / qwen
     api_key: xxx
-    model: xxx
+    model: xxx ('gpt-4-turbo' if you use openai)
+    (api_base): same as text_request
   img_generate_request:
     request_type: qwen
     api_key: xxx
@@ -63,11 +64,19 @@ apphub_request:
 
 #### LLM_REQUEST
 - As you can see, the whole CityAgent is based on the LLM, by now, there are three different parts of config items: **text_request**, **img_understand_request** and **img_generate_request**
-- By now, we support [**qwen**](https://tongyi.aliyun.com/) and [**openai**](https://openai.com/)
-    - `Notice: Our environments are basically conducted with qwen. If you prefer to use openai, then you may encounter hardships. AND fell free to issue us.`
-- Get your **api_key** and chooce your **model**
-- If you want to use your backend models, set the **api_base** (only available when using **openai**)
-  - default value: "https://api.openai.com/v1"
+- **text_request**
+  - By now, we support [**qwen**](https://tongyi.aliyun.com/) and [**openai**](https://openai.com/)
+      - `Notice: Our environments are basically conducted with qwen. If you prefer to use openai, then you may encounter hardships. AND fell free to issue us.`
+  - Get your **api_key** and chooce your **model**
+  - If you want to use your backend models, set the **api_base** (only available when using **openai**)
+    - default value: "https://api.openai.com/v1"
+- **img_understand_request**
+  - By now, we support **qwen** and **openai**
+  - If choose **openai**, then the **model** has to be '**gpt-4-turbo**'
+  - If you want to use your backend models, set the **api_base** (only available when using **openai**)
+      - default value: "https://api.openai.com/v1"
+- **img_generate_request**
+  - By now, only [**qwen**] is supported
 
 #### CITYSIM_REQUEST
 - Most of the configuration options in this part are determined, such as **simulator.server**, **map_request.mongo_coll**, **route_request.server**

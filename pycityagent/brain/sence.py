@@ -146,10 +146,10 @@ class Sence(BrainFunction):
         SencePlug Buffer: used to store those sence plug content
         """
 
-        self.enable_streeview = False
+        self.enable_streeview = True
         """
-        街景感知功能接口, 默认为False
-        Interface of streetview function, defualt: False
+        街景感知功能接口, 默认为True
+        Interface of streetview function, defualt: True
         """
 
         self._lane_type_mapping = {1: 'driving', 2: 'walking'}
