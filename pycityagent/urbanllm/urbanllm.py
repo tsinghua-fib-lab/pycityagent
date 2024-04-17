@@ -83,7 +83,7 @@ class UrbanLLM:
             if response.status_code == HTTPStatus.OK:
                 return response.output.choices[0]['message']['content']
             else:
-                return "Error: {}".format(response.status_code)
+                return "Error: {}, {}".format(response.status_code, response.message)
         else:
             print("ERROR: Wrong Config")
             return "wrong config"

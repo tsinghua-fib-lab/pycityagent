@@ -1,10 +1,12 @@
 """FuncAgent: 功能性智能体及其定义"""
 
+from typing import Union
 from pycityagent.urbanllm import UrbanLLM
 from .urbanllm import UrbanLLM
 from .agent import Agent, AgentType
 from .image.image import Image
 from .ac.hub_actions import PositionUpdate
+from .utils import *
 
 class FuncAgent(Agent):
     """
@@ -63,23 +65,96 @@ class FuncAgent(Agent):
                 - x (double)
                 - y (double)
                 - z (double)
-        - direction (double): 方向角
+        - direction (double): 朝向-方向角
         """
 
-    async def init_position_aoi(self, aoi_id:int):
+        self._posUpdate = PositionUpdate(self)
+
+    async def set_position_aoi(self, aoi_id:int):
         """
-        - 将agent的位置初始化到指定aoi
-        - 根据指定aoi设置aoi_position, longlat_position以及xy_position
+        - 将agent的位置设定到指定aoi
+
+        Args:
+        - aoi_id (int): AOI id
         """
         if aoi_id in self._simulator.map.aois:
             aoi = self._simulator.map.aois[aoi_id]
+            self.motion['position'] = {}
             self.motion['position']['aoi_position'] = {'aoi_id': aoi_id}
             self.motion['position']['longlat_position'] = {'longitude': aoi['shapely_lnglat'].centroid.coords[0][0], 'latitude': aoi['shapely_lnglat'].centroid.coords[0][1]}
             x, y = self._simulator.map.lnglat2xy(lng=self.motion['position']['longlat_position']['longitude'], 
                                                  lat=self.motion['position']['longlat_position']['latitude'])
             self.motion['position']['xy_position'] = {'x': x, 'y': y}
-        pos = PositionUpdate(self)
-        await pos.Forward(longlat=[self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
+            await self._posUpdate.Forward(longlat=[self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
+        else:
+            print("Error: wrong aoi id")
+
+    async def set_position_lane(self, lane_id:int, s:float=0.0, direction:Union[float, str]='front'):
+        """
+        - 将agent的位置设定到指定lane
+        
+        Args:
+        - lane_id (int): Lane id
+        - s (float): distance from the start point of the lane, default None, if None, then set to the start point
+        - direction (Union[float, str]): agent方向角, 默认值为'front'
+            - float: 直接设置为给定方向角(atan2计算得到)
+            - str: 可选项['front', 'back'], 指定agent的行走方向
+                - 对于driving lane而言, 只能朝一个方向通行, 只能是'front'
+                - 对于walking lane而言, 可以朝两个方向通行, 可以是'front'或'back'
+        """
+        if lane_id in self._simulator.map.lanes:
+            lane = self._simulator.map.lanes[lane_id]
+            if s > lane['length']:
+                print("Error: 's' too large")
+            self.motion['position'] = {}
+            self.motion['position']['lane_position'] = {'lane_id': lane_id, 's': s}
+            nodes = lane['center_line']['nodes']
+            x, y = get_xy_in_lane(nodes, s)
+            longlat = self._simulator.map.xy2lnglat(x=x, y=y)
+            self.motion['position']['longlat_position'] = {
+                'longitude': longlat[0],
+                'latitude': longlat[1]
+            }
+            self.motion['position']['xy_position'] = {
+                'x': x,
+                'y': y
+            }
+            if isinstance(direction, float):
+                self.motion['direction'] = direction
+            else:
+                # 计算方向角
+                direction_ = get_direction_by_s(nodes, s, direction)
+                self.motion['direction'] = direction_                    
+            await self._posUpdate.Forward(longlat=[self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
+        else:
+            print("Error: wrong lane id")
+
+    async def set_position_poi(self, poi_id:int):
+        """
+        - 将agent的位置设定到指定poi
+
+        Args:
+        - poi_id (int): Poi id
+        """
+        if poi_id in self._simulator.map.pois:
+            poi = self._simulator.map.pois[poi_id]
+            x = poi['position']['x']
+            y = poi['position']['y']
+            longlat = self._simulator.map.xy2lnglat(x=x, y=y)
+            aoi_id = poi['aoi_id']
+            self.motion['position'] = {}
+            self.motion['position']['aoi_position'] = {'aoi_id': aoi_id}
+            self.motion['position']['longlat_position'] = {
+                'longitude': longlat[0],
+                'latitude': longlat[1]
+            }
+            self.motion['position']['xy_position'] = {
+                'x': x,
+                'y': y
+            }
+            await self._posUpdate.Forward(longlat=[self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
+        else:
+            print("Error: wrong poi id")
 
     def Bind(self):
         """
