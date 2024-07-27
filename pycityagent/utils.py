@@ -41,6 +41,36 @@ def point_on_line_given_distance(start_node, end_node, distance):
         y = y1 + scaled_dy
 
         return [x, y]
+    
+def get_keyindex_in_lane(nodes, distance, direction:str='front'):
+    temp_sum = 0
+    if direction == 'front':
+        # 顺道路方向前进
+        if distance == 0:
+            return [nodes[0]['x'], nodes[0]['y']]
+        key_index = 0  # first node
+        for i in range(1, len(nodes)):
+            x1, y1 = nodes[i-1]['x'], nodes[i-1]['y']
+            x2, y2 = nodes[i]['x'], nodes[i]['y']
+            temp_sum += math.sqrt((x2 - x1)**2 + (y2-y1)**2)
+            if temp_sum > distance:
+                remain_s = distance - (temp_sum - math.sqrt((x2 - x1)**2 + (y2-y1)**2))
+                break;
+            key_index += 1
+    else:
+        # 逆道路方向前进
+        if distance == 0:
+            return [nodes[-1]['x'], nodes[-1]['y']]
+        key_index = len(nodes)-1  # last node
+        for i in range(len(nodes)-1, 0, -1):
+            x1, y1 = nodes[i]['x'], nodes[i]['y']
+            x2, y2 = nodes[i-1]['x'], nodes[i-1]['y']
+            temp_sum += math.sqrt((x2 - x1)**2 + (y2-y1)**2)
+            if temp_sum > distance:
+                remain_s = distance - (temp_sum - math.sqrt((x2 - x1)**2 + (y2-y1)**2))
+                break;
+            key_index -= 1
+    return key_index
 
 def get_xy_in_lane(nodes, distance, direction:str='front'):
     temp_sum = 0
@@ -60,8 +90,8 @@ def get_xy_in_lane(nodes, distance, direction:str='front'):
             key_index += 1
         if remain_s < 0.5:
             return [nodes[key_index]['x'], nodes[key_index]['y']]
-        longlat = point_on_line_given_distance(nodes[key_index], nodes[key_index+1], remain_s)
-        return longlat
+        xy = point_on_line_given_distance(nodes[key_index], nodes[key_index+1], remain_s)
+        return xy
     else:
         # 逆道路方向前进
         if distance == 0:
@@ -77,8 +107,8 @@ def get_xy_in_lane(nodes, distance, direction:str='front'):
             key_index -= 1
         if remain_s < 0.5:
             return [nodes[key_index]['x'], nodes[key_index]['y']]
-        longlat = point_on_line_given_distance(nodes[key_index], nodes[key_index-1], remain_s)
-        return longlat
+        xy = point_on_line_given_distance(nodes[key_index], nodes[key_index-1], remain_s)
+        return xy
     
 def get_direction_by_s(nodes, distance, direction:str='front'):
     temp_sum = 0

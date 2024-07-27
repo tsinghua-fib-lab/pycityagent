@@ -22,9 +22,11 @@ class AgentType:
 
     - Citizen = 1, 指城市居民类型agent——行动受城市规则限制
     - Func = 2, 功能型agent——行动规则宽松——本质上模拟器无法感知到Func类型的agent
+    - Group = 3, 群体智能体
     """
     Citizen = 1
     Func = 2
+    Group = 3
 
 class Template:
     """

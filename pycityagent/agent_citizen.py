@@ -54,6 +54,8 @@ class CitizenAgent(Agent):
         - Schedule Init
         """
 
+        self._history_trajectory: list[list[float]] = []
+
     def Bind(self):
         """
         - 将智能体绑定到AppHub
@@ -126,6 +128,9 @@ class CitizenAgent(Agent):
             resp = await self._client.person_service.GetPerson({'person_id':self._id})
             self.base = resp['base']
             self.motion = resp['motion']
+            longitude = self.motion['position']['longlat_position']['longitude']
+            latitude = self.motion['position']['longlat_position']['latitude']
+            self._history_trajectory.append([longitude, latitude])
             # * 3. Brain工作流
             await self._brain.Run()
             # * 4. Commond Controller工作流

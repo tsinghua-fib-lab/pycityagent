@@ -18,6 +18,7 @@ class Brain:
         感知模块
         Sence module
         """
+        
         self._memory = MemoryController(agent)
         """
         记忆模块

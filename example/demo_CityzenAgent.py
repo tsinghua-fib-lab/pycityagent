@@ -6,14 +6,14 @@ import time
 
 async def main():
     # load your config
-    with open('config_template.yaml', 'r') as file:
+    with open('__config_template.yaml', 'r') as file:
         config = yaml.safe_load(file)
     
     # get the simulator object
     smi = Simulator(config['citysim_request'])
     
     # get the person by person_id, return agent
-    agent = await smi.GetCitizenAgent("name_of_agent", 8)
+    agent = await smi.GetCitizenAgent("kk", 1234)
 
     # Help you build unique agent by scratch/profile
     agent.Image.load_scratch('scratch_template.json')

@@ -1,6 +1,6 @@
 """Simulator: 城市模拟器类及其定义"""
 
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 from datetime import datetime, timedelta
 import asyncio
 from pycitysim import *
@@ -67,6 +67,12 @@ class Simulator:
         - Simulator map object
         """
 
+        self.pois_matrix: dict[str, list[list[list]]] = {}
+        """
+        pois的基于区块的划分——方便快速粗略地查询poi
+        通过Simulator.set_pois_matrix()初始化
+        """
+
         self.routing = RoutingClient(self.config['route_request']['server'])
         """
         - 导航服务grpc客户端
@@ -78,6 +84,20 @@ class Simulator:
         - 模拟城市当前时间
         - The current time of simulator
         """
+        self.poi_cate = {'10': 'eat', 
+                         '13': 'shopping', 
+                         '18': 'sports',
+                         '22': 'excursion',
+                         '16': 'entertainment',
+                         '20': 'medical tratment',
+                         '14': 'trivialities',
+                         '25': 'financial',
+                         '12': 'government and political services',
+                         '23': 'cultural institutions',
+                         '28': 'residence'}
+        self.map_x_gap = None
+        self.map_y_gap = None
+        self.poi_matrix_centers = []
 
     # * Agent相关
     def FindAgentsByArea(self, req: dict, status=None):
@@ -105,7 +125,7 @@ class Simulator:
             resp.motions = motions
             return resp
 
-    async def GetCitizenAgent(self, name:str, id:int):
+    async def GetCitizenAgent(self, name:str, id:int) -> CitizenAgent:
         """
         获取agent
         Get Agent
@@ -132,7 +152,7 @@ class Simulator:
         agent.set_streetview_config(self.config['streetview_request'])
         return agent
 
-    async def GetFuncAgent(self, id:int, name:str):
+    async def GetFuncAgent(self, id:int, name:str) -> FuncAgent:
         """
         获取一个Func Agent模板
 
@@ -160,6 +180,122 @@ class Simulator:
         """
         print("Not Implemented Yet")
         pass
+
+    def set_poi_matrix(self, row_number:int=12, col_number:int=10, radius:int=10000):
+        """
+        初始化pois_matrix
+
+        Args:
+        - row_number (int): 行数
+        - col_number (int): 列数
+        - radius (int): 搜索半径, 单位m
+        """
+        print(f"Building Poi searching matrix, Row_number: {row_number}, Col_number: {col_number}, Radius: {radius}m")
+        self.map_x_gap = (self.map.header['east'] - self.map.header['west']) / col_number
+        self.map_y_gap = (self.map.header['north'] - self.map.header['south']) / row_number
+        for i in range(row_number):
+            self.poi_matrix_centers.append([])
+            for j in range(col_number):
+                center_x = self.map.header['west'] + self.map_x_gap*j + self.map_x_gap/2
+                center_y = self.map.header['south'] + self.map_y_gap*i + self.map_y_gap/2
+                self.poi_matrix_centers[i].append((center_x, center_y))
+        
+        for pre in self.poi_cate.keys():
+            print(f"Building matrix for Poi category: {pre}")
+            self.pois_matrix[pre] = []
+            for row_centers in self.poi_matrix_centers:
+                row_pois = []
+                for center in row_centers:
+                    pois = self.map.query_pois(center=center, radius=radius, category_prefix=pre)
+                    row_pois.append(pois)
+                self.pois_matrix[pre].append(row_pois)
+        print("Finished")
+
+    def get_pois_from_matrix(self, center:Tuple[float, float], prefix:str):
+        """
+        从poi搜索矩阵中快速获取poi
+
+        Args:
+        - center (Tuple[float, float]): 位置信息
+        - prefix (str): 类型前缀
+        """
+        if self.map_x_gap == None:
+            print("Set Poi Matrix first")
+            return
+        elif prefix not in self.poi_cate.keys():
+            print(f"Wrong prefix, only {self.poi_cate.keys()} is usable")
+            return
+        elif center[0] > self.map.header['east'] or center[0] < self.map.header['west'] or center[1] > self.map.header['north'] or center[1] < self.map.header['south']:
+            print("Wrong center")
+            return
+        
+        # 矩阵匹配
+        rows = int((center[1]-self.map.header['south'])/self.map_y_gap)
+        cols = int((center[0]-self.map.header['west'])/self.map_x_gap)
+        pois = self.pois_matrix[prefix][rows][cols]
+        return pois
+    
+    def get_cat_from_pois(self, pois:list):
+        cat_2_num = {}
+        for poi in pois:
+            cate = poi['category'][:2]
+            if cate not in self.poi_cate.keys():
+                continue
+            if cate in cat_2_num.keys():
+                cat_2_num[cate] += 1
+            else:
+                cat_2_num[cate] = 1
+        max_cat = ""
+        max_num = 0
+        for key in cat_2_num.keys():
+            if cat_2_num[key] > max_num:
+                max_num = cat_2_num[key]
+                max_cat = self.poi_cate[key]
+        return max_cat
+        
+    def get_poi_matrix_in_rec(self, center:Tuple[float, float], radius:int=2500, rows:int=5, cols:int=5):
+        """
+        获取以center为中心的正方形区域内的poi集合
+
+        Args:
+        - center (Tuple[float, float]): 中心位置点
+        - radius (int): 半径
+        """
+        north = center[1] + radius
+        south = center[1] - radius
+        west = center[0] - radius
+        east = center[0] + radius
+        x_gap = (east-west)/cols
+        y_gap = (north-south)/rows
+        matrix = []
+        for i in range(rows):
+            matrix.append([])
+            for j in range(cols):
+                matrix[i].append([])
+        pois = []
+        for poi in self.map.pois.values():
+            x = poi['position']['x']
+            y = poi['position']['y']
+            if x > west and x < east and y > south and y < north:
+                row_index = int((y-south)/x_gap)
+                col_index = int((x-west)/y_gap)
+                matrix[row_index][col_index].append(poi)
+        matrix_type = []
+        for i in range(rows):
+            for j in range(cols):
+                matrix_type.append(self.get_cat_from_pois(matrix[i][j]))
+        poi_total_number = []
+        poi_type_number = []
+        for i in range(rows):
+            for j in range(cols):
+                poi_total_number.append(len(matrix[i][j]))
+                number = 0
+                for poi in matrix[i][j]:
+                    if poi['category'][:2] in self.poi_cate.keys() and self.poi_cate[poi['category'][:2]] == matrix_type[i*cols+j]:
+                        number += 1
+                poi_type_number.append(number)
+                
+        return matrix, matrix_type, poi_total_number, poi_type_number
         
     async def GetTime(self, format_time:bool=False, format:Optional[str]="%H:%M:%S") -> Union[int, str]:
         """

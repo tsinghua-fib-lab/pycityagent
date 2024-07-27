@@ -25,7 +25,6 @@ class SencePlug:
     - out (str): the output target in sence, the sence result will be insert to Sence.plug_buffer[out]
     """
     def __init__(self, user_func, out:str) -> None:
-        # TODO: 添加合法性检查
         self.user_func = user_func
         self.out = out
 
@@ -144,10 +143,15 @@ class Sence(BrainFunction):
             self.sence_buffer['time'] = self._agent._simulator.time
 
         # * pois
-        if self._sence_contents == None or 'poi' in self._sence_contents:
-            self.sence_buffer['pois'] = await self.PerceivePoi()
-            self.sence_buffer['poi_time_walk'] = sorted(self.sence_buffer['pois'], key=lambda x:x[2])
-            self.sence_buffer['poi_time_drive'] = sorted(self.sence_buffer['pois'], key=lambda x:x[4])
+        if self._sence_contents == None or 'poi' in self._sence_contents or 'poi_verbose' in self._sence_contents:
+            if self._sence_contents == None:
+                self.sence_buffer['pois'] = await self.PerceivePoi()
+            elif 'poi_verbose' in self._sence_contents:
+                self.sence_buffer['pois'] = await self.PerceivePoi_Verbose()
+                self.sence_buffer['poi_time_walk'] = sorted(self.sence_buffer['pois'], key=lambda x:x[2])
+                self.sence_buffer['poi_time_drive'] = sorted(self.sence_buffer['pois'], key=lambda x:x[4])
+            else:
+                self.sence_buffer['pois'] = await self.PerceivePoi()
 
         # * reachable positions
         if self._sence_contents == None or 'position' in self._sence_contents:
@@ -350,8 +354,42 @@ class Sence(BrainFunction):
                                'longlat': longlat, 
                                'type': type}]
         return positions
-
+    
     async def PerceivePoi(self, radius:int=None, category:str=None):
+        """
+        POI感知
+        Sence POI
+        Args:
+        - radius: 感知范围, 默认使用统一感知半径. Sence raduis, default use basic radius
+        - category: 6位数字类型编码, 如果为None则获取所有类型POI. 6-digit coding which represents the poi type, if None, then sence all type of poi
+        Returns:
+        - List[Tuple[Any, float]]: poi列表, 每个元素为(poi, 距离). poi list, each element is (poi, distance).
+        """
+        radius_ = self._sence_radius
+        if radius != None:
+            radius_ = radius
+        if category != None:
+            category_prefix = category
+            resp = self._agent._simulator.map.query_pois(
+                center=(self._agent.motion['position']['xy_position']['x'], self._agent.motion['position']['xy_position']['y']),
+                radius=radius_,
+                category_prefix=category_prefix
+            )
+        else:
+            resp = []
+            for category_prefix in LEVEL_ONE_PRE:
+                resp += self._agent._simulator.map.query_pois(
+                    center=(self._agent.motion['position']['xy_position']['x'], self._agent.motion['position']['xy_position']['y']),
+                    radius=radius_,
+                    category_prefix=category_prefix
+                )
+        # * 从六位代码转变为具体类型
+        for poi in resp:
+            cate_str = poi[0]['category']
+            poi[0]['category'] = POI_TYPE_DICT[cate_str]
+        return resp
+
+    async def PerceivePoi_Verbose(self, radius:int=None, category:str=None):
         """
         POI感知
         Sence POI
@@ -535,41 +573,39 @@ class Sence(BrainFunction):
         else:
             print("Wrong HEADING, Use FRONT")
         persp = []
-        if self._engine == "baidumap":
-            points = wgs842bd09mc(coords, self._baiduAK)
-            sv = BaiduStreetView.search(points[0][0], points[0][1])
-            eq = Equirectangular(sv)
-            persp.append(eq.get_perspective(120, heading_direction-90, 20, 256, 512))
-            persp.append(eq.get_perspective(120, heading_direction, 20, 256, 512))
-            persp.append(eq.get_perspective(120, heading_direction+90, 20, 256, 512))
-            persp.append(eq.get_perspective(120, heading_direction+180, 20, 256, 512))
-            if save:
-                date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                sv.panorama.save("{}/{}_{}_panorama_{}.jpg".format(save_dir, self._agent.name, date_time))
-                for i in range(len(persp)):
-                    persp[i].save("{}/{}_{}_persp_{}.jpg".format(save_dir, self._agent.name, date_time, i))
-            return persp
-        elif self._engine == "googlemap":
-            sv = GoogleStreetView.search(
-                    points[0][0],
-                    points[0][1],
-                    proxies=self._googleProxy,
-                    cache_dir=save_dir
-                )
-            eq = Equirectangular(sv)
-            persp = eq.get_perspective(120, heading_direction, 20, 256, 512)
-            if save:
-                date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                sv.panorama.save("{}/{}_{}_panorama_{}.jpg".format(save_dir, self._agent.name, date_time))
-                for i in range(len(persp)):
-                    persp[i].save("{}/{}_{}_persp_{}.jpg".format(save_dir, self._agent.name, date_time, i))
-            return persp
-    
-    # * Person Related
-    def PerceivePersonCircule(self, raduis=30):
-        """Person环形感知"""
-        print("Not Implemented")
-        pass
+        try:
+            if self._engine == "baidumap":
+                points = wgs842bd09mc(coords, self._baiduAK)
+                sv = BaiduStreetView.search(points[0][0], points[0][1])
+                eq = Equirectangular(sv)
+                persp.append(eq.get_perspective(120, heading_direction-90, 20, 256, 512))
+                persp.append(eq.get_perspective(120, heading_direction, 20, 256, 512))
+                persp.append(eq.get_perspective(120, heading_direction+90, 20, 256, 512))
+                persp.append(eq.get_perspective(120, heading_direction+180, 20, 256, 512))
+                if save:
+                    date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    sv.panorama.save("{}/{}_{}_panorama_{}.jpg".format(save_dir, self._agent.name, date_time))
+                    for i in range(len(persp)):
+                        persp[i].save("{}/{}_{}_persp_{}.jpg".format(save_dir, self._agent.name, date_time, i))
+                return persp
+            elif self._engine == "googlemap":
+                sv = GoogleStreetView.search(
+                        points[0][0],
+                        points[0][1],
+                        proxies=self._googleProxy,
+                        cache_dir=save_dir
+                    )
+                eq = Equirectangular(sv)
+                persp = eq.get_perspective(120, heading_direction, 20, 256, 512)
+                if save:
+                    date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    sv.panorama.save("{}/{}_{}_panorama_{}.jpg".format(save_dir, self._agent.name, date_time))
+                    for i in range(len(persp)):
+                        persp[i].save("{}/{}_{}_persp_{}.jpg".format(save_dir, self._agent.name, date_time, i))
+                return persp
+        except Exception as e:
+            print(f"Can't get streetview, error message: {e}")
+            return []
 
     async def PerceivePersonInLanes(self, lane_ids:list[int], only_id:bool=False):
         """

@@ -69,6 +69,7 @@ class FuncAgent(Agent):
         """
 
         self._posUpdate = PositionUpdate(self)
+        self._history_trajectory:list[list[float]] = []
 
     async def set_position_aoi(self, aoi_id:int):
         """
@@ -78,10 +79,13 @@ class FuncAgent(Agent):
         - aoi_id (int): AOI id
         """
         if aoi_id in self._simulator.map.aois:
+            if 'aoi_position' in self.motion['position'].keys() and aoi_id == self.motion['position']['aoi_position']['aoi_id']:
+                return
             aoi = self._simulator.map.aois[aoi_id]
             self.motion['position'] = {}
             self.motion['position']['aoi_position'] = {'aoi_id': aoi_id}
             self.motion['position']['longlat_position'] = {'longitude': aoi['shapely_lnglat'].centroid.coords[0][0], 'latitude': aoi['shapely_lnglat'].centroid.coords[0][1]}
+            # self._history_trajectory.append([self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
             x, y = self._simulator.map.lnglat2xy(lng=self.motion['position']['longlat_position']['longitude'], 
                                                  lat=self.motion['position']['longlat_position']['latitude'])
             self.motion['position']['xy_position'] = {'x': x, 'y': y}
@@ -103,6 +107,8 @@ class FuncAgent(Agent):
                 - 对于walking lane而言, 可以朝两个方向通行, 可以是'front'或'back'
         """
         if lane_id in self._simulator.map.lanes:
+            if 'lane_position' in self.motion['position'].keys() and lane_id == self.motion['position']['lane_position']['lane_id']:
+                return
             lane = self._simulator.map.lanes[lane_id]
             if s > lane['length']:
                 print("Error: 's' too large")
@@ -124,7 +130,8 @@ class FuncAgent(Agent):
             else:
                 # 计算方向角
                 direction_ = get_direction_by_s(nodes, s, direction)
-                self.motion['direction'] = direction_                    
+                self.motion['direction'] = direction_      
+            # self._history_trajectory.append([self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])              
             await self._posUpdate.Forward(longlat=[self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
         else:
             print("Error: wrong lane id")
@@ -138,10 +145,12 @@ class FuncAgent(Agent):
         """
         if poi_id in self._simulator.map.pois:
             poi = self._simulator.map.pois[poi_id]
+            aoi_id = poi['aoi_id']
+            if 'aoi_position' in self.motion['position'].keys() and aoi_id == self.motion['position']['aoi_position']['aoi_id']:
+                return
             x = poi['position']['x']
             y = poi['position']['y']
             longlat = self._simulator.map.xy2lnglat(x=x, y=y)
-            aoi_id = poi['aoi_id']
             self.motion['position'] = {}
             self.motion['position']['aoi_position'] = {'aoi_id': aoi_id}
             self.motion['position']['longlat_position'] = {
@@ -152,6 +161,7 @@ class FuncAgent(Agent):
                 'x': x,
                 'y': y
             }
+            # self._history_trajectory.append([self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
             await self._posUpdate.Forward(longlat=[self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
         else:
             print("Error: wrong poi id")

@@ -9,6 +9,7 @@ from PIL import Image
 from io import BytesIO
 from typing import Union
 import base64
+import aiohttp
 
 def encode_image(image_path):
   with open(image_path, "rb") as image_file:
@@ -87,8 +88,31 @@ class UrbanLLM:
         else:
             print("ERROR: Wrong Config")
             return "wrong config"
+        
+    async def atext_request(self, dialog:list[dict]):
+        """
+        异步版文本请求
+        目前仅支持qwen模型
+        """
+        assert self.config.text['request_type'] == 'qwen', "Error: Only support qwen right now"
+        async with aiohttp.ClientSession() as session:
+            api_url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
+            headers = {"Content-Type": "application/json", "Authorization": f"{self.config.text['api_key']}"}
+            payload = {
+                'model': self.config.text['model'],
+                'input': {
+                    'messages': dialog
+                }
+            }
+            async with session.post(api_url, json=payload, headers=headers) as resp:
+                # 错误检查
+                response_json = await resp.json()
+                if 'code' in response_json.keys():
+                    raise Exception(f"Error: {response_json['code']}, {response_json['message']}")
+                else:
+                    return response_json['output']['text']
 
-    def img_understand(self, img_path:Union[str, list[str]], prompt:str=None) -> str:
+    async def img_understand(self, img_path:Union[str, list[str]], prompt:str=None) -> str:
         """
         图像理解
         Image understanding
@@ -169,7 +193,7 @@ class UrbanLLM:
             print("ERROR: wrong image understanding type, only 'openai' and 'openai' is available")
             return "Error"
 
-    def img_generate(self, prompt:str, size:str='512*512', quantity:int = 1):
+    async def img_generate(self, prompt:str, size:str='512*512', quantity:int = 1):
         """
         图像生成
         Image generation

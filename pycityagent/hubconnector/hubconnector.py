@@ -2,6 +2,7 @@
 
 from typing import Optional
 import geojson
+from geojson import Feature, FeatureCollection, Point, LineString
 from pycitysim.apphub import AppHubClient, AgentMessage, UserMessage
 import PIL.Image as Image
 import traceback
@@ -67,7 +68,7 @@ class HubConnector:
             Image.open(self._profile_img)
         )
 
-    def Update(self, messages:Optional[list[AgentMessage]]=None, streetview:Image.Image=None, longlat:list[float]=None, pop:str=None):
+    def Update(self, messages:Optional[list[AgentMessage]]=None, streetview:list[Image.Image]=None, longlat:list[float]=None, pop:str=None):
         """
         交互更新
         FrontEnd Related Update
@@ -79,7 +80,7 @@ class HubConnector:
         - messages (Optional[list[AgentMessage]]): 
             - 需要传递到前端侧边栏的消息. Messsages that will be shown in the message bar in frontend
             - 默认为None(即当前无需传递消息). Default: None(i.e. No new messages need to be shown in frontend)
-        - streetview (PIL.Image.Image): 
+        - streetview (list[PIL.Image.Image]): 
             - 街景图片. Streetview Image
             - 默认为None(即本次更新不展示街景). Default: None(i.e. No streetview in this update)
         - longlat (list(float)): 
@@ -93,17 +94,23 @@ class HubConnector:
             print("AppHub: Not Bind Agent Yet")
             return
         else:
-            pop_ = self._agent._name
+            pop_ = None
             if pop != None:
                 pop_ = self._agent.agent_name + ": " + pop
             if longlat != None:
                 longlat_ = longlat
             else:
                 longlat_ = [self._agent.motion['position']['longlat_position']['longitude'], self._agent.motion['position']['longlat_position']['latitude']]
-            
+            if longlat != None:
+                self._agent._history_trajectory.append(longlat)
+            path = self._agent._history_trajectory
+            path_ls = LineString(path)
+            path_feature = Feature(id='history', geometry=path_ls)
+            fc = FeatureCollection([path_feature])
             self._client.update_agent_map(
                 agent_id = self._agent_id, 
                 lnglat = longlat_,
+                geojsons=fc,
                 street_view=streetview,
                 popup=pop_
             )
@@ -113,6 +120,22 @@ class HubConnector:
                     agent_id=self._agent_id,
                     messages=self.messageBuffer
                 )
+
+    def ShowGeo(self, geojsons: geojson.FeatureCollection):
+        """
+        - 发送地图展示要素
+
+        Args:
+        - geojsons (geojson.FeatureCollection): 需要展示的地图要素
+        """
+        if self._client == None:
+            print("AppHub: Not Bind Agent Yet")
+            return
+        self._client.update_agent_map(
+            agent_id=self._agent_id,
+            lnglat=[self._agent.motion['position']['longlat_position']['longitude'], self._agent.motion['position']['longlat_position']['latitude']],
+            geojsons=geojsons
+        )
 
     def GetMessageFromHub(self) -> list[UserMessage]:
         """
