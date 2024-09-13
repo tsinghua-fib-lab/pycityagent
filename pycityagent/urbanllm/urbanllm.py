@@ -73,7 +73,7 @@ class UrbanLLM:
                 frequency_penalty=frequency_penalty,
                 presence_penalty=presence_penalty
             )
-            return response.choices[0].message.content
+            return response.choices[0].message.content, response.usage.total_tokens
         elif self.config.text['request_type'] == 'qwen':
             response = dashscope.Generation.call(
                 model=self.config.text['model'],

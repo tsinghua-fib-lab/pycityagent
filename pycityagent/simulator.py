@@ -139,8 +139,9 @@ class Simulator:
         """
         await self.GetTime()
         resp = await self._client.person_service.GetPerson({"person_id": id})
-        base = resp['base']
-        motion = resp['motion']
+        print(f"Agent {id}: {resp}")
+        base = resp['person']['base']
+        motion = resp['person']['motion']
         agent = CitizenAgent(
             name, 
             self.config['simulator']['server'], 
@@ -152,7 +153,7 @@ class Simulator:
         agent.set_streetview_config(self.config['streetview_request'])
         return agent
 
-    async def GetFuncAgent(self, id:int, name:str) -> FuncAgent:
+    async def GetFuncAgent(self, name:str) -> FuncAgent:
         """
         获取一个Func Agent模板
 
@@ -165,7 +166,6 @@ class Simulator:
         """
         agent = FuncAgent(
                     name,
-                    id+10000000,
                     self.config['simulator']['server'],
                     simulator=self
                 )
@@ -181,23 +181,29 @@ class Simulator:
         print("Not Implemented Yet")
         pass
 
-    def set_poi_matrix(self, row_number:int=12, col_number:int=10, radius:int=10000):
+    def set_poi_matrix(self, map:dict=None, row_number:int=12, col_number:int=10, radius:int=10000):
         """
         初始化pois_matrix
 
         Args:
+        - map (dict): 地图参数
+            east, west, north, south
         - row_number (int): 行数
         - col_number (int): 列数
         - radius (int): 搜索半径, 单位m
         """
+        if map == None:
+            self.matrix_map = self.map
+        else:
+            self.matrix_map = map
         print(f"Building Poi searching matrix, Row_number: {row_number}, Col_number: {col_number}, Radius: {radius}m")
-        self.map_x_gap = (self.map.header['east'] - self.map.header['west']) / col_number
-        self.map_y_gap = (self.map.header['north'] - self.map.header['south']) / row_number
+        self.map_x_gap = (self.matrix_map.header['east'] - self.matrix_map.header['west']) / col_number
+        self.map_y_gap = (self.matrix_map.header['north'] - self.matrix_map.header['south']) / row_number
         for i in range(row_number):
             self.poi_matrix_centers.append([])
             for j in range(col_number):
-                center_x = self.map.header['west'] + self.map_x_gap*j + self.map_x_gap/2
-                center_y = self.map.header['south'] + self.map_y_gap*i + self.map_y_gap/2
+                center_x = self.matrix_map.header['west'] + self.map_x_gap*j + self.map_x_gap/2
+                center_y = self.matrix_map.header['south'] + self.map_y_gap*i + self.map_y_gap/2
                 self.poi_matrix_centers[i].append((center_x, center_y))
         
         for pre in self.poi_cate.keys():
@@ -225,13 +231,13 @@ class Simulator:
         elif prefix not in self.poi_cate.keys():
             print(f"Wrong prefix, only {self.poi_cate.keys()} is usable")
             return
-        elif center[0] > self.map.header['east'] or center[0] < self.map.header['west'] or center[1] > self.map.header['north'] or center[1] < self.map.header['south']:
+        elif center[0] > self.matrix_map.header['east'] or center[0] < self.matrix_map.header['west'] or center[1] > self.matrix_map.header['north'] or center[1] < self.matrix_map.header['south']:
             print("Wrong center")
             return
         
         # 矩阵匹配
-        rows = int((center[1]-self.map.header['south'])/self.map_y_gap)
-        cols = int((center[0]-self.map.header['west'])/self.map_x_gap)
+        rows = int((center[1]-self.matrix_map.header['south'])/self.map_y_gap)
+        cols = int((center[0]-self.matrix_map.header['west'])/self.map_x_gap)
         pois = self.pois_matrix[prefix][rows][cols]
         return pois
     

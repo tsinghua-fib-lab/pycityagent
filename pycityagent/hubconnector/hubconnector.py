@@ -3,9 +3,9 @@
 from typing import Optional
 import geojson
 from geojson import Feature, FeatureCollection, Point, LineString
-from pycitysim.apphub import AppHubClient, AgentMessage, UserMessage
+from pycitysim.apphub import AppHubClient, AgentMessage, UserMessage, Waypoint
 import PIL.Image as Image
-import traceback
+import time
 
 class HubConnector:
     """
@@ -63,12 +63,11 @@ class HubConnector:
         Insert the Func Agent to AppHub
         """
         self._agent_id = self._client.bind_func(
-            self._agent._id,
             self._agent._name,
             Image.open(self._profile_img)
         )
 
-    def Update(self, messages:Optional[list[AgentMessage]]=None, streetview:list[Image.Image]=None, longlat:list[float]=None, pop:str=None):
+    def Update(self, messages:Optional[list[AgentMessage]]=None, streetview:Image.Image=None, longlat:list[float]=None, pop:str=None):
         """
         交互更新
         FrontEnd Related Update
@@ -99,20 +98,22 @@ class HubConnector:
                 pop_ = self._agent.agent_name + ": " + pop
             if longlat != None:
                 longlat_ = longlat
+                t_size = len(self._agent._history_trajectory)
+                self._agent._history_trajectory.append(Waypoint([longlat[0], longlat[1]], t_size*5000))
             else:
                 longlat_ = [self._agent.motion['position']['longlat_position']['longitude'], self._agent.motion['position']['longlat_position']['latitude']]
-            if longlat != None:
-                self._agent._history_trajectory.append(longlat)
-            path = self._agent._history_trajectory
-            path_ls = LineString(path)
-            path_feature = Feature(id='history', geometry=path_ls)
-            fc = FeatureCollection([path_feature])
+                
+            if 'direction' in self._agent.motion.keys():
+                direction = self._agent.motion['direction']
+            else:
+                direction = None
             self._client.update_agent_map(
                 agent_id = self._agent_id, 
                 lnglat = longlat_,
-                geojsons=fc,
+                direction=direction,
                 street_view=streetview,
-                popup=pop_
+                popup=pop_,
+                waypoints=self._agent._history_trajectory
             )
             if messages != None:
                 self.messageBuffer += messages

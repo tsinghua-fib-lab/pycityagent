@@ -7,6 +7,7 @@ from .agent import Agent, AgentType
 from .image.image import Image
 from .ac.hub_actions import PositionUpdate
 from .utils import *
+from pycitysim.apphub import Waypoint
 
 class FuncAgent(Agent):
     """
@@ -17,7 +18,6 @@ class FuncAgent(Agent):
     def __init__(
             self, 
             name:str, 
-            id: int,
             server:str, 
             soul:UrbanLLM=None, 
             simulator=None, 
@@ -34,12 +34,6 @@ class FuncAgent(Agent):
         """
 
         super().__init__(name, server, AgentType.Func, soul, simulator)
-        self._id = id
-        """
-        - 智能体Id
-        - Agent's id
-        """
-
         self._image = Image(self)
         """
         - Func Agent画像——支持自定义内容
@@ -69,7 +63,7 @@ class FuncAgent(Agent):
         """
 
         self._posUpdate = PositionUpdate(self)
-        self._history_trajectory:list[list[float]] = []
+        self._history_trajectory:list[Waypoint] = []
 
     async def set_position_aoi(self, aoi_id:int):
         """

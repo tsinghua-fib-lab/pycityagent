@@ -176,7 +176,7 @@ class Sence(BrainFunction):
 
         # * streetview
         if self._sence_contents == None or 'streetview' in self._sence_contents:
-            if self.enable_streeview:
+            if self.enable_streeview and 'lane_position' in self._agent.motion['position'].keys():
                 self.sence_buffer['streetview'] = self.PerceiveStreetView()
             else:
                 self.sence_buffer['streetview'] = None
@@ -189,15 +189,15 @@ class Sence(BrainFunction):
                 self.sence_buffer['user_messages'] = []
 
         # * agent message
-        if self._sence_contents == None or 'agent_message' in self._sence_contents:
-            self.sence_buffer['social_messages'] = await self.PerceiveMessageFromPerson()
+        # if self._sence_contents == None or 'agent_message' in self._sence_contents:
+        #     self.sence_buffer['social_messages'] = await self.PerceiveMessageFromPerson()
 
         # * 插件感知
-        if len(self.plugs) > 0:
-            for plug in self.plugs:
-                out_key = plug.out
-                out = plug.user_func(self.sence_buffer)
-                self.plug_buffer[out_key] = out
+        # if len(self.plugs) > 0:
+        #     for plug in self.plugs:
+        #         out_key = plug.out
+        #         out = plug.user_func(self.sence_buffer)
+        #         self.plug_buffer[out_key] = out
 
     # * AOI and POI Related
     async def PerceiveAoi(self, only_person:bool=False):
@@ -532,9 +532,6 @@ class Sence(BrainFunction):
     # * StreetView Related
     def PerceiveStreetView(
             self, 
-            # engine:str="baidumap", 
-            heading:str="front", 
-            save:bool=False, 
             save_dir:str=None
         ):
         """
@@ -562,31 +559,13 @@ class Sence(BrainFunction):
 
         coords = [(self._agent.motion['position']['longlat_position']['longitude'], self._agent.motion['position']['longlat_position']['latitude'])]
 
-        if heading == "front":
-            heading_direction = self._agent.motion['direction']
-        elif heading == "back":
-            heading_direction += 180
-        elif heading == "left":
-            heading_direction += -90
-        elif heading == "right":
-            heading_direction += 90
-        else:
-            print("Wrong HEADING, Use FRONT")
-        persp = []
+        heading_direction = self._agent.motion['direction']
         try:
             if self._engine == "baidumap":
                 points = wgs842bd09mc(coords, self._baiduAK)
                 sv = BaiduStreetView.search(points[0][0], points[0][1])
                 eq = Equirectangular(sv)
-                persp.append(eq.get_perspective(120, heading_direction-90, 20, 256, 512))
-                persp.append(eq.get_perspective(120, heading_direction, 20, 256, 512))
-                persp.append(eq.get_perspective(120, heading_direction+90, 20, 256, 512))
-                persp.append(eq.get_perspective(120, heading_direction+180, 20, 256, 512))
-                if save:
-                    date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    sv.panorama.save("{}/{}_{}_panorama_{}.jpg".format(save_dir, self._agent.name, date_time))
-                    for i in range(len(persp)):
-                        persp[i].save("{}/{}_{}_persp_{}.jpg".format(save_dir, self._agent.name, date_time, i))
+                persp = eq.get_perspective(120, heading_direction, 0, 300, 2100)
                 return persp
             elif self._engine == "googlemap":
                 sv = GoogleStreetView.search(
@@ -596,12 +575,7 @@ class Sence(BrainFunction):
                         cache_dir=save_dir
                     )
                 eq = Equirectangular(sv)
-                persp = eq.get_perspective(120, heading_direction, 20, 256, 512)
-                if save:
-                    date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    sv.panorama.save("{}/{}_{}_panorama_{}.jpg".format(save_dir, self._agent.name, date_time))
-                    for i in range(len(persp)):
-                        persp[i].save("{}/{}_{}_persp_{}.jpg".format(save_dir, self._agent.name, date_time, i))
+                persp = eq.get_perspective(120, heading_direction, 0, 300, 2100)
                 return persp
         except Exception as e:
             print(f"Can't get streetview, error message: {e}")

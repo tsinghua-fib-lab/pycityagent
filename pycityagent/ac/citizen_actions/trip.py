@@ -14,7 +14,7 @@ class TripAction(Action):
         now = self._agent.Scheduler.now
         if now.is_set:
             '''之前已经将schedule同步至模拟器了'''
-            if self._agent.Hub != None and self._agent.Brain.Sence.sence_buffer['streetview'] != None and len(self._agent.Brain.Sence.sence_buffer['streetview']) > 0:
+            if self._agent.Hub != None and self._agent.Brain.Sence.sence_buffer['streetview'] != None:
                 self._agent.Hub.Update(streetview=self._agent.Brain.Sence.sence_buffer['streetview'])
         else:
             '''同步schedule至模拟器'''

@@ -4,6 +4,8 @@ from pycityagent.urbanllm import UrbanLLM
 from .urbanllm import UrbanLLM
 from .agent import Agent, AgentType
 from .image.image import CitizenImage
+from pycitysim.apphub import Waypoint
+import time
 
 class CitizenAgent(Agent):
     """
@@ -54,7 +56,7 @@ class CitizenAgent(Agent):
         - Schedule Init
         """
 
-        self._history_trajectory: list[list[float]] = []
+        self._history_trajectory: list[Waypoint] = []
 
     def Bind(self):
         """
@@ -126,11 +128,12 @@ class CitizenAgent(Agent):
             await self._simulator.GetTime()
             # * 2. 拉取Agent最新状态
             resp = await self._client.person_service.GetPerson({'person_id':self._id})
-            self.base = resp['base']
-            self.motion = resp['motion']
+            self.base = resp['person']['base']
+            self.motion = resp['person']['motion']
             longitude = self.motion['position']['longlat_position']['longitude']
             latitude = self.motion['position']['longlat_position']['latitude']
-            self._history_trajectory.append([longitude, latitude])
+            if self.state == 'trip':
+                self._history_trajectory.append(Waypoint([longitude, latitude], int(time.time())))
             # * 3. Brain工作流
             await self._brain.Run()
             # * 4. Commond Controller工作流

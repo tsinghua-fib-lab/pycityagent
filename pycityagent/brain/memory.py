@@ -440,21 +440,21 @@ class WorkingMemory(WMemory):
         """
         self.sence = sence
         # * social message
-        social_message = sence['social_messages']
-        for message in social_message:
-            print(message)
-            from_id = message['from']
-            content = message['message']
-            if from_id in self.msg_agent_unhandle.keys():
-                self.msg_agent_unhandle[from_id] += [{
-                    'role': 'user',
-                    'content': content
-                }]
-            else:
-                self.msg_agent_unhandle[from_id] = [{
-                    'role': 'user',
-                    'content': content
-                }]
+        # social_message = sence['social_messages']
+        # for message in social_message:
+        #     print(message)
+        #     from_id = message['from']
+        #     content = message['message']
+        #     if from_id in self.msg_agent_unhandle.keys():
+        #         self.msg_agent_unhandle[from_id] += [{
+        #             'role': 'user',
+        #             'content': content
+        #         }]
+        #     else:
+        #         self.msg_agent_unhandle[from_id] = [{
+        #             'role': 'user',
+        #             'content': content
+        #         }]
         # * user message
         self.msg_user_unhandle = sence['user_messages']
 

@@ -329,7 +329,7 @@ class Scheduler(BrainFunction):
                             self.schedule_set(True)
                 else:
                     # * 基本行程注册
-                    if self.base_schedule_index >=0 and self.base_schedule[self.base_schedule_index].time <= self._agent._simulator.time:
+                    if self.base_schedule_index >=0 and len(self.base_schedule) > 0 and self.base_schedule[self.base_schedule_index].time <= self._agent._simulator.time:
                         self.now = self.base_schedule[self.base_schedule_index]
                         if 'aoi_position' in self._agent.motion['position'].keys() and self._agent.motion['position']['aoi_position']['aoi_id'] == self.now.target_id_aoi:
                             # 直接跳过该行程
