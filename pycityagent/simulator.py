@@ -58,7 +58,7 @@ class Simulator:
 
         self.map = map.Map(
             mongo_uri = "mongodb://sim:FiblabSim1001@mgo.db.fiblab.tech:8635/",
-            mongo_db = "srt",
+            mongo_db = config['map_request']['mongo_db'],
             mongo_coll = config['map_request']['mongo_coll'],
             cache_dir = config['map_request']['cache_dir'],
         )

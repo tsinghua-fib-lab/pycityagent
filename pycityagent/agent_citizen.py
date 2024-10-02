@@ -4,7 +4,7 @@ from pycityagent.urbanllm import UrbanLLM
 from .urbanllm import UrbanLLM
 from .agent import Agent, AgentType
 from .image.image import CitizenImage
-from pycitysim.apphub import Waypoint
+from .hubconnector import Waypoint
 import time
 
 class CitizenAgent(Agent):

@@ -7,7 +7,7 @@ from .agent import Agent, AgentType
 from .image.image import Image
 from .ac.hub_actions import PositionUpdate
 from .utils import *
-from pycitysim.apphub import Waypoint
+from .hubconnector import Waypoint
 
 class FuncAgent(Agent):
     """
@@ -130,7 +130,7 @@ class FuncAgent(Agent):
         else:
             print("Error: wrong lane id")
 
-    async def set_position_poi(self, poi_id:int):
+    async def set_position_poi(self, poi_id:int, hub:bool=True):
         """
         - 将agent的位置设定到指定poi
 
@@ -156,7 +156,8 @@ class FuncAgent(Agent):
                 'y': y
             }
             # self._history_trajectory.append([self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
-            await self._posUpdate.Forward(longlat=[self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
+            if hub:
+                await self._posUpdate.Forward(longlat=[self.motion['position']['longlat_position']['longitude'], self.motion['position']['longlat_position']['latitude']])
         else:
             print("Error: wrong poi id")
 
