@@ -6,15 +6,8 @@ import PIL.Image as Image
 from PIL.Image import Image
 import asyncio
 import time
+from llm import *
 from pycitysim.sim import CityClient
-
-from pycityagent.urbanllm import UrbanLLM
-from .urbanllm import UrbanLLM
-from .brain.brain import Brain
-from .hubconnector.hubconnector import HubConnector
-from .ac import ActionController
-from .cc import CommandController
-from .st import StateTransformer
 
 class AgentType:
     """
@@ -33,14 +26,14 @@ class Template:
     - 模板基类
     - The basic template class
     """
-    def __init__(self, name, server, type:AgentType, soul:UrbanLLM=None, simulator=None) -> None:
+    def __init__(self, name, server, type:AgentType, soul:LLM=None, simulator=None) -> None:
         self._name = name
         self._client = CityClient(server)
         self._type = type
         self._soul = soul
         self._simulator = simulator
 
-    def add_soul(self, llm_engine:UrbanLLM):
+    def add_soul(self, llm_engine:LLM):
         """
         为Agent添加soul(UrbanLLM)
         Add soul for Agent
@@ -74,7 +67,7 @@ class Agent(Template):
             name:str, 
             server:str, 
             type:AgentType,
-            soul:UrbanLLM=None, 
+            soul:LLM=None, 
             simulator=None
         ) -> None:
         """
@@ -95,53 +88,10 @@ class Agent(Template):
         - HubConnector: the connection between agent and AppHub, you can use 'Agent.connectToHub' to create the connection
         """
 
-        self._brain = Brain(self)
-        """
-        - Agent的大脑
-        - The Agent's Brain
-        """
-
-        self._cc = CommandController(self)
-        """
-        - Agent的命令控制器
-        - The Agent's CommondController
-        """
-
-        self._st = StateTransformer()
-        """
-        - 与Agent关联的状态转移器
-        - The related StateTransformer
-        """
-
-        self._ac = ActionController(self)
-        """
-        - Agent的行为控制器
-        - The Agent's ActionController
-        """
-
         self._step_with_action = True
         """
         - Step函数是否包含action执行 —— 当有自定义action需求(特指包含没有指定source的Action)时可置该选项为False并通过自定义方法执行action操作
         """
-    
-    def ConnectToHub(self, config:dict):
-        """
-        与AppHub构建连接
-        Connect to AppHub
-
-        Args:
-        - config (dict): the config dict of AppHub
-        """
-        profile_img = None
-        if 'profile_image' in config.keys():
-            profile_img = config['profile_image']
-        self._hub_connector = HubConnector(
-            hub_url=config['hub_url'],
-            app_id=config['app_id'],
-            app_secret=config['app_secret'],
-            agent=self,
-            profile_img=profile_img
-        )
 
     def set_streetview_config(self, config:dict):
         """
