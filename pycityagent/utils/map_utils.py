@@ -1,7 +1,12 @@
 import math
+from typing import Dict, List, Literal, Optional, Tuple, Union
+
+import numpy as np
+
 
 def get_angle(x, y):
-    return math.atan2(y, x)*180/math.pi
+    return math.atan2(y, x) * 180 / math.pi
+
 
 def point_on_line_given_distance(start_node, end_node, distance):
     """
@@ -17,8 +22,8 @@ def point_on_line_given_distance(start_node, end_node, distance):
         tuple: Tuple of (x, y) representing the new point reached after traveling s units along the line.
     """
 
-    x1, y1 = start_node['x'], start_node['y']
-    x2, y2 = end_node['x'], end_node['y']
+    x1, y1 = start_node["x"], start_node["y"]
+    x2, y2 = end_node["x"], end_node["y"]
 
     # Calculate the slope m and the y-intercept b of the line
     if x1 == x2:
@@ -29,8 +34,8 @@ def point_on_line_given_distance(start_node, end_node, distance):
         b = y1 - m * x1
 
         # Calculate the direction vector (dx, dy) along the line
-        dx = (x2 - x1) / math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-        dy = (y2 - y1) / math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        dx = (x2 - x1) / math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        dy = (y2 - y1) / math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
         # Scale the direction vector by the given distance
         scaled_dx = dx * distance
@@ -41,138 +46,112 @@ def point_on_line_given_distance(start_node, end_node, distance):
         y = y1 + scaled_dy
 
         return [x, y]
-    
-def get_keyindex_in_lane(nodes, distance, direction:str='front'):
-    temp_sum = 0
-    if direction == 'front':
-        # 顺道路方向前进
-        if distance == 0:
-            return [nodes[0]['x'], nodes[0]['y']]
-        key_index = 0  # first node
-        for i in range(1, len(nodes)):
-            x1, y1 = nodes[i-1]['x'], nodes[i-1]['y']
-            x2, y2 = nodes[i]['x'], nodes[i]['y']
-            temp_sum += math.sqrt((x2 - x1)**2 + (y2-y1)**2)
-            if temp_sum > distance:
-                remain_s = distance - (temp_sum - math.sqrt((x2 - x1)**2 + (y2-y1)**2))
-                break;
-            key_index += 1
-    else:
-        # 逆道路方向前进
-        if distance == 0:
-            return [nodes[-1]['x'], nodes[-1]['y']]
-        key_index = len(nodes)-1  # last node
-        for i in range(len(nodes)-1, 0, -1):
-            x1, y1 = nodes[i]['x'], nodes[i]['y']
-            x2, y2 = nodes[i-1]['x'], nodes[i-1]['y']
-            temp_sum += math.sqrt((x2 - x1)**2 + (y2-y1)**2)
-            if temp_sum > distance:
-                remain_s = distance - (temp_sum - math.sqrt((x2 - x1)**2 + (y2-y1)**2))
-                break;
-            key_index -= 1
-    return key_index
 
-def get_xy_in_lane(nodes, distance, direction:str='front'):
-    temp_sum = 0
-    remain_s = 0
-    if direction == 'front':
-        # 顺道路方向前进
-        if distance == 0:
-            return [nodes[0]['x'], nodes[0]['y']]
-        key_index = 0  # first node
-        for i in range(1, len(nodes)):
-            x1, y1 = nodes[i-1]['x'], nodes[i-1]['y']
-            x2, y2 = nodes[i]['x'], nodes[i]['y']
-            temp_sum += math.sqrt((x2 - x1)**2 + (y2-y1)**2)
-            if temp_sum > distance:
-                remain_s = distance - (temp_sum - math.sqrt((x2 - x1)**2 + (y2-y1)**2))
-                break;
-            key_index += 1
-        if remain_s < 0.5:
-            return [nodes[key_index]['x'], nodes[key_index]['y']]
-        xy = point_on_line_given_distance(nodes[key_index], nodes[key_index+1], remain_s)
-        return xy
+
+def get_key_index_in_lane(
+    nodes: List[Dict[str, float]],
+    distance: float,
+    direction: Union[Literal["front"], Literal["back"]],
+) -> int:
+    if direction == "front":
+        _nodes = [n for n in nodes]
+        _index_offset, _index_factor = 0, 1
+    elif direction == "back":
+        _nodes = [n for n in nodes[::-1]]
+        _index_offset, _index_factor = len(_nodes) - 1, -1
     else:
-        # 逆道路方向前进
-        if distance == 0:
-            return [nodes[-1]['x'], nodes[-1]['y']]
-        key_index = len(nodes)-1  # last node
-        for i in range(len(nodes)-1, 0, -1):
-            x1, y1 = nodes[i]['x'], nodes[i]['y']
-            x2, y2 = nodes[i-1]['x'], nodes[i-1]['y']
-            temp_sum += math.sqrt((x2 - x1)**2 + (y2-y1)**2)
-            if temp_sum > distance:
-                remain_s = distance - (temp_sum - math.sqrt((x2 - x1)**2 + (y2-y1)**2))
-                break;
-            key_index -= 1
-        if remain_s < 0.5:
-            return [nodes[key_index]['x'], nodes[key_index]['y']]
-        xy = point_on_line_given_distance(nodes[key_index], nodes[key_index-1], remain_s)
-        return xy
-    
-def get_direction_by_s(nodes, distance, direction:str='front'):
-    temp_sum = 0
-    if direction == 'front':
-        # 顺道路方向前进
-        if distance == 0:
-            return [nodes[0]['x'], nodes[0]['y']]
-        key_index = 0  # first node
-        for i in range(1, len(nodes)):
-            x1, y1 = nodes[i-1]['x'], nodes[i-1]['y']
-            x2, y2 = nodes[i]['x'], nodes[i]['y']
-            temp_sum += math.sqrt((x2 - x1)**2 + (y2-y1)**2)
-            if temp_sum > distance:
-                break;
-            key_index += 1
-        if key_index == len(nodes)-1:
-            # 端点
-            x = nodes[key_index]['x']-nodes[key_index-1]['x']
-            y = nodes[key_index]['y']-nodes[key_index-1]['y']
-            return get_angle(x, y)
-        else:
-            # 中间点
-            x = nodes[key_index+1]['x'] - nodes[key_index]['x']
-            y = nodes[key_index+1]['y'] - nodes[key_index]['y']
-            return get_angle(x, y)
-    elif direction == 'back':
-        # 逆道路方向前进
-        if distance == 0:
-            return [nodes[-1]['x'], nodes[-1]['y']]
-        key_index = len(nodes)-1  # last node
-        for i in range(len(nodes)-1, 0, -1):
-            x1, y1 = nodes[i]['x'], nodes[i]['y']
-            x2, y2 = nodes[i-1]['x'], nodes[i-1]['y']
-            temp_sum += math.sqrt((x2 - x1)**2 + (y2-y1)**2)
-            if temp_sum > distance:
-                break;
-            key_index -= 1
-        if key_index == 0:
-            x = nodes[key_index]['x'] - nodes[key_index+1]['x']
-            y = nodes[key_index]['y'] - nodes[key_index+1]['y']
-            return get_angle(x, y)
-        else:
-            x = nodes[key_index-1]['x'] - nodes[key_index]['x']
-            y = nodes[key_index-1]['y'] - nodes[key_index]['y']
-            return get_angle(x, y)
+        raise ValueError(f"Invalid direction type {direction}!")
+    _lane_points: List[Tuple[float, float, float]] = [
+        (n["x"], n["y"], n.get("z", 0)) for n in _nodes
+    ]
+    _line_lengths: List[float] = [0.0 for _ in range(len(_nodes))]
+    _s = 0.0
+    for i, (cur_p, next_p) in enumerate(zip(_lane_points[:-1], _lane_points[1:])):
+        _s += math.hypot(next_p[0] - cur_p[0], next_p[1] - cur_p[1])
+        _line_lengths[i + 1] = _s
+    s = np.clip(distance, _line_lengths[0], _line_lengths[-1])
+    _key_index = 0
+    for (
+        prev_s,
+        cur_s,
+    ) in zip(_line_lengths[:-1], _line_lengths[1:]):
+        if prev_s <= s < cur_s:
+            break
+        _key_index += 1
+    return _index_offset + _index_factor * _key_index
+
+
+def get_xy_in_lane(
+    nodes: List[Dict[str, float]],
+    distance: float,
+    direction: Union[Literal["front"], Literal["back"]],
+) -> Tuple[float, float]:
+    if direction == "front":
+        _nodes = [n for n in nodes]
+    elif direction == "back":
+        _nodes = [n for n in nodes[::-1]]
     else:
-        print("Warning: wroing direction, 'front' instead")
-        if distance == 0:
-            return [nodes[0]['x'], nodes[0]['y']]
-        key_index = 0  # first node
-        for i in range(1, len(nodes)):
-            x1, y1 = nodes[i-1]['x'], nodes[i-1]['y']
-            x2, y2 = nodes[i]['x'], nodes[i]['y']
-            temp_sum += math.sqrt((x2 - x1)**2 + (y2-y1)**2)
-            if temp_sum > distance:
-                break;
-            key_index += 1
-        if key_index == len(nodes)-1:
-            # 端点
-            x = nodes[key_index]['x']-nodes[key_index-1]['x']
-            y = nodes[key_index]['y']-nodes[key_index-1]['y']
-            return get_angle(x, y)
-        else:
-            # 中间点
-            x = nodes[key_index+1]['x'] - nodes[key_index]['x']
-            y = nodes[key_index+1]['y'] - nodes[key_index]['y']
-            return get_angle(x, y)
+        raise ValueError(f"Invalid direction type {direction}!")
+    _lane_points: List[Tuple[float, float, float]] = [
+        (n["x"], n["y"], n.get("z", 0)) for n in _nodes
+    ]
+    _line_lengths: List[float] = [0.0 for _ in range(len(_nodes))]
+    _s = 0.0
+    for i, (cur_p, next_p) in enumerate(zip(_lane_points[:-1], _lane_points[1:])):
+        _s += math.hypot(next_p[0] - cur_p[0], next_p[1] - cur_p[1])
+        _line_lengths[i + 1] = _s
+    s = np.clip(distance, _line_lengths[0], _line_lengths[-1])
+    for prev_s, prev_p, cur_s, cur_p in zip(
+        _line_lengths[:-1],
+        _lane_points[:-1],
+        _line_lengths[1:],
+        _lane_points[1:],
+    ):
+        if prev_s <= s < cur_s:
+            _delta_x, _delta_y, _delta_z = [
+                cur_p[_idx] - prev_p[_idx] for _idx in [0, 1, 2]
+            ]
+            _blend_x, _blend_y, _blend_z = [prev_p[_idx] for _idx in [0, 1, 2]]
+            _ratio = (s - prev_s) / (cur_s - prev_s)
+            return (
+                _blend_x + _ratio * _delta_x,
+                _blend_y + _ratio * _delta_y,
+                _blend_z + _ratio * _delta_z,
+            )[:2]
+    return _lane_points[-1][:2]
+
+
+def get_direction_by_s(
+    nodes: List[Dict[str, float]],
+    distance: float,
+    direction: Union[Literal["front"], Literal["back"]],
+) -> float:
+    if direction == "front":
+        _nodes = [n for n in nodes]
+    elif direction == "back":
+        _nodes = [n for n in nodes[::-1]]
+    else:
+        raise ValueError(f"Invalid direction type {direction}!")
+    _lane_points: List[Tuple[float, float, float]] = [
+        (n["x"], n["y"], n.get("z", 0)) for n in _nodes
+    ]
+    _line_lengths: List[float] = [0.0 for _ in range(len(_nodes))]
+    _line_directions: List[Tuple[float, float]] = []
+    _s = 0.0
+    for i, (cur_p, next_p) in enumerate(zip(_lane_points[:-1], _lane_points[1:])):
+        _s += math.hypot(next_p[0] - cur_p[0], next_p[1] - cur_p[1])
+        _line_lengths[i + 1] = _s
+    for i, (cur_p, next_p) in enumerate(zip(_lane_points[:-1], _lane_points[1:])):
+        _direction = math.atan2(next_p[1] - cur_p[1], next_p[0] - cur_p[0])
+        _pitch = math.atan2(
+            next_p[2] - cur_p[2],
+            math.hypot(next_p[0] - cur_p[0], next_p[1] - cur_p[1]),
+        )
+        _line_directions.append((_direction / math.pi * 180, _pitch / math.pi * 180))
+    s = np.clip(distance, _line_lengths[0], _line_lengths[-1])
+    for prev_s, cur_s, direcs in zip(
+        _line_lengths[:-1], _line_lengths[1:], _line_directions
+    ):
+        if prev_s <= s < cur_s:
+            return direcs[0]
+    return _line_directions[-1][0]

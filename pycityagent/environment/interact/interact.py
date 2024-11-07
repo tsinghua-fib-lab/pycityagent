@@ -1,10 +1,10 @@
 """环境相关的Interaction定义"""
-
+from enum import Enum
 from typing import Callable, Optional, Any
 from abc import ABC, abstractmethod
 from typing import Callable, Any
 
-class ActionType:
+class ActionType(Enum):
     """
     行动类型枚举 所有行动本质上为数据推送
     Action Type enumeration, all actions are essentially data push
