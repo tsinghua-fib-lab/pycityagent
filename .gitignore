@@ -8,4 +8,5 @@ cache/
 dist/
 *egg-info/
 __*
+!__init__.py
 docs/
