@@ -10,23 +10,31 @@ name = "pycityagent"
 authors = [
     {name = "Yuwei Yan", email = "pinkgranite86@gmail.com"}
 ]
-description = "LLM-based城市模拟器agent构建库"
+description = "LLM-based城市环境agent构建库"
 keywords = ["agent", "city", "LLM"]
 readme = "README.md"
 license = {file = "LICENSE"}
 dynamic = ["version"]
 requires-python = ">=3.8"
 dependencies = [
-    "dashscope >= 1.14.0",
-    "geojson >= 3.1.0",
-    "numpy >= 1.26.3",
-    "openai >= 1.8.0",
-    "Pillow >= 10.2.0",
-    "pycitydata >= 1.0.0",
-    "citystreetview >= 1.1.0",
-    "PyYAML >= 6.0.1",
-    "Requests >= 2.31.0",
-    "transitions >= 0.9.0"
+    aiohttp==3.10.10
+    citystreetview==1.2.4
+    dashscope==1.14.1
+    geojson==3.1.0
+    grpcio==1.62.0
+    grpcio==1.67.1
+    matplotlib==3.7.1
+    networkx==3.4.2
+    numpy==1.24.1
+    openai==1.54.3
+    Pillow==11.0.0
+    protobuf==5.28.3
+    pycitydata==1.0.0
+    pycityproto==2.0.0a8
+    pycitysim==1.12.2
+    Requests==2.32.3
+    Shapely==2.0.6
+    sidecar==0.7.0
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
