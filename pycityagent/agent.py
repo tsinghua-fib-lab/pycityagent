@@ -1,240 +1,63 @@
 """智能体模板类及其定义"""
 
-from abc import ABC, abstractmethod
-from typing import Optional, Union, Callable
-import PIL.Image as Image
-from PIL.Image import Image
-import asyncio
-import time
+from abc import abstractmethod
 from llm import *
-from pycitysim.sim import CityClient
+from typing import List
+from .environment import Simulator
+from .memory import Memory
+from .workflow import Workflow
 
 class AgentType:
     """
     Agent类型
 
-    - Citizen = 1, 指城市居民类型agent——行动受城市规则限制
-    - Func = 2, 功能型agent——行动规则宽松——本质上模拟器无法感知到Func类型的agent
-    - Group = 3, 群体智能体
+    - Citizen = 1, Citizen type agent
+    - Institution = 2, Orgnization or institution type agent
     """
     Citizen = 1
-    Func = 2
-    Group = 3
+    Institution = 2
 
-class Template:
+class Agent:
     """
-    - 模板基类
-    - The basic template class
-    """
-    def __init__(self, name, server, type:AgentType, soul:LLM=None, simulator=None) -> None:
-        self._name = name
-        self._client = CityClient(server)
-        self._type = type
-        self._soul = soul
-        self._simulator = simulator
-
-    def add_soul(self, llm_engine:LLM):
-        """
-        为Agent添加soul(UrbanLLM)
-        Add soul for Agent
-
-        Args:
-        - llm_engine (UrbanLLM): the soul
-        """
-        self._soul = llm_engine
-
-    def add_simulator(self, simulator):
-        """
-        添加关联模拟器
-        Add related simulator
-
-        Args:
-        - simulator (Simulator): the Simulator object
-        """
-        self._simulator = simulator
-
-    @abstractmethod
-    def Step(self):
-        """模拟器执行接口"""
-
-class Agent(Template):
-    """
-    - 智能体基类
-    - Agent base class
+    Agent base class
     """
     def __init__(
             self, 
-            name:str, 
-            server:str, 
-            type:AgentType,
-            soul:LLM=None, 
-            simulator=None
+            name: str, 
+            type: AgentType,
+            llm_client: LLM, 
+            simulator: Simulator,
+            memory: Memory = None,
         ) -> None:
         """
-        初始化 Init
+        Initialize the Agent.
 
         Args:
-        - name (str): 智能体名称; name of your agent
-        - server (str): 模拟器grpc服务地址; server address of simulator
-        - type (AgentType): 智能体类型; type of agent
-        - soul (UrbanLLM): 基础模型模块; base model
-        - simulator (Simulator): 模拟器对象; simulator
+            name (str): The name of the agent.
+            type (AgentType): The type of the agent.
+            llm_client (LLM): The language model client.
+            simulator (Simulator): The simulator object.
+            memory (Memory, optional): The memory of the agent. Defaults to None.
         """
-        super().__init__(name, server, type, soul, simulator)
+        self._name = name
+        self._type = type
+        self._llm = llm_client
+        self._simulator = simulator
+        self._memory = memory
+        self.workflows: List[Workflow] = []
 
-        self._hub_connector = None
+    async def set_memory(self, memory: Memory):
         """
-        - HubConnector: 用于和AppHub对接——可以通过Agent.connectToHub进行绑定
-        - HubConnector: the connection between agent and AppHub, you can use 'Agent.connectToHub' to create the connection
+        Set the memory of the agent.
         """
+        self._memory = memory
 
-        self._step_with_action = True
-        """
-        - Step函数是否包含action执行 —— 当有自定义action需求(特指包含没有指定source的Action)时可置该选项为False并通过自定义方法执行action操作
-        """
-
-    def set_streetview_config(self, config:dict):
-        """
-        街景感知配置
-        - engine: baidumap / googlemap
-        - mapAK: your baidumap AK (if baidumap)
-        - proxy: your googlemap proxy (if googlemap, optional)
-        """
-        if 'engine' in config:
-            if config['engine'] == 'baidumap':
-                self.Brain.Sence._engine = config['engine']
-                if 'mapAK' in config:
-                    self.Brain.Sence._baiduAK = config['mapAK']
-                else:
-                    print("ERROR: Please Provide a baidumap AK")
-            elif config['engine'] == 'googlemap':
-                self.Brain.Sence._engine = config['engine']
-                if 'proxy' in config:
-                    self.Brain.Sence._googleProxy = config['proxy']
-                else:
-                    print("ERROR: Please provide a googlemap proxy")
-            else:
-                print("ERROR: Wrong engine, only baidumap / googlemap are available")
-        else:
-            print("ERROR: Please provide a streetview engine, baidumap / googlemap")
-    
-    def enable_streetview(self):
-        """
-        - 开启街景相关功能
-        - Enable Streetview function
-        """
-        self._brain.Sence.enable_streeview = True
-
-    def disable_streetview(self):
-        """
-        - 关闭街景相关功能
-        - Disable Streetview function
-        """
-        self._brain.Sence.enable_streeview = False
-
-    def enable_user_interaction(self):
-        """
-        - 开启用户交互功能(即在OpenCity控制台中与Agent进行交互)
-        - Enable User Interaction function. The User Interaction function is the ability to interact with the related agent in OpenCity website console.
-        """
-        self._brain.Memory.Working.enable_user_interaction = True
-
-    def disable_user_interaction(self):
-        """
-        - 关闭用户交互功能
-        - Disable User Interaction function
-        """
-        self._brain.Memory.Working.enable_user_interaction = False
-
-    def set_step_with_action(self, flag:bool = None):
-        """
-        - 默认情况置反step_with_action属性: 即True->False, False->True
-        - 否则根据传入的flag进行设置
-        """
-        if flag != None:
-            self._step_with_action = flag
-        else:
-            self._step_with_action = not self._step_with_action
-        
-
-    def sence_config(self, sence_content:Optional[list[str]]=None, sence_radius:int=None):
-        '''
-        感知配置
-        Sence config
-
-        Args:
-        - sence_content: 配置选项——包含需要感知的数据类型
-            - time: 时间
-            - poi: 感兴趣地点
-            - position: 可达地点
-            - lane: 周围道路
-            - person: 周围活动person
-            - streetview: 街景
-            - user_message: 用户交互信息
-            - agent_message: 智能体交互信息
-        - sence_radius (int): 感知半径(m); sence radius
-        '''
-        if sence_content != None:
-            self._brain._sence.set_sence(sence_content)
-        if sence_radius != None:
-            self._brain._sence.set_sence_radius(sence_radius)
-
-    async def Run(self, round:int=1, interval:int=1, log:bool=True):
-        """
-        Agent执行入口
-        The Agent Run entrance
-
-        Args:
-        - round (int): 执行步数. The steps to run.
-        - interval (int): 步与步之间的执行间隔, 单位秒. The interval between steps, second.
-        - log (bool): 是否输出log信息, 默认为True. Whether console log message, default: True
-        """
-        if self._soul == None:
-            print("Do not add soul yet. Try add_soul(UrbanLLM)")
-        await self.Step(log)
-        for i in range(0, round-1):
-            time.sleep(interval)
-            await self.Step(log)
-
-    async def Step(self, log:bool):
-        """
-        单步Agent执行流
-        Single step entrance
-        (Not recommended, use Run() method)
-        """
-        pass
+    @abstractmethod
+    async def step(self):
+        """Unified execution entry"""
+        raise NotImplementedError
     
     @property
-    def Soul(self):
+    async def LLM(self):
         """The Agent's Soul(UrbanLLM)"""
-        return self._soul
-    
-    @property
-    def Brain(self):
-        """The Agent's Brain"""
-        return self._brain
-    
-    @property
-    def ActionController(self):
-        """The Agents's ActionController"""
-        return self._ac
-    
-    @property
-    def state(self):
-        """The state of the Agent"""
-        return self._st.machine.state
-    
-    @property
-    def StateTransformer(self):
-        """The StateTransformer of the Agent"""
-        return self._st
-
-    @property
-    def Hub(self):
-        """The connected AppHub"""
-        return self._hub_connector
-    
-    @property
-    def CommandController(self):
-        """The command controller"""
-        return self._cc
+        return self._llm

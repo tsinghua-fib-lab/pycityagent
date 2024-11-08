@@ -1,11 +1,12 @@
 import logging
 from copy import deepcopy
-from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union, Callable
 
 from .const import *
 from .profile import ProfileMemory
 from .self_define import DynamicMemory
 from .state import StateMemory
+import asyncio
 
 
 class Memory:
@@ -34,6 +35,7 @@ class Memory:
         """
         self._state = StateMemory()
         self._profile = ProfileMemory()
+        self.watchers: Dict[str, List[Callable]] = {}
         _dynamic_config: Dict[Any, Any] = {}
         if config is not None:
             for k, v in config.items():
@@ -107,6 +109,9 @@ class Memory:
             original_value = _mem.get(key)
             if mode == "replace":
                 _mem.update(key, value)
+                if key in self.watchers:
+                    for callback in self.watchers[key]:
+                        asyncio.create_task(callback())
             elif mode == "merge":
                 if isinstance(original_value, set):
                     original_value.update(set(value))
@@ -119,6 +124,9 @@ class Memory:
                         f"Type of {type(original_value)} does not support mode `merge`, using `replace` instead!"
                     )
                     _mem.update(key, value)
+                if key in self.watchers:
+                    for callback in self.watchers[key]:
+                        asyncio.create_task(callback())
             else:
                 raise ValueError(f"Invalid update mode `{mode}`!")
             return
@@ -147,3 +155,21 @@ class Memory:
                 self.update(k, v, mode)
         else:
             raise TypeError(f"Invalid content type `{type(content)}`!")
+        
+    def add_watcher(self, key: str, callback: Callable) -> None:
+        """
+        Adds a callback function to be invoked when the value 
+        associated with the specified key in memory is updated.
+        
+        Args:
+            key (str): The key for which the watcher is being registered.
+            callback (Callable): A callable function that will be executed 
+            whenever the value associated with the specified key is updated.
+
+        Notes:
+            If the key does not already have any watchers, it will be 
+            initialized with an empty list before appending the callback.
+        """
+        if key not in self.watchers:
+            self.watchers[key] = []
+        self.watchers[key].append(callback)

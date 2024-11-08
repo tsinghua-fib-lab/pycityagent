@@ -22,7 +22,6 @@ class StateMemoryUnit(MemoryUnit):
 
 
 class StateMemory(MemoryBase):
-
     def __init__(
         self,
         msg: Optional[

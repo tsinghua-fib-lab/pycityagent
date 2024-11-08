@@ -3,9 +3,8 @@
 from typing import Optional, Union, Tuple
 from datetime import datetime, timedelta
 import asyncio
-from pycitysim import *
-from pycitysim.routing import RoutingClient
-from pycitysim.sim import CityClient
+from pycitydata import *
+from .sim import CityClient
 
 class Simulator:
     """
@@ -40,12 +39,6 @@ class Simulator:
         """
         pois的基于区块的划分——方便快速粗略地查询poi
         通过Simulator.set_pois_matrix()初始化
-        """
-
-        self.routing = RoutingClient(self.config['route_request']['server'])
-        """
-        - 导航服务grpc客户端
-        - grpc client of routing service
         """
 
         self.time = 0

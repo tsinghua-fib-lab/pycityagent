@@ -1,5 +1,5 @@
 """Environment"""
 
-from .__hubconnector import *
+from .simulator import Simulator
 
-__all__ = ["HubConnector", "Waypoint"]
+__all__ = ["Simulator"]
