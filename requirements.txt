@@ -3,7 +3,8 @@ dashscope==1.14.1
 geojson==3.1.0
 openai==1.41.0
 Pillow==10.2.0
-pycitysim==1.12.2
+pycitydata==1.0.0
 PyYAML==6.0.1
 Requests==2.31.0
 transitions==0.9.0
+pycityproto == 2.0.0a8

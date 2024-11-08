@@ -2,4 +2,4 @@
 
 from .__hubconnector import *
 
-__all__ = [HubConnector, Waypoint]
+__all__ = ["HubConnector", "Waypoint"]
