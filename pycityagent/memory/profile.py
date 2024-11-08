@@ -2,66 +2,46 @@
 Agent Profile
 """
 
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-from .memory_base import MemoryBase
-from .memory_unit import MemoryUnit
+from .const import *
+from .memory_base import MemoryBase, MemoryUnit
 from .utils import convert_msg_to_sequence
 
 
+class ProfileMemoryUnit(MemoryUnit):
+    def __init__(
+        self,
+        content: Optional[Dict] = None,
+    ) -> None:
+        super().__init__(
+            content=content,
+            required_attributes=PROFILE_ATTRIBUTES,
+        )
+
+
 class ProfileMemory(MemoryBase):
-    """
-    A specialized memory management class for storing and retrieving agent profile information.
-
-    This class extends `MemoryBase` and provides specific methods for handling agent profiles,
-    such as adding, removing, and loading profile data.
-    """
-
     def __init__(
         self,
         msg: Optional[
-            Union[MemoryUnit, Sequence[MemoryUnit], Dict, Sequence[Dict]]
+            Union[ProfileMemoryUnit, Sequence[ProfileMemoryUnit], Dict, Sequence[Dict]]
         ] = None,
     ) -> None:
-        """
-        Initializes the ProfileMemory instance.
-
-        Args:
-            msg (Optional[Union[MemoryUnit, Sequence[MemoryUnit], Dict, Sequence[Dict]]], optional):
-                Initial data to load into the memory. Can be a single `MemoryUnit`, a sequence of `MemoryUnit` objects,
-                a dictionary, or a sequence of dictionaries. Defaults to None.
-        """
         super().__init__()
-        if msg is not None:
-            msg = convert_msg_to_sequence(msg)
-            self.load(msg, reset_memory=True)
+        if msg is None:
+            msg = deepcopy(PROFILE_ATTRIBUTES)
+        msg = convert_msg_to_sequence(msg, sequence_type=ProfileMemoryUnit)
+        self.load(msg, reset_memory=True)
 
-    def add(self, msg: Union[MemoryUnit, Sequence[MemoryUnit]]) -> None:
-        """
-        Adds one or more memory units to the memory.
-
-        Args:
-            msg (Union[MemoryUnit, Sequence[MemoryUnit]]): A single memory unit or a sequence of memory units to add.
-        """
+    def add(self, msg: Union[ProfileMemoryUnit, Sequence[ProfileMemoryUnit]]) -> None:
         _memories = self._memories
-        msg = convert_msg_to_sequence(msg)
+        msg = convert_msg_to_sequence(msg, sequence_type=ProfileMemoryUnit)
         for unit in msg:
             if unit not in _memories:
                 _memories[unit] = {}
 
-    def pop(self, index: int) -> MemoryUnit:
-        """
-        Removes and returns the memory unit at the specified index.
-
-        Args:
-            index (int): The index of the memory unit to remove.
-
-        Returns:
-            MemoryUnit: The removed memory unit.
-
-        Raises:
-            ValueError: If the index is out of range.
-        """
+    def pop(self, index: int) -> ProfileMemoryUnit:
         _memories = self._memories
         try:
             pop_unit = list(_memories.keys())[index]
@@ -71,73 +51,43 @@ class ProfileMemory(MemoryBase):
             raise ValueError(f"Index {index} not in memory!")
 
     def load(
-        self, msg: Union[MemoryUnit, Sequence[MemoryUnit]], reset_memory: bool = False
+        self,
+        msg: Union[ProfileMemoryUnit, Sequence[ProfileMemoryUnit]],
+        reset_memory: bool = False,
     ) -> None:
-        """
-        Loads one or more memory units into the memory.
-
-        Args:
-            msg (Union[MemoryUnit, Sequence[MemoryUnit]]): A single memory unit or a sequence of memory units to load.
-            reset_memory (bool, optional): If True, clears the existing memory before loading new units. Defaults to False.
-        """
         if reset_memory:
             self.reset()
         self.add(msg)
 
     def reset(self) -> None:
-        """
-        Resets the memory, clearing all stored memory units.
-        """
         self._memories = {}
 
-    @property
-    def name(self) -> str:
-        """
-        Gets the name of the most recently added profile.
+    def __getattr__(self, name: Any):
+        _latest_memory = self._fetch_recent_memory()[-1]
+        return _latest_memory[name]
 
-        Returns:
-            str: The name of the most recent profile.
+    # interact
+    def get(self, key: Any):
+        return self.__getattr__(key)
 
-        Raises:
-            IndexError: If there are no profiles in memory.
-        """
-        return self._fetch_recent_memory()[-1].name  # type: ignore
+    def update(self, key: Any, value: Any, store_in_history: bool = False):
+        _latest_memory: MemoryUnit = self._fetch_recent_memory()[-1]
+        if not store_in_history:
+            # write in place
+            _latest_memory.update({key: value})
+        else:
+            # insert new unit
+            _content = {k: v for k, v in _latest_memory._content.items()}
+            _content.update({key: value})
+            self.add(ProfileMemoryUnit(_content))
 
-    @property
-    def age(self) -> float:
-        """
-        Gets the age of the most recently added profile.
-
-        Returns:
-            float: The age of the most recent profile.
-
-        Raises:
-            IndexError: If there are no profiles in memory.
-        """
-        return self._fetch_recent_memory()[-1].age  # type: ignore
-
-    @property
-    def consumption(self) -> str:
-        """
-        Gets the consumption pattern of the most recently added profile.
-
-        Returns:
-            str: The consumption pattern of the most recent profile.
-
-        Raises:
-            IndexError: If there are no profiles in memory.
-        """
-        return self._fetch_recent_memory()[-1].consumption  # type: ignore
-
-    @property
-    def education(self) -> str:
-        """
-        Gets the education level of the most recently added profile.
-
-        Returns:
-            str: The education level of the most recent profile.
-
-        Raises:
-            IndexError: If there are no profiles in memory.
-        """
-        return self._fetch_recent_memory()[-1].education  # type: ignore
+    def update_dict(self, to_update_dict: Dict, store_in_history: bool = False):
+        _latest_memory: MemoryUnit = self._fetch_recent_memory()[-1]
+        if not store_in_history:
+            # write in place
+            _latest_memory.update(to_update_dict)
+        else:
+            # insert new unit
+            _content = {k: v for k, v in _latest_memory._content.items()}
+            _content.update(to_update_dict)
+            self.add(ProfileMemoryUnit(_content))
