@@ -9,7 +9,29 @@ from .state import StateMemory
 
 
 class Memory:
+    """
+    A class to manage different types of memory (state, profile, dynamic).
+
+    Attributes:
+        _state (StateMemory): Stores state-related data.
+        _profile (ProfileMemory): Stores profile-related data.
+        _dynamic (DynamicMemory): Stores dynamically configured data.
+    """
+
     def __init__(self, config: Optional[Dict[Any, Any]] = None) -> None:
+        """
+        Initializes the Memory with optional configuration.
+
+        Args:
+            config (Optional[Dict[Any, Any]], optional):
+                A configuration dictionary for dynamic memory. The dictionary format is:
+                - Key: The name of the dynamic memory field.
+                - Value: Can be one of two formats:
+                    1. A tuple where the first element is a variable type (e.g., int, str, etc.), and the second element is the default value for this field.
+                    2. A callable that returns the default value when invoked (useful for complex default values).
+                Note: If a key in `config` overlaps with predefined attributes in `PROFILE_ATTRIBUTES` or `STATE_ATTRIBUTES`, a warning will be logged, and the key will be ignored.
+                Defaults to None.
+        """
         self._state = StateMemory()
         self._profile = ProfileMemory()
         _dynamic_config: Dict[Any, Any] = {}
@@ -29,7 +51,21 @@ class Memory:
         self,
         key: Any,
         mode: Union[Literal["read only"], Literal["read and write"]] = "read only",
-    ):
+    ) -> Any:
+        """
+        Retrieves a value from memory based on the given key and access mode.
+
+        Args:
+            key (Any): The key of the item to retrieve.
+            mode (Union[Literal["read only"], Literal["read and write"]], optional): Access mode for the item. Defaults to "read only".
+
+        Returns:
+            Any: The value associated with the key.
+
+        Raises:
+            ValueError: If an invalid mode is provided.
+            AttributeError: If the key is not found in any of the memory sections.
+        """
         if mode == "read only":
             process_func = deepcopy
         elif mode == "read and write":
@@ -49,7 +85,19 @@ class Memory:
         key: Any,
         value: Any,
         mode: Union[Literal["replace"], Literal["merge"]] = "replace",
-    ):
+    ) -> None:
+        """
+        Updates an existing value in the memory with a new value based on the given key and update mode.
+
+        Args:
+            key (Any): The key of the item to update.
+            value (Any): The new value to set.
+            mode (Union[Literal["replace"], Literal["merge"]], optional): Update mode. Defaults to "replace".
+
+        Raises:
+            ValueError: If an invalid update mode is provided.
+            AttributeError: If the key is not found in any of the memory sections.
+        """
         for _mem in [self._state, self._profile, self._dynamic]:
             try:
                 _ = _mem.get(key)
@@ -78,8 +126,24 @@ class Memory:
 
     def update_batch(
         self,
-        content: Dict,
+        content: Union[Dict, Sequence[Tuple[Any, Any]]],
         mode: Union[Literal["replace"], Literal["merge"]] = "replace",
-    ):
-        for k, v in content.items():
-            self.update(k, v, mode)
+    ) -> None:
+        """
+        Updates multiple values in the memory at once.
+
+        Args:
+            content (Union[Dict, Sequence[Tuple[Any, Any]]]): A dictionary or sequence of tuples containing the keys and values to update.
+            mode (Union[Literal["replace"], Literal["merge"]], optional): Update mode. Defaults to "replace".
+
+        Raises:
+            TypeError: If the content type is neither a dictionary nor a sequence of tuples.
+        """
+        if isinstance(content, dict):
+            for k, v in content.items():
+                self.update(k, v, mode)
+        elif isinstance(content, Sequence):
+            for k, v in content:
+                self.update(k, v, mode)
+        else:
+            raise TypeError(f"Invalid content type `{type(content)}`!")
