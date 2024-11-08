@@ -29,7 +29,7 @@ STATE_ATTRIBUTES = {
     "pedestrian_attribute": PedestrianAttribute(),
     "bike_attribute": BikeAttribute(),
     # motion
-    "status": 0,
+    "status": Status.STATUS_UNSPECIFIED,
     "position": Position(),
     "v": float(),
     "direction": float(),
