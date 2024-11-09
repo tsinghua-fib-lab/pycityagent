@@ -1,50 +1,47 @@
-[build-system]
-requires = ["setuptools>=41", "wheel", "setuptools-git-versioning<2"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools-git-versioning]
-enabled = true
-
-[project]
+[tool.poetry]
 name = "pycityagent"
-authors = [
-    {name = "Yuwei Yan", email = "pinkgranite86@gmail.com"},
-    {name = "Junbo Yan", email = "yanjb20thu@gmali.com"},
-]
+version = "0.0.1"
 description = "LLM-based城市环境agent构建库"
-keywords = ["agent", "city", "LLM"]
+authors = ["Yuwei Yan <pinkgranite86@gmail.com>","Junbo Yan <yanjb20thu@gmali.com>"]
+license = "MIT"
 readme = "README.md"
-license = {file = "LICENSE"}
-dynamic = ["version"]
-requires-python = ">=3.8"
-dependencies = [
-    "aiohttp==3.10.10",
-    "citystreetview==1.2.4",
-    "dashscope==1.14.1",
-    "geojson==3.1.0",
-    "grpcio==1.67.1",
-    "matplotlib==3.7.1",
-    "networkx==3.2.1",
-    "numpy >= 1.20.0",
-    "openai==1.54.3",
-    "Pillow==11.0.0",
-    "protobuf >= 4.24.0, < 5.0.0",
-    "pycitydata==1.0.0",
-    "pycityproto==2.0.0a8",
-    "Requests==2.32.3",
-    "Shapely==2.0.6",
-    "sidecar==0.7.0",
-]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent",
 ]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+aiohttp = "3.10.10"
+citystreetview = "1.2.4"
+dashscope = "1.14.1"
+geojson = "3.1.0"
+grpcio = "1.67.1"
+matplotlib = "3.7.1"
+networkx = "3.2.1"
+numpy = "^1.20.0"
+openai = "1.54.3"
+Pillow = "11.0.0"
+protobuf = "<=4.24.0,<5.0.0"
+pycitydata = "1.0.0"
+pycityproto = "2.0.0a8"
+Requests = "2.32.3"
+Shapely = "2.0.6"
+sidecar = "0.7.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
 [project.urls]
 Homepage = "https://github.com/tsinghua-fib-lab/pycityagent"
 Repository = "https://github.com/tsinghua-fib-lab/pycityagent.git"
 Issues = "https://github.com/tsinghua-fib-lab/pycityagent/issues"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["pycityagent*"]
+
+
+
+
+
+
+
