@@ -1,16 +1,21 @@
 """Simulator: 城市模拟器类及其定义"""
 
-from typing import Optional, Union, Tuple
-from datetime import datetime, timedelta
 import asyncio
-from pycitydata import map
+import logging
+from datetime import datetime, timedelta
+from typing import Optional, Tuple, Union, cast
+
+from pycitydata.map import Map
+
 from .sim import CityClient
+
 
 class Simulator:
     """
     - 模拟器主类
     - Simulator Class
     """
+
     def __init__(self, config) -> None:
         self.config = config
         """
@@ -18,17 +23,18 @@ class Simulator:
         - simulator config
         """
 
-        self._client = CityClient(self.config['simulator']['server'], secure=True)
+        self._client = CityClient(self.config["simulator"]["server"], secure=True)
         """
         - 模拟器grpc客户端
         - grpc client of simulator
         """
 
-        self.map = map.Map(
-            mongo_uri = "mongodb://sim:FiblabSim1001@mgo.db.fiblab.tech:8635/",
-            mongo_db = config['map_request']['mongo_db'],
-            mongo_coll = config['map_request']['mongo_coll'],
-            cache_dir = config['map_request']['cache_dir'],
+        self.map = Map(
+            # TODO:replace uri
+            mongo_uri="mongodb://sim:FiblabSim1001@mgo.db.fiblab.tech:8635/",
+            mongo_db=config["map_request"]["mongo_db"],
+            mongo_coll=config["map_request"]["mongo_coll"],
+            cache_dir=config["map_request"]["cache_dir"],
         )
         """
         - 模拟器地图对象
@@ -41,24 +47,27 @@ class Simulator:
         通过Simulator.set_pois_matrix()初始化
         """
 
-        self.time = 0
+        self.time: int = 0
         """
         - 模拟城市当前时间
         - The current time of simulator
         """
-        self.poi_cate = {'10': 'eat', 
-                         '13': 'shopping', 
-                         '18': 'sports',
-                         '22': 'excursion',
-                         '16': 'entertainment',
-                         '20': 'medical tratment',
-                         '14': 'trivialities',
-                         '25': 'financial',
-                         '12': 'government and political services',
-                         '23': 'cultural institutions',
-                         '28': 'residence'}
+        self.poi_cate = {
+            "10": "eat",
+            "13": "shopping",
+            "18": "sports",
+            "22": "excursion",
+            "16": "entertainment",
+            "20": "medical tratment",
+            "14": "trivialities",
+            "25": "financial",
+            "12": "government and political services",
+            "23": "cultural institutions",
+            "28": "residence",
+        }
         self.map_x_gap = None
         self.map_y_gap = None
+        self._bbox: Tuple[float, float, float, float] = (-1, -1, -1, -1)
         self.poi_matrix_centers = []
 
     # * Agent相关
@@ -75,19 +84,23 @@ class Simulator:
         - https://cityproto.sim.fiblab.net/#city.person.1.GetPersonByLongLatBBoxResponse
         """
         loop = asyncio.get_event_loop()
-        resp = loop.run_until_complete(self._client.person_service.GetPersonByLongLatBBox(req=req))
+        resp = loop.run_until_complete(
+            self._client.person_service.GetPersonByLongLatBBox(req=req)
+        )
         loop.close()
         if status == None:
             return resp
         else:
             motions = []
-            for agent in resp.motions: # type: ignore
+            for agent in resp.motions:  # type: ignore
                 if agent.status in status:
                     motions.append(agent)
-            resp.motions = motions # type: ignore
+            resp.motions = motions  # type: ignore
             return resp
 
-    def set_poi_matrix(self, map:Optional[dict]=None, row_number:int=12, col_number:int=10, radius:int=10000):
+    def set_poi_matrix(
+        self, row_number: int = 12, col_number: int = 10, radius: int = 10000
+    ):
         """
         初始化pois_matrix
 
@@ -98,32 +111,38 @@ class Simulator:
         - col_number (int): 列数
         - radius (int): 搜索半径, 单位m
         """
-        if map == None:
-            self.matrix_map = self.map
-        else:
-            self.matrix_map = map
-        print(f"Building Poi searching matrix, Row_number: {row_number}, Col_number: {col_number}, Radius: {radius}m")
-        self.map_x_gap = (self.matrix_map.header['east'] - self.matrix_map.header['west']) / col_number # type: ignore
-        self.map_y_gap = (self.matrix_map.header['north'] - self.matrix_map.header['south']) / row_number # type: ignore
-        for i in range(row_number):
-            self.poi_matrix_centers.append([])
+        self.matrix_map = self.map
+        map_header = self.matrix_map.header
+        min_x, min_y, max_x, max_y = (
+            map_header[k] for k in ("west", "south", "east", "north")
+        )
+        self._bbox = (min_x, min_y, max_x, max_y)
+        logging.info(
+            f"Building Poi searching matrix, Row_number: {row_number}, Col_number: {col_number}, Radius: {radius}m"
+        )
+        self.map_x_gap = map_x_gap = (max_x - min_x) / col_number
+        self.map_y_gap = map_y_gap = (max_y - min_y) / row_number
+        self.poi_matrix_centers = poi_matrix_centers = [[] for _ in range(row_number)]
+        for i, i_centers in enumerate(poi_matrix_centers):
             for j in range(col_number):
-                center_x = self.matrix_map.header['west'] + self.map_x_gap*j + self.map_x_gap/2 # type: ignore
-                center_y = self.matrix_map.header['south'] + self.map_y_gap*i + self.map_y_gap/2 # type: ignore
-                self.poi_matrix_centers[i].append((center_x, center_y))
-        
-        for pre in self.poi_cate.keys():
-            print(f"Building matrix for Poi category: {pre}")
+                center_x = map_header["west"] + map_x_gap * j + map_x_gap / 2
+                center_y = map_header["south"] + map_y_gap * i + map_y_gap / 2
+                i_centers.append((center_x, center_y))
+
+        for pre, _ in self.poi_cate.items():
+            logging.info(f"Building matrix for Poi category: {pre}")
             self.pois_matrix[pre] = []
             for row_centers in self.poi_matrix_centers:
                 row_pois = []
                 for center in row_centers:
-                    pois = self.map.query_pois(center=center, radius=radius, category_prefix=pre)
+                    pois = self.map.query_pois(
+                        center=center, radius=radius, category_prefix=pre
+                    )
                     row_pois.append(pois)
                 self.pois_matrix[pre].append(row_pois)
-        print("Finished")
+        logging.info("Finished")
 
-    def get_pois_from_matrix(self, center:Tuple[float, float], prefix:str):
+    def get_pois_from_matrix(self, center: Tuple[float, float], prefix: str):
         """
         从poi搜索矩阵中快速获取poi
 
@@ -131,29 +150,31 @@ class Simulator:
         - center (Tuple[float, float]): 位置信息
         - prefix (str): 类型前缀
         """
-        if self.map_x_gap == None:
-            print("Set Poi Matrix first")
+        (min_x, min_y, max_x, max_y) = self._bbox
+        _x, _y = center
+        if self.map_x_gap is None or self.map_y_gap is None:
+            logging.warning("Set Poi Matrix first")
             return
-        elif prefix not in self.poi_cate.keys():
-            print(f"Wrong prefix, only {self.poi_cate.keys()} is usable")
+        elif prefix not in self.poi_cate:
+            logging.warning(f"Wrong prefix, only {self.poi_cate.keys()} is usable")
             return
-        elif center[0] > self.matrix_map.header['east'] or center[0] < self.matrix_map.header['west'] or center[1] > self.matrix_map.header['north'] or center[1] < self.matrix_map.header['south']: # type: ignore
-            print("Wrong center")
+        elif not (min_x < _x < max_x) or not (min_y < _y < max_y):
+            logging.warning("Wrong center")
             return
-        
+
         # 矩阵匹配
-        rows = int((center[1]-self.matrix_map.header['south'])/self.map_y_gap) # type: ignore
-        cols = int((center[0]-self.matrix_map.header['west'])/self.map_x_gap) # type: ignore
+        rows = int((_y - min_y) / self.map_y_gap)
+        cols = int((_x - min_x) / self.map_x_gap)
         pois = self.pois_matrix[prefix][rows][cols]
         return pois
-    
-    def get_cat_from_pois(self, pois:list):
+
+    def get_cat_from_pois(self, pois: list):
         cat_2_num = {}
         for poi in pois:
-            cate = poi['category'][:2]
-            if cate not in self.poi_cate.keys():
+            cate = poi["category"][:2]
+            if cate not in self.poi_cate:
                 continue
-            if cate in cat_2_num.keys():
+            if cate in cat_2_num:
                 cat_2_num[cate] += 1
             else:
                 cat_2_num[cate] = 1
@@ -164,8 +185,14 @@ class Simulator:
                 max_num = cat_2_num[key]
                 max_cat = self.poi_cate[key]
         return max_cat
-        
-    def get_poi_matrix_in_rec(self, center:Tuple[float, float], radius:int=2500, rows:int=5, cols:int=5):
+
+    def get_poi_matrix_in_rec(
+        self,
+        center: Tuple[float, float],
+        radius: int = 2500,
+        rows: int = 5,
+        cols: int = 5,
+    ):
         """
         获取以center为中心的正方形区域内的poi集合
 
@@ -177,20 +204,19 @@ class Simulator:
         south = center[1] - radius
         west = center[0] - radius
         east = center[0] + radius
-        x_gap = (east-west)/cols
-        y_gap = (north-south)/rows
+        x_gap = (east - west) / cols
+        y_gap = (north - south) / rows
         matrix = []
         for i in range(rows):
             matrix.append([])
             for j in range(cols):
                 matrix[i].append([])
-        pois = []
         for poi in self.map.pois.values():
-            x = poi['position']['x']
-            y = poi['position']['y']
-            if x > west and x < east and y > south and y < north:
-                row_index = int((y-south)/x_gap)
-                col_index = int((x-west)/y_gap)
+            x = poi["position"]["x"]
+            y = poi["position"]["y"]
+            if west < x < east and south < y < north:
+                row_index = int((y - south) / x_gap)
+                col_index = int((x - west) / y_gap)
                 matrix[row_index][col_index].append(poi)
         matrix_type = []
         for i in range(rows):
@@ -203,13 +229,19 @@ class Simulator:
                 poi_total_number.append(len(matrix[i][j]))
                 number = 0
                 for poi in matrix[i][j]:
-                    if poi['category'][:2] in self.poi_cate.keys() and self.poi_cate[poi['category'][:2]] == matrix_type[i*cols+j]:
+                    if (
+                        poi["category"][:2] in self.poi_cate.keys()
+                        and self.poi_cate[poi["category"][:2]]
+                        == matrix_type[i * cols + j]
+                    ):
                         number += 1
                 poi_type_number.append(number)
-                
+
         return matrix, matrix_type, poi_total_number, poi_type_number
-        
-    async def GetTime(self, format_time:bool=False, format:Optional[str]="%H:%M:%S") -> Union[int, str]:
+
+    async def GetTime(
+        self, format_time: bool = False, format: str = "%H:%M:%S"
+    ) -> Union[int, str]:
         """
         获取模拟器当前时间 Get current time of simulator
         默认返回以00:00:00为始的, 以s为单位的时间(int)
@@ -223,12 +255,13 @@ class Simulator:
         - time Union[int, str]: 时间 time in second(int) or formated time(str)
         """
         t_sec = await self._client.clock_service.Now({})
-        self.time = t_sec['t'] # type: ignore
+        t_sec = cast(dict[str, int], t_sec)
+        self.time = t_sec["t"]
         if format_time:
             current_date = datetime.now().date()
             start_of_day = datetime.combine(current_date, datetime.min.time())
-            current_time = start_of_day + timedelta(seconds=t_sec['t']) # type: ignore
-            formatted_time = current_time.strftime(format) # type: ignore
+            current_time = start_of_day + timedelta(seconds=t_sec["t"])
+            formatted_time = current_time.strftime(format)
             return formatted_time
         else:
-            return t_sec['t'] # type: ignore
+            return t_sec["t"]
