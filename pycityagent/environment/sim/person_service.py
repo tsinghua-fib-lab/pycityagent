@@ -3,9 +3,9 @@ import warnings
 
 import grpc
 from google.protobuf.json_format import ParseDict
-from pycityproto.city.person.v1 import person_pb2 as person_pb2
-from pycityproto.city.person.v1 import person_service_pb2 as person_service
-from pycityproto.city.person.v1 import person_service_pb2_grpc as person_grpc
+from pycityproto.city.person.v2 import person_pb2 as person_pb2
+from pycityproto.city.person.v2 import person_service_pb2 as person_service
+from pycityproto.city.person.v2 import person_service_pb2_grpc as person_grpc
 
 from ..utils.protobuf import async_parse
 
@@ -40,14 +40,14 @@ class PersonService:
         """
         person = person_pb2.Person(
             attribute=person_pb2.PersonAttribute(
-                length=5.0,
-                width=2.0,
-                max_speed=41.6666666667,
-                max_acceleration=3.0,
-                max_braking_acceleration=-10.0,
-                usual_acceleration=2.0,
-                usual_braking_acceleration=-4.5,
-            ),
+                length=5.0, # type: ignore
+                width=2.0, # type: ignore
+                max_speed=41.6666666667, # type: ignore
+                max_acceleration=3.0, # type: ignore
+                max_braking_acceleration=-10.0, # type: ignore
+                usual_acceleration=2.0, # type: ignore
+                usual_braking_acceleration=-4.5, # type: ignore
+            ), 
             vehicle_attribute=person_pb2.VehicleAttribute(
                 lane_change_length=10.0, min_gap=1.0
             ),

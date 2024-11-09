@@ -3,7 +3,7 @@
 from typing import Optional, Union, Tuple
 from datetime import datetime, timedelta
 import asyncio
-from pycitydata import *
+from pycitydata import map
 from .sim import CityClient
 
 class Simulator:
@@ -81,13 +81,13 @@ class Simulator:
             return resp
         else:
             motions = []
-            for agent in resp.motions:
+            for agent in resp.motions: # type: ignore
                 if agent.status in status:
                     motions.append(agent)
-            resp.motions = motions
+            resp.motions = motions # type: ignore
             return resp
 
-    def set_poi_matrix(self, map:dict=None, row_number:int=12, col_number:int=10, radius:int=10000):
+    def set_poi_matrix(self, map:Optional[dict]=None, row_number:int=12, col_number:int=10, radius:int=10000):
         """
         初始化pois_matrix
 
@@ -103,13 +103,13 @@ class Simulator:
         else:
             self.matrix_map = map
         print(f"Building Poi searching matrix, Row_number: {row_number}, Col_number: {col_number}, Radius: {radius}m")
-        self.map_x_gap = (self.matrix_map.header['east'] - self.matrix_map.header['west']) / col_number
-        self.map_y_gap = (self.matrix_map.header['north'] - self.matrix_map.header['south']) / row_number
+        self.map_x_gap = (self.matrix_map.header['east'] - self.matrix_map.header['west']) / col_number # type: ignore
+        self.map_y_gap = (self.matrix_map.header['north'] - self.matrix_map.header['south']) / row_number # type: ignore
         for i in range(row_number):
             self.poi_matrix_centers.append([])
             for j in range(col_number):
-                center_x = self.matrix_map.header['west'] + self.map_x_gap*j + self.map_x_gap/2
-                center_y = self.matrix_map.header['south'] + self.map_y_gap*i + self.map_y_gap/2
+                center_x = self.matrix_map.header['west'] + self.map_x_gap*j + self.map_x_gap/2 # type: ignore
+                center_y = self.matrix_map.header['south'] + self.map_y_gap*i + self.map_y_gap/2 # type: ignore
                 self.poi_matrix_centers[i].append((center_x, center_y))
         
         for pre in self.poi_cate.keys():
@@ -137,13 +137,13 @@ class Simulator:
         elif prefix not in self.poi_cate.keys():
             print(f"Wrong prefix, only {self.poi_cate.keys()} is usable")
             return
-        elif center[0] > self.matrix_map.header['east'] or center[0] < self.matrix_map.header['west'] or center[1] > self.matrix_map.header['north'] or center[1] < self.matrix_map.header['south']:
+        elif center[0] > self.matrix_map.header['east'] or center[0] < self.matrix_map.header['west'] or center[1] > self.matrix_map.header['north'] or center[1] < self.matrix_map.header['south']: # type: ignore
             print("Wrong center")
             return
         
         # 矩阵匹配
-        rows = int((center[1]-self.matrix_map.header['south'])/self.map_y_gap)
-        cols = int((center[0]-self.matrix_map.header['west'])/self.map_x_gap)
+        rows = int((center[1]-self.matrix_map.header['south'])/self.map_y_gap) # type: ignore
+        cols = int((center[0]-self.matrix_map.header['west'])/self.map_x_gap) # type: ignore
         pois = self.pois_matrix[prefix][rows][cols]
         return pois
     
@@ -223,12 +223,12 @@ class Simulator:
         - time Union[int, str]: 时间 time in second(int) or formated time(str)
         """
         t_sec = await self._client.clock_service.Now({})
-        self.time = t_sec['t']
+        self.time = t_sec['t'] # type: ignore
         if format_time:
             current_date = datetime.now().date()
             start_of_day = datetime.combine(current_date, datetime.min.time())
-            current_time = start_of_day + timedelta(seconds=t_sec['t'])
-            formatted_time = current_time.strftime(format)
+            current_time = start_of_day + timedelta(seconds=t_sec['t']) # type: ignore
+            formatted_time = current_time.strftime(format) # type: ignore
             return formatted_time
         else:
-            return t_sec['t']
+            return t_sec['t'] # type: ignore

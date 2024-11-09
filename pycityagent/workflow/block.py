@@ -44,8 +44,8 @@ class Block:
         """
         if isinstance(self, ReasonBlock):
             if self.format_prompt and self.llm:
-                prompt = self.format_prompt.format(**{key: await self.context.get(key) for key in self.format_prompt.variables})
-                return await self.llm.request(prompt)
+                self.format_prompt.format(**{key: await self.context.get(key) for key in self.format_prompt.variables})
+                return await self.llm.atext_request(self.format_prompt.to_dialog())
             elif self.self_define_function:
                 return self.self_define_function(self.context)
         elif isinstance(self, ActionBlock):
@@ -128,8 +128,8 @@ class RouteBlock(Block):
     async def execute(self) -> None:
         """Execute the routing logic and transition to the selected next block."""
         if self.format_prompt and self.llm:
-            prompt = self.format_prompt.format(**{key: await self.context.get(key) for key in self.format_prompt.variables})
-            response = await self.llm.request(prompt)
+            self.format_prompt.format(**{key: await self.context.get(key) for key in self.format_prompt.variables})
+            response = await self.llm.atext_request(self.format_prompt.to_dialog())
             # TODO: Only support one temp right now
             self.context.temp[self.context.temp_keys[0]] = response
         selected_index = self.selector(self.context)

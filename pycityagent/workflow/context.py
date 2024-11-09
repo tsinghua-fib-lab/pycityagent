@@ -29,7 +29,6 @@ class Context:
         self.temp_keys = temp_keys if temp_keys else []
         self.update_keys = update_keys if update_keys else []
         self.temp: Dict[str, Any] = {}
-        self.update: Dict[str, Any] = {}
 
     async def get(self, key: str) -> Any:
         """
@@ -53,7 +52,7 @@ class Context:
                         raise KeyError(f"Input key '{key}' not found in memory.")
             elif isinstance(item, dict) and key in item:
                 tool = item[key]
-                return await tool(self)
+                return await tool()
         raise KeyError(f"Key '{key}' not found in input keys.")
     
     def update(self, key: str, value: Any) -> None:
@@ -88,6 +87,6 @@ class Context:
         if isinstance(key, str):
             return await self.get(key)
         elif isinstance(key, Tool):
-            return await key(self)
+            return await key()
         else:
             raise ValueError("Key must be either a string or a Tool instance.")

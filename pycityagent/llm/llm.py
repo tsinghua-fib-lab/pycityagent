@@ -1,5 +1,6 @@
 """UrbanLLM: 智能能力类及其定义"""
 
+from ast import Dict, List
 from openai import OpenAI, AsyncOpenAI, APIConnectionError, OpenAIError
 import openai
 import asyncio
@@ -9,10 +10,8 @@ import requests
 from dashscope import ImageSynthesis
 from PIL import Image
 from io import BytesIO
-from typing import Union
-import base64
+from typing import Any, Optional, Union, List, Dict
 import aiohttp
-import re
 from .llmconfig import *
 from .utils import *
 
@@ -44,7 +43,7 @@ class LLM:
         self.completion_tokens_used = 0
         self.request_number = 0
 
-    def show_consumption(self, input_price:float=None, output_price:float=None):
+    def show_consumption(self, input_price:Optional[float]=None, output_price:Optional[float]=None):
         """
         if you give the input and output price of using model, this function will also calculate the consumption for you
         """
@@ -71,7 +70,14 @@ Token Usage:
         return {"total": total_token, "prompt": self.prompt_tokens_used, "completion": self.completion_tokens_used, "ratio": rate}
 
 
-    def text_request(self, dialog:list[dict], temperature:float=1, max_tokens:int=None, top_p:float=None, frequency_penalty:float=None, presence_penalty:float=None) -> str:
+    def text_request(
+            self, 
+            dialog: Any, 
+            temperature: float = 1, 
+            max_tokens: Optional[int] = None, 
+            top_p: Optional[float] = None, 
+            frequency_penalty: Optional[float] = None, 
+            presence_penalty: Optional[float] = None) -> Optional[str]:
         """
         文本相关请求
         Text request
@@ -105,8 +111,8 @@ Token Usage:
                 frequency_penalty=frequency_penalty,
                 presence_penalty=presence_penalty
             )
-            self.prompt_tokens_used += response.usage.prompt_tokens
-            self.completion_tokens_used += response.usage.completion_tokens
+            self.prompt_tokens_used += response.usage.prompt_tokens # type: ignore
+            self.completion_tokens_used += response.usage.completion_tokens # type: ignore
             self.request_number += 1
             return response.choices[0].message.content
         elif self.config.text['request_type'] == 'qwen':
@@ -116,10 +122,10 @@ Token Usage:
                 messages=dialog,
                 result_format='message'
             )
-            if response.status_code == HTTPStatus.OK:
-                return response.output.choices[0]['message']['content']
+            if response.status_code == HTTPStatus.OK: # type: ignore
+                return response.output.choices[0]['message']['content'] # type: ignore
             else:
-                return "Error: {}, {}".format(response.status_code, response.message)
+                return "Error: {}, {}".format(response.status_code, response.message) # type: ignore
         elif self.config.text['request_type'] == 'deepseek':
             client = OpenAI(
                 api_key=self.config.text['api_key'],
@@ -135,15 +141,24 @@ Token Usage:
                 presence_penalty=presence_penalty,
                 stream=False,
             )
-            self.prompt_tokens_used += response.usage.prompt_tokens
-            self.completion_tokens_used += response.usage.completion_tokens
+            self.prompt_tokens_used += response.usage.prompt_tokens # type: ignore
+            self.completion_tokens_used += response.usage.completion_tokens # type: ignore
             self.request_number += 1
             return response.choices[0].message.content
         else:
             print("ERROR: Wrong Config")
             return "wrong config"
         
-    async def atext_request(self, dialog:list[dict], temperature:float=1, max_tokens:int=None, top_p:float=None, frequency_penalty:float=None, presence_penalty:float=None, timeout:int=300, retries=3):
+    async def atext_request(
+            self, 
+            dialog:Any, 
+            temperature:float=1, 
+            max_tokens:Optional[int]=None, 
+            top_p:Optional[float]=None, 
+            frequency_penalty:Optional[float]=None, 
+            presence_penalty:Optional[float]=None, 
+            timeout:int=300, 
+            retries=3):
         """
         异步版文本请求
         """
@@ -162,9 +177,9 @@ Token Usage:
                                 presence_penalty=presence_penalty,
                                 stream=False,
                                 timeout=timeout,
-                            )
-                            self.prompt_tokens_used += response.usage.prompt_tokens
-                            self.completion_tokens_used += response.usage.completion_tokens
+                            ) # type: ignore
+                            self.prompt_tokens_used += response.usage.prompt_tokens # type: ignore
+                            self.completion_tokens_used += response.usage.completion_tokens # type: ignore
                             self.request_number += 1
                             return response.choices[0].message.content
                     else:
@@ -178,9 +193,9 @@ Token Usage:
                             presence_penalty=presence_penalty,
                             stream=False,
                             timeout=timeout,
-                        )
-                        self.prompt_tokens_used += response.usage.prompt_tokens
-                        self.completion_tokens_used += response.usage.completion_tokens
+                        ) # type: ignore
+                        self.prompt_tokens_used += response.usage.prompt_tokens # type: ignore
+                        self.completion_tokens_used += response.usage.completion_tokens # type: ignore
                         self.request_number += 1
                         return response.choices[0].message.content
                 except APIConnectionError as e:
@@ -191,7 +206,7 @@ Token Usage:
                         raise e
                 except OpenAIError as e:
                     if hasattr(e, 'http_status'):
-                        print(f"HTTP status code: {e.http_status}")
+                        print(f"HTTP status code: {e.http_status}") # type: ignore
                     else:
                         print("An error occurred:", e)
                     if attempt < retries - 1:
@@ -230,9 +245,9 @@ Token Usage:
                 presence_penalty=presence_penalty,
                 stream=False,
                 timeout=timeout,
-            )
-            self.prompt_tokens_used += response.usage.prompt_tokens
-            self.completion_tokens_used += response.usage.completion_tokens
+            ) # type: ignore
+            self.prompt_tokens_used += response.usage.prompt_tokens # type: ignore
+            self.completion_tokens_used += response.usage.completion_tokens # type: ignore
             self.request_number += 1
             return response.choices[0].message.content
         else:
@@ -240,7 +255,7 @@ Token Usage:
             return "wrong config"
         
 
-    async def img_understand(self, img_path:Union[str, list[str]], prompt:str=None) -> str:
+    async def img_understand(self, img_path:Union[str, list[str]], prompt:Optional[str]=None) -> str:
         """
         图像理解
         Image understanding
@@ -290,7 +305,7 @@ Token Usage:
                     'content': content
                 }]
             )
-            return response.choices[0].message.content
+            return response.choices[0].message.content # type: ignore
         elif self.config.image_u['request_type'] == 'qwen':
             content = []
             if isinstance(img_path, str):
@@ -312,10 +327,10 @@ Token Usage:
                         api_key=self.config.image_u['api_key'],
                         messages=dialog
                     )
-            if response.status_code == HTTPStatus.OK:
-                return response.output.choices[0]['message']['content']
+            if response.status_code == HTTPStatus.OK: # type: ignore
+                return response.output.choices[0]['message']['content'] # type: ignore
             else:
-                print(response.code)  # The error code.
+                print(response.code)  # type: ignore # The error code.
                 return "Error"
         else:
             print("ERROR: wrong image understanding type, only 'openai' and 'openai' is available")

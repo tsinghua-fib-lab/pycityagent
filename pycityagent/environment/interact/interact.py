@@ -22,7 +22,7 @@ class Action:
     """
     - Action
     """
-    def __init__(self, agent, type:ActionType, source: str = None, before:Callable[[list], Any] = None) -> None:
+    def __init__(self, agent, type:ActionType, source: Optional[str] = None, before:Optional[Callable[[list], Any]] = None) -> None:
         '''
         默认初始化
         
@@ -49,19 +49,18 @@ class Action:
         else:
             return None
 
-    @classmethod
     @abstractmethod
     async def Forward(self):
         '''接口函数'''
 
 class SimAction(Action):
     """SimAction: 模拟器关联Action"""
-    def __init__(self, agent, source: str = None, before: Callable[[list], Any] = None) -> None:
+    def __init__(self, agent, source: Optional[str] = None, before:Optional[Callable[[list], Any]] = None) -> None:
         super().__init__(agent, ActionType.Sim, source, before)
 
 class HubAction(Action):
     """HubAction: Apphub关联Action"""
-    def __init__(self, agent, source: str = None, before: Callable[[list], Any] = None) -> None:
+    def __init__(self, agent, source: Optional[str] = None, before:Optional[Callable[[list], Any]] = None) -> None:
         super().__init__(agent, ActionType.Hub, source, before)
 
 
@@ -70,8 +69,8 @@ class SetSchedule(SimAction):
     用于将agent的行程信息同步至模拟器 —— 仅对citizen类型agent适用
     Synchronize agent's schedule to simulator —— only avalable for citizen type of agent
     """
-    def __init__(self, agent, sources: list[str] = None, before: Callable[[list], Any] = None) -> None:
-        super().__init__(agent, sources, before)
+    def __init__(self, agent, source: Optional[str] = None, before:Optional[Callable[[list], Any]] = None) -> None:
+        super().__init__(agent, source, before)
 
     async def Forward(self, schedule = None):
         """
@@ -118,8 +117,8 @@ class SendAgentMessage(SimAction):
     发送信息给其他agent
     Send messages to other agents
     """
-    def __init__(self, agent, sources: list[str] = None, before: Callable[[list], Any] = None) -> None:
-        super().__init__(agent, sources, before)
+    def __init__(self, agent, source: Optional[str] = None, before:Optional[Callable[[list], Any]] = None) -> None:
+        super().__init__(agent, source, before)
 
     async def Forward(self, messages: Optional[dict] = None):
         if not messages == None and len(messages) > 0:

@@ -2,7 +2,7 @@
 
 from abc import abstractmethod
 from llm import *
-from typing import List
+from typing import List, Optional
 from .environment import Simulator
 from .memory import Memory
 from .workflow import Workflow
@@ -27,7 +27,7 @@ class Agent:
             type: AgentType,
             llm_client: LLM, 
             simulator: Simulator,
-            memory: Memory = None,
+            memory: Optional[Memory] = None,
         ) -> None:
         """
         Initialize the Agent.
