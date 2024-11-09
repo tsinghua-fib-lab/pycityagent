@@ -1,4 +1,5 @@
 .vscode/
+build/
 test*
 cache/
 *.ipynb*

@@ -8,7 +8,8 @@ enabled = true
 [project]
 name = "pycityagent"
 authors = [
-    {name = "Yuwei Yan", email = "pinkgranite86@gmail.com"}
+    {name = "Yuwei Yan", email = "pinkgranite86@gmail.com"},
+    {name = "Junbo Yan", email = "yanjb20thu@gmali.com"},
 ]
 description = "LLM-based城市环境agent构建库"
 keywords = ["agent", "city", "LLM"]

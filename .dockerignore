@@ -1,0 +1,6 @@
+.dockerignore
+.gitignore
+.git/
+.gitlab-ci.yml
+.gitmodules
+examples/
