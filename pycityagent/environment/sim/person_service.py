@@ -1,5 +1,5 @@
-from typing import Any, Awaitable, Coroutine, cast, Union, Dict
 import warnings
+from typing import Any, Awaitable, Coroutine, Dict, Union, cast
 
 import grpc
 from google.protobuf.json_format import ParseDict
@@ -39,17 +39,17 @@ class PersonService:
         The fields that need to be supplemented are person.home, person.schedules, person.labels
         """
         person = person_pb2.Person(
-            attribute=person_pb2.PersonAttribute(
-                length=5.0, # type: ignore
-                width=2.0, # type: ignore
-                max_speed=41.6666666667, # type: ignore
-                max_acceleration=3.0, # type: ignore
-                max_braking_acceleration=-10.0, # type: ignore
-                usual_acceleration=2.0, # type: ignore
-                usual_braking_acceleration=-4.5, # type: ignore
-            ), 
+            attribute=person_pb2.PersonAttribute(),
             vehicle_attribute=person_pb2.VehicleAttribute(
-                lane_change_length=10.0, min_gap=1.0
+                lane_change_length=10.0,
+                min_gap=1.0,
+                length=5.0,
+                width=2.0,
+                max_speed=41.6666666667,
+                max_acceleration=3.0,
+                max_braking_acceleration=-10.0,
+                usual_acceleration=2.0,
+                usual_braking_acceleration=-4.5,
             ),
         )
         return person
