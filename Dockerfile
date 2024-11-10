@@ -3,8 +3,11 @@ FROM registry.fiblab.net/general/dev:latest as builder
 WORKDIR /build
 COPY . /build
 ENV PIP_NO_CACHE_DIR=1
-RUN pip3 install --upgrade pip \ 
-    && pip3 install pdoc \
+
+# Ensure the script has executable permission
+RUN chmod +x ./scripts/gen_docs.sh \
+    && pip3 install --upgrade pip --root-user-action=ignore \
+    && pip3 install pdoc --root-user-action=ignore \
     && ./scripts/gen_docs.sh
 
 FROM node:18-alpine
