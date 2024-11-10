@@ -8,8 +8,8 @@ from pycityagent.memory import Memory
 from pycityagent.workflow import (Context, GetMap, NormalWorkflow, ReasonBlock,
                                   SencePOI)
 
-from mobility_prompt import *
-from utils import *
+from .mobility_prompt import *
+from .utils import *
 
 
 async def main():
