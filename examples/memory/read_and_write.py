@@ -24,6 +24,12 @@ def init_test_mem() -> Memory:
             "status": 1,
             "v": 10.0,
         },
+        profile={
+            "gender": "male",
+            "education": "Doctor",
+            "consumption": "sightly low",
+            "occupation": "Student",
+        },
         activate_timestamp=True,
     )
     return mem

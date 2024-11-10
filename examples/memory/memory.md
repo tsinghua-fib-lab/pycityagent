@@ -33,6 +33,7 @@ Initializes the `Memory` object with optional configurations for dynamic memory,
 **Parameters:**
 
 - **config**: `Optional[Dict[Any, Any]]` - A configuration dictionary for dynamic memory. Each key-value pair represents a field name and its type or a callable to generate a default value. If a key overlaps with predefined attributes, a warning is logged, and the key is ignored.
+- **profile**: `Optional[Dict[Any, Any]]` - A dictionary of base attributes. Keys not in `PROFILE_ATTRIBUTES` will log a warning.
 - **base**: `Optional[Dict[Any, Any]]` - A dictionary of base attributes from the City Simulator. Keys not in `STATE_ATTRIBUTES` will log a warning.
 - **motion**: `Optional[Dict[Any, Any]]` - A dictionary of motion attributes from the City Simulator. Keys not in `STATE_ATTRIBUTES` will log a warning.
 - **activate_timestamp**: `bool` - Whether to activate timestamp storage in memory units.

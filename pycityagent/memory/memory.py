@@ -23,6 +23,7 @@ class Memory:
     def __init__(
         self,
         config: Optional[Dict[Any, Any]] = None,
+        profile: Optional[Dict[Any, Any]] = None,
         base: Optional[Dict[Any, Any]] = None,
         motion: Optional[Dict[Any, Any]] = None,
         activate_timestamp: bool = False,
@@ -39,6 +40,7 @@ class Memory:
                     2. A callable that returns the default value when invoked (useful for complex default values).
                 Note: If a key in `config` overlaps with predefined attributes in `PROFILE_ATTRIBUTES` or `STATE_ATTRIBUTES`, a warning will be logged, and the key will be ignored.
                 Defaults to None.
+            profile (Optional[Dict[Any, Any]], optional): profile attribute dict.
             base (Optional[Dict[Any, Any]], optional): base attribute dict from City Simulator.
             motion (Optional[Dict[Any, Any]], optional): motion attribute dict from City Simulator.
             activate_timestamp (bool): Whether activate timestamp storage in MemoryUnit
@@ -60,6 +62,11 @@ class Memory:
         self._dynamic = DynamicMemory(
             required_attributes=_dynamic_config, activate_timestamp=activate_timestamp
         )
+        if profile is not None:
+            for k, v in profile.items():
+                if k not in PROFILE_ATTRIBUTES:
+                    logging.warning(f"key `{k}` is not a correct `profile` field!")
+                self._profile.update(k, v)
         if motion is not None:
             for k, v in motion.items():
                 if k not in STATE_ATTRIBUTES:
