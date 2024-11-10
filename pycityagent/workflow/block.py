@@ -47,7 +47,7 @@ class Block:
                 self.format_prompt.format(**{key: await self.context.get(key) for key in self.format_prompt.variables})
                 return await self.llm.atext_request(self.format_prompt.to_dialog())
             elif self.self_define_function:
-                return self.self_define_function(self.context)
+                return await self.self_define_function(self.context)
         elif isinstance(self, ActionBlock):
             print("ActionBlock")
             return None
@@ -88,9 +88,9 @@ class ReasonBlock(Block):
             for key in self.context.update_keys:
                 self.context.update(key, response)
         elif self.self_define_function:
-            response = self.self_define_function(self.context)
+            response = await self.self_define_function(self.context)
             for key in self.context.update_keys:
-                self.context.update(key, response)
+                self.context.update(key, response[key])
         if self.next_blocks:
             await self.next_blocks[0].execute()
 

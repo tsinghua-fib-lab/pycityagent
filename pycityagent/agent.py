@@ -1,21 +1,22 @@
 """智能体模板类及其定义"""
 
 from abc import abstractmethod
-from llm import *
+from enum import Enum
+from .llm import LLM
 from typing import List, Optional
 from .environment import Simulator
 from .memory import Memory
 from .workflow import Workflow
 
-class AgentType:
+class AgentType(Enum):
     """
     Agent类型
 
-    - Citizen = 1, Citizen type agent
-    - Institution = 2, Orgnization or institution type agent
+    - Citizen, Citizen type agent
+    - Institution, Orgnization or institution type agent
     """
-    Citizen = 1
-    Institution = 2
+    Citizen = "Citizen"
+    Institution = "Inistitution"
 
 class Agent:
     """
@@ -52,12 +53,39 @@ class Agent:
         """
         self._memory = memory
 
-    @abstractmethod
-    async def step(self):
-        """Unified execution entry"""
-        raise NotImplementedError
+    def add_workflow(self, workflow: Workflow) -> None:
+        if self._memory is None:
+            raise ValueError("Memory is not set yet.")
+        workflow.bind_memory(self._memory)
+        workflow.bind_simulator(self._simulator)
+        workflow.bind_llm(self._llm)
+        self.workflows.append(workflow)
+
+    async def start_all_workflows(self) -> None:
+        for workflow in self.workflows:
+            await workflow.start()
+
+    def stop_all_workflows(self) -> None:
+        for workflow in self.workflows:
+            workflow.stop()
     
     @property
     async def LLM(self):
         """The Agent's Soul(UrbanLLM)"""
         return self._llm
+    
+class CitizenAgent(Agent):
+    """
+    CitizenAgent: 城市居民智能体类及其定义
+    """
+    def __init__(self, name: str, llm_client: LLM, simulator: Simulator, memory: Optional[Memory] = None) -> None:
+        super().__init__(name, AgentType.Citizen, llm_client, simulator, memory)
+
+class InistitutionAgent(Agent):
+    """
+    InistitutionAgent: 机构智能体类及其定义
+    """
+    def __init__(self, name: str, llm_client: LLM, simulator: Simulator, memory: Optional[Memory] = None) -> None:
+        super().__init__(name, AgentType.Institution, llm_client, simulator, memory)
+
+    

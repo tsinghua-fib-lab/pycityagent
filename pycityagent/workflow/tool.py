@@ -1,9 +1,4 @@
 from typing import Any, Callable, Dict, List, Optional, Union
-from enum import Enum
-
-from click import Option
-from .context import Context
-import copy
 from ..environment import POI_TYPE_DICT, LEVEL_ONE_PRE, Simulator
 from ..memory import Memory
 
@@ -24,10 +19,21 @@ class Tool:
         """
         raise NotImplementedError
     
-class SenceAoi(Tool):
-    """Retrieve the Area of Interest (AOI) of the current scene.
+class GetMap(Tool):
+    """Retrieve the map from the simulator.
+    """
+    def __init__(self) -> None:
+        self.variables = []
+    
+    async def __call__(self) -> Union[Any, Callable]:
+        if self.simulator is None:
+            raise ValueError('Simulator is not set.')
+        return self.simulator.map
+    
+class SencePOI(Tool):
+    """Retrieve the Point of Interest (POI) of the current scene.
 
-    This tool computes the AOI based on the current `position` stored in memory and returns 
+    This tool computes the POI based on the current `position` stored in memory and returns 
     points of interest (POIs) within a specified radius. 
 
     Attributes:
@@ -82,4 +88,4 @@ class SenceAoi(Tool):
                 poi[0]['category'] = POI_TYPE_DICT[cate_str]
         else:
             radius_ = radius if radius else self.radius
-            return SenceAoi(radius_, category_prefix)
+            return SencePOI(radius_, category_prefix)

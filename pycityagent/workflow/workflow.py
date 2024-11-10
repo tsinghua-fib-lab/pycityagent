@@ -3,6 +3,8 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from enum import Enum
 import networkx as nx
 import matplotlib.pyplot as plt
+from pandas import notna
+from ..environment import Simulator
 from ..memory import Memory
 from .block import *
 from .trigger import EventTrigger
@@ -65,15 +67,48 @@ class Workflow:
             self._bind_memory_to_block(self.start_block, memory)
 
     def _bind_memory_to_block(self, block: Block, memory: Memory) -> None:
-        """Recursively binds memory to a specified block and its next blocks.
+        """Recursively assigns the provided memory instance to a given block and its subsequent blocks.
+
+        This method updates the memory context for the specified block and iterates through its input keys. 
+        If any input key is a dictionary, it binds the memory to each tool within that dictionary.
 
         Args:
-            block (Block): The block to bind memory to.
-            memory (Memory): The memory instance to bind.
+            block (Block): The block to which memory should be bound.
+            memory (Memory): The memory instance to be associated with the block and its subsequent blocks.
         """
         block.context.memory = memory
+        for item in block.context.input_keys:
+            if isinstance(item, dict):
+                for _, tool in item.items():
+                    tool.memory = memory
         for next_block in block.next_blocks:
             self._bind_memory_to_block(next_block, memory)
+
+    def bind_simulator(self, simulator: Simulator) -> None:
+        """Binds a simulator to the workflow, applying it to all blocks.
+        Args:
+            simulator (Simulator): The simulator instance to bind.
+        """
+        self.simulator = simulator
+        if self.start_block:
+            self._bind_simulator_to_block(self.start_block, simulator)
+
+    def _bind_simulator_to_block(self, block: Block, simulator: Simulator) -> None:
+        """Recursively assigns the provided simulator instance to a given block and its subsequent blocks.
+        This method updates the simulator context for the specified block, applying the simulator to any tools 
+        defined in the block's input keys. If an input key is a dictionary, it binds the simulator to each tool 
+        within that dictionary, ensuring that all relevant blocks have access to the provided simulator 
+        instance.
+        Args:
+            block (Block): The block to which the simulator should be bound.
+            simulator (Simulator): The simulator instance to be associated with the block and all its subsequent blocks.
+        """
+        for item in block.context.input_keys:
+            if isinstance(item, dict):
+                for _, tool in item.items():
+                    tool.simulator = simulator
+        for next_block in block.next_blocks:
+            self._bind_simulator_to_block(next_block, simulator)
 
     def bind_llm(self, llm: LLM) -> None:
         """Binds a language model (LLM) to the blocks that require it.
@@ -88,23 +123,27 @@ class Workflow:
             if isinstance(block, RouteBlock) and block.format_prompt and block.llm is None:
                 block.llm = llm
 
-    async def run(self) -> None:
+    async def run(self, round) -> None:
         """Runs the workflow based on its type (normal or event-driven)."""
         if self.workflow_type == WorkflowType.NORMAL and self.interval:
             while self.is_running:
                 if self.start_block:
                     await self.start_block.execute()
-                await asyncio.sleep(self.interval)
+                if round == None or round > 0:
+                    await asyncio.sleep(self.interval)
+                    round -= 1
+                else:
+                    break
         elif self.workflow_type == WorkflowType.EVENT_DRIVEN and self.trigger:
             while self.is_running:
                 await self.trigger.wait_for_trigger()
                 if self.start_block:
                     await self.start_block.execute()
 
-    def start(self) -> None:
+    async def start(self, round:Optional[int]=None) -> None:
         """Starts the workflow execution in an asynchronous task."""
         self.is_running = True
-        asyncio.create_task(self.run())
+        await self.run(round=round)
 
     def stop(self) -> None:
         """Stops the execution of the workflow."""
@@ -188,7 +227,6 @@ class Workflow:
         trigger = None  # Placeholder for initializing triggers if required
         workflow = cls(workflow_type, interval, trigger)
         # Initialize blocks based on config_data
-        # Example usage of config
         return workflow
 
 class NormalWorkflow(Workflow):

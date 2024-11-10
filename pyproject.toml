@@ -10,8 +10,12 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+[tool.poetry-git-version-plugin]
+tag_prefix = "v"
+
 [tool.poetry.dependencies]
 python = "^3.9"
+poetry = ">=1.2.2"
 aiohttp = "3.10.10"
 citystreetview = "1.2.4"
 dashscope = "1.14.1"
@@ -28,6 +32,7 @@ pycityproto = "2.0.0a8"
 Requests = "2.32.3"
 Shapely = "2.0.6"
 sidecar = "0.7.0"
+pyyaml = "^6.0.2"
 
 [build-system]
 requires = ["poetry-core"]
