@@ -38,3 +38,5 @@ STATE_ATTRIBUTES = {
 }
 
 SELF_DEFINE_PREFIX = "self_define_"
+
+TIME_STAMP_KEY = "_timestamp"

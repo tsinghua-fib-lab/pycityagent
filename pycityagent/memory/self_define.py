@@ -3,17 +3,25 @@ Self Define Data
 """
 
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
+from .const import *
 from .memory_base import MemoryBase, MemoryUnit
 from .utils import *
 
 
 class DynamicMemoryUnit(MemoryUnit):
     def __init__(
-        self, content: Optional[Dict] = None, required_attributes: Optional[Dict] = None
+        self,
+        content: Optional[Dict] = None,
+        required_attributes: Optional[Dict] = None,
+        activate_timestamp: bool = False,
     ) -> None:
-        super().__init__(content=content, required_attributes=required_attributes)
+        super().__init__(
+            content=content,
+            required_attributes=required_attributes,
+            activate_timestamp=activate_timestamp,
+        )
 
 
 class DynamicMemory(MemoryBase):
@@ -21,14 +29,24 @@ class DynamicMemory(MemoryBase):
     def __init__(
         self,
         required_attributes: Dict[Any, Any],
+        activate_timestamp: bool = False,
     ) -> None:
         super().__init__()
         self._required_attributes = deepcopy(required_attributes)
-        self.add(msg=DynamicMemoryUnit(self._required_attributes))
+        self.activate_timestamp = activate_timestamp
+        self.add(
+            msg=DynamicMemoryUnit(
+                self._required_attributes, None, self.activate_timestamp
+            )
+        )
 
     def add(self, msg: Union[DynamicMemoryUnit, Sequence[DynamicMemoryUnit]]) -> None:
         _memories = self._memories
-        msg = convert_msg_to_sequence(msg, sequence_type=DynamicMemoryUnit)
+        msg = convert_msg_to_sequence(
+            msg,
+            sequence_type=DynamicMemoryUnit,
+            activate_timestamp=self.activate_timestamp,
+        )
         for unit in msg:
             if unit not in _memories:
                 _memories[unit] = {}
@@ -44,42 +62,76 @@ class DynamicMemory(MemoryBase):
 
     def load(
         self,
-        msg: Union[DynamicMemoryUnit, Sequence[DynamicMemoryUnit]],
+        snapshots: Union[Dict, Sequence[Dict]],
         reset_memory: bool = False,
     ) -> None:
         if reset_memory:
             self.reset()
-        self.add(msg)
+        self.add(
+            convert_msg_to_sequence(
+                snapshots,
+                sequence_type=DynamicMemoryUnit,
+                activate_timestamp=self.activate_timestamp,
+            )
+        )
+
+    def export(
+        self,
+    ) -> Sequence[Dict]:
+        return [m._content for m in self._memories.keys()]
 
     def reset(self) -> None:
         self._memories = {}
 
-    def __getattr__(self, name: Any):
-        _latest_memory = self._fetch_recent_memory()[-1]
-        return _latest_memory[name]
-
     # interact
     def get(self, key: Any):
-        return self.__getattr__(key)
+        _latest_memory = self._fetch_recent_memory()[-1]
+        return _latest_memory[key]
 
-    def update(self, key: Any, value: Any, store_in_history: bool = False):
+    def get_top_k(
+        self, key: Any, metric: Callable[[Any], Any], top_k: Optional[int] = None
+    ) -> Union[Sequence[Any], Any]:
+        _latest_memory = self._fetch_recent_memory()[-1]
+        return _latest_memory.top_k_values(key, metric, top_k)
+
+    def update(self, key: Any, value: Any, store_snapshot: bool = False):
         _latest_memory: MemoryUnit = self._fetch_recent_memory()[-1]
-        if not store_in_history:
+        if not store_snapshot:
             # write in place
             _latest_memory.update({key: value})
         else:
             # insert new unit
-            _content = {k: v for k, v in _latest_memory._content.items()}
+            _content = deepcopy(
+                {
+                    k: v
+                    for k, v in _latest_memory._content.items()
+                    if k not in {TIME_STAMP_KEY}
+                }
+            )
             _content.update({key: value})
-            self.add(DynamicMemoryUnit(_content, self._required_attributes))
+            self.add(
+                DynamicMemoryUnit(
+                    _content, self._required_attributes, self.activate_timestamp
+                )
+            )
 
-    def update_dict(self, to_update_dict: Dict, store_in_history: bool = False):
+    def update_dict(self, to_update_dict: Dict, store_snapshot: bool = False):
         _latest_memory: MemoryUnit = self._fetch_recent_memory()[-1]
-        if not store_in_history:
+        if not store_snapshot:
             # write in place
             _latest_memory.update(to_update_dict)
         else:
             # insert new unit
-            _content = {k: v for k, v in _latest_memory._content.items()}
+            _content = deepcopy(
+                {
+                    k: v
+                    for k, v in _latest_memory._content.items()
+                    if k not in {TIME_STAMP_KEY}
+                }
+            )
             _content.update(to_update_dict)
-            self.add(DynamicMemoryUnit(_content, self._required_attributes))
+            self.add(
+                DynamicMemoryUnit(
+                    _content, self._required_attributes, self.activate_timestamp
+                )
+            )

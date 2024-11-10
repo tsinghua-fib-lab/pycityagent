@@ -4,7 +4,9 @@ from abc import abstractmethod
 from enum import Enum
 from .llm import LLM
 from typing import List, Optional
+
 from .environment import Simulator
+from .llm import *
 from .memory import Memory
 from .workflow import Workflow
 
@@ -18,18 +20,20 @@ class AgentType(Enum):
     Citizen = "Citizen"
     Institution = "Inistitution"
 
+
 class Agent:
     """
     Agent base class
     """
+
     def __init__(
-            self, 
-            name: str, 
-            type: AgentType,
-            llm_client: LLM, 
-            simulator: Simulator,
-            memory: Optional[Memory] = None,
-        ) -> None:
+        self,
+        name: str,
+        type: AgentType,
+        llm_client: LLM,
+        simulator: Simulator,
+        memory: Optional[Memory] = None,
+    ) -> None:
         """
         Initialize the Agent.
 

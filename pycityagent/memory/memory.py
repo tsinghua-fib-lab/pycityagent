@@ -1,12 +1,13 @@
+import asyncio
 import logging
 from copy import deepcopy
-from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union, Callable
+from typing import (Any, Callable, Dict, List, Literal, Optional, Sequence,
+                    Tuple, Union)
 
 from .const import *
 from .profile import ProfileMemory
 from .self_define import DynamicMemory
 from .state import StateMemory
-import asyncio
 
 
 class Memory:
@@ -19,7 +20,13 @@ class Memory:
         _dynamic (DynamicMemory): Stores dynamically configured data.
     """
 
-    def __init__(self, config: Optional[Dict[Any, Any]] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[Dict[Any, Any]] = None,
+        base: Optional[Dict[Any, Any]] = None,
+        motion: Optional[Dict[Any, Any]] = None,
+        activate_timestamp: bool = False,
+    ) -> None:
         """
         Initializes the Memory with optional configuration.
 
@@ -32,9 +39,12 @@ class Memory:
                     2. A callable that returns the default value when invoked (useful for complex default values).
                 Note: If a key in `config` overlaps with predefined attributes in `PROFILE_ATTRIBUTES` or `STATE_ATTRIBUTES`, a warning will be logged, and the key will be ignored.
                 Defaults to None.
+            base (Optional[Dict[Any, Any]], optional): base attribute dict from City Simulator.
+            motion (Optional[Dict[Any, Any]], optional): motion attribute dict from City Simulator.
+            activate_timestamp (bool): Whether activate timestamp storage in MemoryUnit
         """
-        self._state = StateMemory()
-        self._profile = ProfileMemory()
+        self._state = StateMemory(activate_timestamp=activate_timestamp)
+        self._profile = ProfileMemory(activate_timestamp=activate_timestamp)
         self.watchers: Dict[str, List[Callable]] = {}
         _dynamic_config: Dict[Any, Any] = {}
         if config is not None:
@@ -47,7 +57,19 @@ class Memory:
                     logging.warning(f"key `{k}` already declared in memory!")
                     continue
                 _dynamic_config[k] = deepcopy(_value)
-        self._dynamic = DynamicMemory(required_attributes=_dynamic_config)
+        self._dynamic = DynamicMemory(
+            required_attributes=_dynamic_config, activate_timestamp=activate_timestamp
+        )
+        if motion is not None:
+            for k, v in motion.items():
+                if k not in STATE_ATTRIBUTES:
+                    logging.warning(f"key `{k}` is not a correct `motion` field!")
+                self._state.update(k, v)
+        if base is not None:
+            for k, v in base.items():
+                if k not in STATE_ATTRIBUTES:
+                    logging.warning(f"key `{k}` is not a correct `base` field!")
+                self._state.update(k, v)
 
     def get(
         self,
@@ -87,6 +109,8 @@ class Memory:
         key: Any,
         value: Any,
         mode: Union[Literal["replace"], Literal["merge"]] = "replace",
+        store_snapshot: bool = False,
+        protect_llm_read_only_fields: bool = True,
     ) -> None:
         """
         Updates an existing value in the memory with a new value based on the given key and update mode.
@@ -95,11 +119,17 @@ class Memory:
             key (Any): The key of the item to update.
             value (Any): The new value to set.
             mode (Union[Literal["replace"], Literal["merge"]], optional): Update mode. Defaults to "replace".
+            store_snapshot (bool): Whether to store a snapshot of the memory after the update.
+            protect_llm_read_only_fields (bool): Whether to protect LLM read-only fields from being updated.
 
         Raises:
             ValueError: If an invalid update mode is provided.
             AttributeError: If the key is not found in any of the memory sections.
         """
+        if protect_llm_read_only_fields:
+            if any(key in _attrs for _attrs in [STATE_ATTRIBUTES]):
+                logging.warning(f"Trying to write protected key `{key}`!")
+                return
         for _mem in [self._state, self._profile, self._dynamic]:
             try:
                 _ = _mem.get(key)
@@ -108,7 +138,7 @@ class Memory:
             # read and write
             original_value = _mem.get(key)
             if mode == "replace":
-                _mem.update(key, value)
+                _mem.update(key, value, store_snapshot)
                 if key in self.watchers:
                     for callback in self.watchers[key]:
                         asyncio.create_task(callback())
@@ -123,7 +153,7 @@ class Memory:
                     logging.warning(
                         f"Type of {type(original_value)} does not support mode `merge`, using `replace` instead!"
                     )
-                    _mem.update(key, value)
+                    _mem.update(key, value, store_snapshot)
                 if key in self.watchers:
                     for callback in self.watchers[key]:
                         asyncio.create_task(callback())
@@ -136,6 +166,8 @@ class Memory:
         self,
         content: Union[Dict, Sequence[Tuple[Any, Any]]],
         mode: Union[Literal["replace"], Literal["merge"]] = "replace",
+        store_snapshot: bool = False,
+        protect_llm_read_only_fields: bool = True,
     ) -> None:
         """
         Updates multiple values in the memory at once.
@@ -143,33 +175,105 @@ class Memory:
         Args:
             content (Union[Dict, Sequence[Tuple[Any, Any]]]): A dictionary or sequence of tuples containing the keys and values to update.
             mode (Union[Literal["replace"], Literal["merge"]], optional): Update mode. Defaults to "replace".
+            store_snapshot (bool): Whether to store a snapshot of the memory after the update.
+            protect_llm_read_only_fields (bool): Whether to protect non-self define fields from being updated.
 
         Raises:
             TypeError: If the content type is neither a dictionary nor a sequence of tuples.
         """
         if isinstance(content, dict):
-            for k, v in content.items():
-                self.update(k, v, mode)
+            _list_content: List[Tuple[Any, Any]] = [(k, v) for k, v in content.items()]
         elif isinstance(content, Sequence):
-            for k, v in content:
-                self.update(k, v, mode)
+            _list_content: List[Tuple[Any, Any]] = [(k, v) for k, v in content]
         else:
             raise TypeError(f"Invalid content type `{type(content)}`!")
-        
+        for k, v in _list_content[:1]:
+            self.update(k, v, mode, store_snapshot, protect_llm_read_only_fields)
+        for k, v in _list_content[1:]:
+            self.update(k, v, mode, False, protect_llm_read_only_fields)
+
     def add_watcher(self, key: str, callback: Callable) -> None:
         """
-        Adds a callback function to be invoked when the value 
+        Adds a callback function to be invoked when the value
         associated with the specified key in memory is updated.
-        
+
         Args:
             key (str): The key for which the watcher is being registered.
-            callback (Callable): A callable function that will be executed 
+            callback (Callable): A callable function that will be executed
             whenever the value associated with the specified key is updated.
 
         Notes:
-            If the key does not already have any watchers, it will be 
+            If the key does not already have any watchers, it will be
             initialized with an empty list before appending the callback.
         """
         if key not in self.watchers:
             self.watchers[key] = []
         self.watchers[key].append(callback)
+
+    def export(
+        self,
+    ) -> Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]]:
+        """
+        Exports the current state of all memory sections.
+
+        Returns:
+            Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]]: A tuple containing the exported data of profile, state, and dynamic memory sections.
+        """
+        return (self._profile.export(), self._state.export(), self._dynamic.export())
+
+    def load(
+        self,
+        snapshots: Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]],
+        reset_memory: bool = True,
+    ) -> None:
+        """
+        Import the snapshot memories of all sections.
+
+        Args:
+            snapshots (Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]]): The exported snapshots.
+            reset_memory (bool): Whether to reset previous memory.
+        """
+        _profile_snapshot, _state_snapshot, _dynamic_snapshot = snapshots
+        for _snapshot, _mem in zip(
+            [_profile_snapshot, _state_snapshot, _dynamic_snapshot],
+            [self._state, self._profile, self._dynamic],
+        ):
+            if _snapshot:
+                _mem.load(snapshots=_snapshot, reset_memory=reset_memory)
+
+    def get_top_k(
+        self,
+        key: Any,
+        metric: Callable[[Any], Any],
+        top_k: Optional[int] = None,
+        mode: Union[Literal["read only"], Literal["read and write"]] = "read only",
+    ) -> Any:
+        """
+        Retrieves the top-k items from the memory based on the given key and metric.
+
+        Args:
+            key (Any): The key of the item to retrieve.
+            metric (Callable[[Any], Any]): A callable function that defines the metric for ranking the items.
+            top_k (Optional[int], optional): The number of top items to retrieve. Defaults to None (all items).
+            mode (Union[Literal["read only"], Literal["read and write"]], optional): Access mode for the item. Defaults to "read only".
+
+        Returns:
+            Any: The top-k items based on the specified metric.
+
+        Raises:
+            ValueError: If an invalid mode is provided.
+            AttributeError: If the key is not found in any of the memory sections.
+        """
+        if mode == "read only":
+            process_func = deepcopy
+        elif mode == "read and write":
+            process_func = lambda x: x
+        else:
+            raise ValueError(f"Invalid get mode `{mode}`!")
+        for _mem in [self._state, self._profile, self._dynamic]:
+            try:
+                value = _mem.get_top_k(key, metric, top_k)
+                return process_func(value)
+            except KeyError as e:
+                continue
+        raise AttributeError(f"No attribute `{key}` in memories!")

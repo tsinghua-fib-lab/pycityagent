@@ -30,8 +30,7 @@ class Simulator:
         """
 
         self.map = Map(
-            # TODO:replace uri
-            mongo_uri="mongodb://sim:FiblabSim1001@mgo.db.fiblab.tech:8635/",
+            mongo_uri=config["map_request"]["mongo_uri"],
             mongo_db=config["map_request"]["mongo_db"],
             mongo_coll=config["map_request"]["mongo_coll"],
             cache_dir=config["map_request"]["cache_dir"],
