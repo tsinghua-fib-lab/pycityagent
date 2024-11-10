@@ -34,6 +34,7 @@ CityAgent is an advanced framework specifically designed for building intelligen
 ## 📰 News
 
 📢 **11.10** - Initial update is now live!
+📢 **2.x version is not compatible* with 1.x version**
 
 Stay tuned for upcoming updates!
 

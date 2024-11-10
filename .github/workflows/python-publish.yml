@@ -33,7 +33,7 @@ jobs:
     - name: Install dependencies
       run: |
         poetry self add poetry-git-version-plugin
-        poetry git-version
+        poetry set-git-version
         poetry install --no-dev
     - name: Build package
       run: poetry build

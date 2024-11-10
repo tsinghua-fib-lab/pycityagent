@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pycityagent"
-version = "0.0.1"
+version = "2.0.0a1"
 description = "LLM-based城市环境agent构建库"
 authors = ["Yuwei Yan <pinkgranite86@gmail.com>","Junbo Yan <yanjb20thu@gmali.com>"]
 license = "MIT"
@@ -11,7 +11,8 @@ classifiers = [
 ]
 
 [tool.poetry-git-version-plugin]
-tag_prefix = "v"
+make_alpha_version = true
+alpha_version_format = '{version}a{distance}'
 
 [tool.poetry.dependencies]
 python = "^3.9"
