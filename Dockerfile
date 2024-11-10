@@ -4,10 +4,9 @@ WORKDIR /build
 COPY . /build
 ENV PIP_NO_CACHE_DIR=1
 
-# Ensure the script has executable permission
 RUN chmod +x ./scripts/gen_docs.sh \
-    && pip3 install --upgrade pip --root-user-action=ignore \
-    && pip3 install pdoc --root-user-action=ignore \
+    && pip3 install --upgrade pip \
+    && pip3 install pdoc \
     && ./scripts/gen_docs.sh
 
 FROM node:18-alpine
