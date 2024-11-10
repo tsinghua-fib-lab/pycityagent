@@ -16,6 +16,7 @@ simulator_request:
   simulator: 
     server: https://api-opencity-2x.fiblab.net:58081
   map_request:
+    mongo_uri: <MONGO_URI>
     mongo_db: llmsim
     mongo_coll: map_beijing5ring_withpoi_0424
     cache_dir: ./cache

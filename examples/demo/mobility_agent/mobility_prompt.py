@@ -1,4 +1,4 @@
-from .utils import *
+from utils import *
 
 INTENTION_GENERATION = """
 I'm a {gender}, my education level is {education}, my consumption level is {consumption} and my education level is {education}.
