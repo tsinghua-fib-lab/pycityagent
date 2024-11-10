@@ -55,7 +55,7 @@ Retrieves a value from memory based on the given key and access mode.
 **Raises:**
 
 - **ValueError**: If an invalid mode is provided.
-- **AttributeError**: If the key is not found in any of the memory sections.
+- **KeyError**: If the key is not found in any of the memory sections.
 
 ### `get_top_k`
 
@@ -75,7 +75,7 @@ Retrieves the top-k items from the memory based on the given key and metric.
 **Raises:**
 
 - **ValueError**: If an invalid mode is provided.
-- **AttributeError**: If the key is not found in any of the memory sections.
+- **KeyError**: If the key is not found in any of the memory sections.
 
 ### `update`
 
@@ -92,7 +92,7 @@ Updates an existing value in the memory with a new value based on the given key 
 **Raises:**
 
 - **ValueError**: If an invalid update mode is provided.
-- **AttributeError**: If the key is not found in any of the memory sections.
+- **KeyError**: If the key is not found in any of the memory sections.
 
 ### `update_batch`
 

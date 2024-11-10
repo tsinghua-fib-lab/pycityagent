@@ -88,7 +88,7 @@ class Memory:
 
         Raises:
             ValueError: If an invalid mode is provided.
-            AttributeError: If the key is not found in any of the memory sections.
+            KeyError: If the key is not found in any of the memory sections.
         """
         if mode == "read only":
             process_func = deepcopy
@@ -102,7 +102,7 @@ class Memory:
                 return process_func(value)
             except KeyError as e:
                 continue
-        raise AttributeError(f"No attribute `{key}` in memories!")
+        raise KeyError(f"No attribute `{key}` in memories!")
 
     def update(
         self,
@@ -124,7 +124,7 @@ class Memory:
 
         Raises:
             ValueError: If an invalid update mode is provided.
-            AttributeError: If the key is not found in any of the memory sections.
+            KeyError: If the key is not found in any of the memory sections.
         """
         if protect_llm_read_only_fields:
             if any(key in _attrs for _attrs in [STATE_ATTRIBUTES]):
@@ -160,7 +160,7 @@ class Memory:
             else:
                 raise ValueError(f"Invalid update mode `{mode}`!")
             return
-        raise AttributeError(f"No attribute `{key}` in memories!")
+        raise KeyError(f"No attribute `{key}` in memories!")
 
     def update_batch(
         self,
@@ -262,7 +262,7 @@ class Memory:
 
         Raises:
             ValueError: If an invalid mode is provided.
-            AttributeError: If the key is not found in any of the memory sections.
+            KeyError: If the key is not found in any of the memory sections.
         """
         if mode == "read only":
             process_func = deepcopy
@@ -276,4 +276,4 @@ class Memory:
                 return process_func(value)
             except KeyError as e:
                 continue
-        raise AttributeError(f"No attribute `{key}` in memories!")
+        raise KeyError(f"No attribute `{key}` in memories!")
