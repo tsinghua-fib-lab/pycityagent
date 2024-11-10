@@ -131,7 +131,7 @@ class Workflow:
                     await self.start_block.execute()
                 if round == None or round > 0:
                     await asyncio.sleep(self.interval)
-                    round -= 1
+                    round = round-1 if round is not None else round
                 else:
                     break
         elif self.workflow_type == WorkflowType.EVENT_DRIVEN and self.trigger:
