@@ -66,16 +66,19 @@ class Memory:
             for k, v in profile.items():
                 if k not in PROFILE_ATTRIBUTES:
                     logging.warning(f"key `{k}` is not a correct `profile` field!")
+                    continue
                 self._profile.update(k, v)
         if motion is not None:
             for k, v in motion.items():
                 if k not in STATE_ATTRIBUTES:
                     logging.warning(f"key `{k}` is not a correct `motion` field!")
+                    continue
                 self._state.update(k, v)
         if base is not None:
             for k, v in base.items():
                 if k not in STATE_ATTRIBUTES:
                     logging.warning(f"key `{k}` is not a correct `base` field!")
+                    continue
                 self._state.update(k, v)
 
     def get(

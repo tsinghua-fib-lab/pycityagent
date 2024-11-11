@@ -50,6 +50,14 @@ class MemoryUnit:
             setattr(self, f"{SELF_DEFINE_PREFIX}{property_name}", property_value)
 
     def update(self, content: Dict) -> None:
+        for k, v in content.items():
+            if k in self._content:
+                orig_v = self._content[k]
+                orig_type, new_type = type(orig_v), type(v)
+                if not orig_type == new_type:
+                    logging.warning(
+                        f"Type warning: The type of the value for key '{k}' is changing from `{orig_type.__name__}` to `{new_type.__name__}`!"
+                    )
         self._content.update(content)
         for _prop, _value in self._content.items():
             self._set_attribute(_prop, _value)
