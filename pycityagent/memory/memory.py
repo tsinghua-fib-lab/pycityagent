@@ -55,7 +55,11 @@ class Memory:
                     _type, _value = v
                 except TypeError as e:
                     _value = v()
-                if k in PROFILE_ATTRIBUTES or k in STATE_ATTRIBUTES:
+                if (
+                    k in PROFILE_ATTRIBUTES
+                    or k in STATE_ATTRIBUTES
+                    or k == TIME_STAMP_KEY
+                ):
                     logging.warning(f"key `{k}` already declared in memory!")
                     continue
                 _dynamic_config[k] = deepcopy(_value)

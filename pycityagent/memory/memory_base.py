@@ -73,9 +73,9 @@ class MemoryUnit:
         self, key: Any, metric: Callable[[Any], Any], top_k: Optional[int] = None
     ) -> Union[Sequence[Any], Any]:
         values = self._content[key]
-        if not isinstance(values, Iterable):
+        if not isinstance(values, Sequence):
             logging.warning(
-                f"the value stored in key `{key}` is not iterable, return value `{values}` instead!"
+                f"the value stored in key `{key}` is not `sequence`, return value `{values}` instead!"
             )
             return values
         else:
