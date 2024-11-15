@@ -5,8 +5,6 @@
   <h1 style="color: black; margin: 0; font-size: 3em;">CityAgent: LLM Agents in City</h1>
 </div>
 
----
-
 
 # 🚀 CityAgent
 ![License](https://img.shields.io/badge/license-MIT-green) &ensp;
@@ -33,8 +31,8 @@ CityAgent is an advanced framework specifically designed for building intelligen
 <a id="news"></a>
 ## 📰 News
 
-📢 **11.10** - Initial update is now live!
-📢 **2.x version is not compatible* with 1.x version**
+- 📢 **11.10** - Initial update is now live!
+- 📢 **2.x version is not compatible* with 1.x version**
 
 Stay tuned for upcoming updates!
 
