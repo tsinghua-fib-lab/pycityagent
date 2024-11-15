@@ -68,6 +68,7 @@ Retrieves the top-k items from the memory based on the given key and metric.
 - **metric**: `Callable[[Any], Any]` - A callable function that defines the metric for ranking the items.
 - **top_k**: `Optional[int]` - The number of top items to retrieve. Defaults to `None` (all items).
 - **mode**: `Union[Literal["read only"], Literal["read and write"]]` - Access mode for the item. Defaults to `"read only"`.
+- **preserve_order**: `bool` - Whether preserve original order in output values.
 
 **Returns:**
 

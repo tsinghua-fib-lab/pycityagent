@@ -261,6 +261,7 @@ class Memory:
         metric: Callable[[Any], Any],
         top_k: Optional[int] = None,
         mode: Union[Literal["read only"], Literal["read and write"]] = "read only",
+        preserve_order: bool = True,
     ) -> Any:
         """
         Retrieves the top-k items from the memory based on the given key and metric.
@@ -270,6 +271,7 @@ class Memory:
             metric (Callable[[Any], Any]): A callable function that defines the metric for ranking the items.
             top_k (Optional[int], optional): The number of top items to retrieve. Defaults to None (all items).
             mode (Union[Literal["read only"], Literal["read and write"]], optional): Access mode for the item. Defaults to "read only".
+            preserve_order (bool): Whether preserve original order in output values.
 
         Returns:
             Any: The top-k items based on the specified metric.
@@ -286,7 +288,7 @@ class Memory:
             raise ValueError(f"Invalid get mode `{mode}`!")
         for _mem in [self._state, self._profile, self._dynamic]:
             try:
-                value = _mem.get_top_k(key, metric, top_k)
+                value = _mem.get_top_k(key, metric, top_k, preserve_order)
                 return process_func(value)
             except KeyError as e:
                 continue

@@ -91,10 +91,14 @@ class StateMemory(MemoryBase):
         return _latest_memory[key]
 
     def get_top_k(
-        self, key: Any, metric: Callable[[Any], Any], top_k: Optional[int] = None
+        self,
+        key: Any,
+        metric: Callable[[Any], Any],
+        top_k: Optional[int] = None,
+        preserve_order: bool = True,
     ) -> Union[Sequence[Any], Any]:
         _latest_memory = self._fetch_recent_memory()[-1]
-        return _latest_memory.top_k_values(key, metric, top_k)
+        return _latest_memory.top_k_values(key, metric, top_k, preserve_order)
 
     def update(self, key: Any, value: Any, store_snapshot: bool = False):
         _latest_memory: MemoryUnit = self._fetch_recent_memory()[-1]

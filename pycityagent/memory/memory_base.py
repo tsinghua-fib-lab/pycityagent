@@ -70,7 +70,11 @@ class MemoryUnit:
         self._content = {}
 
     def top_k_values(
-        self, key: Any, metric: Callable[[Any], Any], top_k: Optional[int] = None
+        self,
+        key: Any,
+        metric: Callable[[Any], Any],
+        top_k: Optional[int] = None,
+        preserve_order: bool = True,
     ) -> Union[Sequence[Any], Any]:
         values = self._content[key]
         if not isinstance(values, Sequence):
@@ -79,14 +83,24 @@ class MemoryUnit:
             )
             return values
         else:
-            _sorted_values = sorted(values, key=lambda v: -metric(v))
-            if top_k is None:
-                return _sorted_values
-            if len(_sorted_values) < top_k:
+            _values_with_idx = [(i, v) for i, v in enumerate(values)]
+            _sorted_values_with_idx = sorted(
+                _values_with_idx, key=lambda i_v: -metric(i_v[1])
+            )
+            top_k = len(values) if top_k is None else top_k
+            if len(_sorted_values_with_idx) < top_k:
                 logging.warning(
-                    f"Length of values {len(_sorted_values)} is less than top_k {top_k}, returning all values."
+                    f"Length of values {len(_sorted_values_with_idx)} is less than top_k {top_k}, returning all values."
                 )
-            return _sorted_values[:top_k]
+            if preserve_order:
+                return [
+                    i_v[1]
+                    for i_v in sorted(
+                        _sorted_values_with_idx[:top_k], key=lambda i_v: i_v[0]
+                    )
+                ]
+            else:
+                return [i_v[1] for i_v in _sorted_values_with_idx[:top_k]]
 
 
 class MemoryBase(ABC):
