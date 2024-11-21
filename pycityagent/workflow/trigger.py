@@ -27,7 +27,7 @@ class MemoryChangeTrigger(EventTrigger):
         self.memory = memory
         self.key = key
         self.trigger_event = asyncio.Event()
-        self.memory.add_watcher(key, self.trigger_event.set)
+        asyncio.create_task(self.memory.add_watcher(key, self.trigger_event.set))
 
     async def wait_for_trigger(self) -> None:
         """Wait for the memory change trigger to be activated."""

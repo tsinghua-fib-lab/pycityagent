@@ -2,13 +2,15 @@
 
 from abc import abstractmethod
 from enum import Enum
-from .llm import LLM
 from typing import List, Optional
 
 from .environment import Simulator
 from .llm import *
+from .llm import LLM
 from .memory import Memory
-from .workflow import Workflow
+
+# from .workflow import Workflow
+
 
 class AgentType(Enum):
     """
@@ -17,6 +19,8 @@ class AgentType(Enum):
     - Citizen, Citizen type agent
     - Institution, Orgnization or institution type agent
     """
+
+    Unspecified = "Unspecified"
     Citizen = "Citizen"
     Institution = "Inistitution"
 
@@ -29,9 +33,9 @@ class Agent:
     def __init__(
         self,
         name: str,
-        type: AgentType,
-        llm_client: LLM,
-        simulator: Simulator,
+        type: AgentType = AgentType.Unspecified,
+        llm_client: Optional[LLM] = None,
+        simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
     ) -> None:
         """
@@ -39,57 +43,91 @@ class Agent:
 
         Args:
             name (str): The name of the agent.
-            type (AgentType): The type of the agent.
-            llm_client (LLM): The language model client.
-            simulator (Simulator): The simulator object.
+            type (AgentType): The type of the agent. Defaults to `AgentType.Unspecified`
+            llm_client (LLM): The language model client. Defaults to None.
+            simulator (Simulator, optional): The simulator object. Defaults to None.
             memory (Memory, optional): The memory of the agent. Defaults to None.
         """
-        self._name = name
+        self.name = name
         self._type = type
         self._llm = llm_client
         self._simulator = simulator
         self._memory = memory
-        self.workflows: List[Workflow] = []
 
-    async def set_memory(self, memory: Memory):
+    def set_memory(self, memory: Memory):
         """
         Set the memory of the agent.
         """
         self._memory = memory
 
-    def add_workflow(self, workflow: Workflow) -> None:
-        if self._memory is None:
-            raise ValueError("Memory is not set yet.")
-        workflow.bind_memory(self._memory)
-        workflow.bind_simulator(self._simulator)
-        workflow.bind_llm(self._llm)
-        self.workflows.append(workflow)
+    def set_simulator(self, simulator: Simulator):
+        """
+        Set the simulator of the agent.
+        """
+        self._simulator = simulator
 
-    async def start_all_workflows(self) -> None:
-        for workflow in self.workflows:
-            await workflow.start()
-
-    def stop_all_workflows(self) -> None:
-        for workflow in self.workflows:
-            workflow.stop()
-    
     @property
-    async def LLM(self):
-        """The Agent's Soul(UrbanLLM)"""
+    def LLM(self):
+        """The Agent's LLM"""
+        if self._llm is None:
+            raise RuntimeError(
+                f"LLM access before assignment, please `set_llm_client` first!"
+            )
         return self._llm
-    
+
+    @property
+    def memory(self):
+        """The Agent's Memory"""
+        if self._memory is None:
+            raise RuntimeError(
+                f"Memory access before assignment, please `set_memory` first!"
+            )
+        return self._memory
+
+    async def forward(self):
+        """
+        Defines how the blocks are executed. To be implemented by subclasses.
+        """
+        raise NotImplementedError("Subclasses should implement this method")
+
+
 class CitizenAgent(Agent):
     """
     CitizenAgent: 城市居民智能体类及其定义
     """
-    def __init__(self, name: str, llm_client: LLM, simulator: Simulator, memory: Optional[Memory] = None) -> None:
-        super().__init__(name, AgentType.Citizen, llm_client, simulator, memory)
+
+    def __init__(
+        self,
+        name: str,
+        llm_client: LLM,
+        simulator: Optional[Simulator] = None,
+        memory: Optional[Memory] = None,
+    ) -> None:
+        super().__init__(
+            name,
+            AgentType.Citizen,
+            llm_client,
+            simulator,
+            memory,
+        )
+
 
 class InistitutionAgent(Agent):
     """
     InistitutionAgent: 机构智能体类及其定义
     """
-    def __init__(self, name: str, llm_client: LLM, simulator: Simulator, memory: Optional[Memory] = None) -> None:
-        super().__init__(name, AgentType.Institution, llm_client, simulator, memory)
 
-    
+    def __init__(
+        self,
+        name: str,
+        llm_client: LLM,
+        simulator: Optional[Simulator] = None,
+        memory: Optional[Memory] = None,
+    ) -> None:
+        super().__init__(
+            name,
+            AgentType.Institution,
+            llm_client,
+            simulator,
+            memory,
+        )

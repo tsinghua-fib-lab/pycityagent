@@ -15,6 +15,9 @@ import aiohttp
 from .llmconfig import *
 from .utils import *
 
+import os
+os.environ["GRPC_VERBOSITY"] = "ERROR"
+
 class LLM:
     """
     大语言模型对象
@@ -26,7 +29,10 @@ class LLM:
         self.completion_tokens_used = 0
         self.request_number = 0
         self.semaphore = None
-        self._aclient = AsyncOpenAI(api_key=self.config.text['api_key'], timeout=300)
+        if self.config.text['request_type'] == 'openai':
+            self._aclient = AsyncOpenAI(api_key=self.config.text['api_key'], timeout=300)
+        elif self.config.text['request_type'] == 'deepseek':
+            self._aclient = AsyncOpenAI(api_key=self.config.text['api_key'], base_url="https://api.deepseek.com/beta", timeout=300)
 
     def set_semaphore(self, number_of_coroutine:int):
         self.semaphore = asyncio.Semaphore(number_of_coroutine)
@@ -162,7 +168,7 @@ Token Usage:
         """
         异步版文本请求
         """
-        if self.config.text['request_type'] == 'openai':
+        if self.config.text['request_type'] == 'openai' or self.config.text['request_type'] == 'deepseek':
             for attempt in range(retries):
                 try:
                     if self.semaphore != None:
@@ -230,26 +236,6 @@ Token Usage:
                         raise Exception(f"Error: {response_json['code']}, {response_json['message']}")
                     else:
                         return response_json['output']['text']
-        elif self.config.text['request_type'] == 'deepseek':
-            client = AsyncOpenAI(
-                api_key=self.config.text['api_key'],
-                base_url="https://api.deepseek.com/beta",
-            )
-            response = await client.chat.completions.create(
-                model="deepseek-chat",
-                messages=dialog,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                stream=False,
-                timeout=timeout,
-            ) # type: ignore
-            self.prompt_tokens_used += response.usage.prompt_tokens # type: ignore
-            self.completion_tokens_used += response.usage.completion_tokens # type: ignore
-            self.request_number += 1
-            return response.choices[0].message.content
         else:
             print("ERROR: Wrong Config")
             return "wrong config"
