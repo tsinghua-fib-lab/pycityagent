@@ -84,6 +84,15 @@ class Agent:
             )
         return self._memory
 
+    @property
+    def simulator(self):
+        """The Simulator"""
+        if self._simulator is None:
+            raise RuntimeError(
+                f"Simulator access before assignment, please `set_simulator` first!"
+            )
+        return self._simulator
+
     async def forward(self):
         """
         Defines how the blocks are executed. To be implemented by subclasses.

@@ -2,6 +2,7 @@
 build/
 test*
 cache/
+ignore/
 *.ipynb*
 *.ipynb*/
 *pycache*

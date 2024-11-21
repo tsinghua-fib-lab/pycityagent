@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict, List, Optional, Union
-from ..environment import POI_TYPE_DICT, LEVEL_ONE_PRE, Simulator
-from ..memory import Memory
+
+from ..agent import Agent
+from ..environment import LEVEL_ONE_PRE, POI_TYPE_DICT, Simulator
 
 
 class Tool:
@@ -10,33 +11,48 @@ class Tool:
     It is intended to be subclassed by specific tool implementations.
     """
 
-    def __init__(self) -> None:
-        self.memory: Optional[Memory] = None
-        self.simulator: Optional[Simulator] = None
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        subclass = type(self)
+        if not hasattr(instance, "_tools"):
+            instance._tools = {}
+        if subclass not in instance._tools:
+            tool_instance = subclass()
+            tool_instance._agent_instance = instance  # type: ignore
+            instance._tools[subclass] = tool_instance
+        return instance._tools[subclass]
 
-    async def __call__(self) -> Any:
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
         """Invoke the tool's functionality.
 
         This method must be implemented by subclasses to provide specific behavior.
         """
         raise NotImplementedError
-    
+
+    @property
+    def agent(self) -> Agent:
+        return self._agent_instance  # type:ignore
+
+
 class GetMap(Tool):
-    """Retrieve the map from the simulator.
-    """
+    """Retrieve the map from the simulator."""
+
     def __init__(self) -> None:
         self.variables = []
-    
+
     async def __call__(self) -> Union[Any, Callable]:
-        if self.simulator is None:
-            raise ValueError('Simulator is not set.')
-        return self.simulator.map
-    
+        agent = self.agent
+        if agent.simulator is None:
+            raise ValueError("Simulator is not set.")
+        return agent.simulator.map
+
+
 class SencePOI(Tool):
     """Retrieve the Point of Interest (POI) of the current scene.
 
-    This tool computes the POI based on the current `position` stored in memory and returns 
-    points of interest (POIs) within a specified radius. 
+    This tool computes the POI based on the current `position` stored in memory and returns
+    points of interest (POIs) within a specified radius.
 
     Attributes:
         radius (int): The radius within which to search for POIs.
@@ -76,13 +92,14 @@ class SencePOI(Tool):
         Returns:
             Union[Any, Callable]: The query results or a callable for a new SenceAoi instance.
         """
-        if self.memory is None or self.simulator is None:
+        agent = self.agent
+        if agent.memory is None or agent.simulator is None:
             raise ValueError("Memory or Simulator is not set.")
         if radius is None and category_prefix is None:
-            position = await self.memory.get("position")
+            position = await agent.memory.get("position")
             resp = []
             for prefix in self.category_prefix:
-                resp += self.simulator.map.query_pois(
+                resp += agent.simulator.map.query_pois(
                     center=(position["xy_position"]["x"], position["xy_position"]["y"]),
                     radius=self.radius,
                     category_prefix=prefix,
