@@ -2,10 +2,11 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from ..agent import Agent
 from ..environment import LEVEL_ONE_PRE, POI_TYPE_DICT, Simulator
+from ..workflow import Block
 
 
 class Tool:
-    """Abstract tool class for callable tools.
+    """Abstract tool class for callable tools. Can be bound to an `Agent` or `Block` instance.
 
     This class serves as a base for creating various tools that can perform different operations.
     It is intended to be subclassed by specific tool implementations.
@@ -19,7 +20,7 @@ class Tool:
             instance._tools = {}
         if subclass not in instance._tools:
             tool_instance = subclass()
-            tool_instance._agent_instance = instance  # type: ignore
+            tool_instance._instance = instance  # type: ignore
             instance._tools[subclass] = tool_instance
         return instance._tools[subclass]
 
@@ -32,11 +33,25 @@ class Tool:
 
     @property
     def agent(self) -> Agent:
-        return self._agent_instance  # type:ignore
+        instance = self._instance  # type:ignore
+        if not isinstance(instance, Agent):
+            raise RuntimeError(
+                f"Tool bind to object `{type(instance).__name__}`, not an `Agent` object!"
+            )
+        return instance
+
+    @property
+    def block(self) -> Block:
+        instance = self._instance  # type:ignore
+        if not isinstance(instance, Block):
+            raise RuntimeError(
+                f"Tool bind to object `{type(instance).__name__}`, not an `Block` object!"
+            )
+        return instance
 
 
 class GetMap(Tool):
-    """Retrieve the map from the simulator."""
+    """Retrieve the map from the simulator. Can be bound only to an `Agent` instance."""
 
     def __init__(self) -> None:
         self.variables = []
@@ -52,7 +67,7 @@ class SencePOI(Tool):
     """Retrieve the Point of Interest (POI) of the current scene.
 
     This tool computes the POI based on the current `position` stored in memory and returns
-    points of interest (POIs) within a specified radius.
+    points of interest (POIs) within a specified radius. Can be bound only to an `Agent` instance.
 
     Attributes:
         radius (int): The radius within which to search for POIs.
