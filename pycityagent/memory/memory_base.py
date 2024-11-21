@@ -2,6 +2,7 @@
 Base class of memory
 """
 
+import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -19,6 +20,7 @@ class MemoryUnit:
         activate_timestamp: bool = False,
     ) -> None:
         self._content = {}
+        self._lock = asyncio.Lock()
         self._activate_timestamp = activate_timestamp
         if required_attributes is not None:
             self._content.update(required_attributes)
@@ -49,7 +51,8 @@ class MemoryUnit:
         else:
             setattr(self, f"{SELF_DEFINE_PREFIX}{property_name}", property_value)
 
-    def update(self, content: Dict) -> None:
+    async def update(self, content: Dict) -> None:
+        await self._lock.acquire()
         for k, v in content.items():
             if k in self._content:
                 orig_v = self._content[k]
@@ -63,19 +66,21 @@ class MemoryUnit:
             self._set_attribute(_prop, _value)
         if self._activate_timestamp:
             self._set_attribute(TIME_STAMP_KEY, time.time())
+        self._lock.release()
 
-    def clear(self) -> None:
-        # for _prop, _ in self._content.items():
-        #     delattr(self, f"{SELF_DEFINE_PREFIX}{_prop}")
+    async def clear(self) -> None:
+        await self._lock.acquire()
         self._content = {}
+        self._lock.release()
 
-    def top_k_values(
+    async def top_k_values(
         self,
         key: Any,
         metric: Callable[[Any], Any],
         top_k: Optional[int] = None,
         preserve_order: bool = True,
     ) -> Union[Sequence[Any], Any]:
+        await self._lock.acquire()
         values = self._content[key]
         if not isinstance(values, Sequence):
             logging.warning(
@@ -92,6 +97,7 @@ class MemoryUnit:
                 logging.warning(
                     f"Length of values {len(_sorted_values_with_idx)} is less than top_k {top_k}, returning all values."
                 )
+            self._lock.release()
             if preserve_order:
                 return [
                     i_v[1]
@@ -102,34 +108,40 @@ class MemoryUnit:
             else:
                 return [i_v[1] for i_v in _sorted_values_with_idx[:top_k]]
 
+    async def dict_values(
+        self,
+    ) -> Dict[Any, Any]:
+        return self._content
+
 
 class MemoryBase(ABC):
 
     def __init__(self) -> None:
         self._memories: Dict[Any, Dict] = {}
+        self._lock = asyncio.Lock()
 
     @abstractmethod
-    def add(self, msg: Union[Any, Sequence[Any]]) -> None:
+    async def add(self, msg: Union[Any, Sequence[Any]]) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def pop(self, index: int) -> Any:
+    async def pop(self, index: int) -> Any:
         pass
 
     @abstractmethod
-    def load(
+    async def load(
         self, snapshots: Union[Any, Sequence[Any]], reset_memory: bool = False
     ) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    def export(
+    async def export(
         self,
     ) -> Sequence[Any]:
         raise NotImplementedError
 
     @abstractmethod
-    def reset(self) -> None:
+    async def reset(self) -> None:
         raise NotImplementedError
 
     def _fetch_recent_memory(self, recent_n: Optional[int] = None) -> Sequence[Any]:
@@ -145,11 +157,11 @@ class MemoryBase(ABC):
 
     # interact
     @abstractmethod
-    def get(self, key: Any):
+    async def get(self, key: Any):
         raise NotImplementedError
 
     @abstractmethod
-    def update(self, key: Any, value: Any, store_snapshot: bool):
+    async def update(self, key: Any, value: Any, store_snapshot: bool):
         raise NotImplementedError
 
     def __getitem__(self, index: Any) -> Any:

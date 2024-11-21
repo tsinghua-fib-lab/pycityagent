@@ -79,7 +79,7 @@ class SencePOI(Tool):
         if self.memory is None or self.simulator is None:
             raise ValueError("Memory or Simulator is not set.")
         if radius is None and category_prefix is None:
-            position = self.memory.get("position")
+            position = await self.memory.get("position")
             resp = []
             for prefix in self.category_prefix:
                 resp += self.simulator.map.query_pois(

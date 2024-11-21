@@ -5,12 +5,61 @@ import yaml
 from pycityagent import CitizenAgent, Simulator
 from pycityagent.llm import LLM, LLMConfig
 from pycityagent.memory import Memory
-from pycityagent.workflow import (Context, GetMap, NormalWorkflow, ReasonBlock,
-                                  SencePOI)
+from pycityagent.workflow import FormatPrompt
+import numpy as np
 
-from .mobility_prompt import *
-from .utils import *
+from examples.demo.mobility_agent.utils import choiceHW, event2poi_gravity, getDirectEventID
 
+# time is a str, like "10:00", add a hour to time
+def time_add(time):
+    hour, minute = time.split(":")
+    hour = int(hour) + 3
+    return f"{hour}:{minute}"
+
+INTENTION_GENERATION = """
+        I'm a {gender}, my education level is {education}, my consumption level is {consumption} and my education level is {education}.
+        Today is {day}, now is {time}.
+        What my should do next?
+        Please select from ['eat', 'have breakfast', 'have lunch', 'have dinner', 'do shopping', 'do sports', 'excursion', 'leisure or entertainment', 'medical treatment', 'handle the trivialities of life', 'banking and financial services', 'government and political services', 'cultural institutions and events']
+        Your ouput only contains one of the above actions without any other words.
+        """
+
+# Define your own Agent
+class MobilityAgent(CitizenAgent):
+    # Rewrite forward function —— your main workflow
+    async def forward(self):
+        # Control your workflow, you can do anything you want here
+        # Prepare your prompt
+        intention_generation = FormatPrompt(
+            template=INTENTION_GENERATION,
+        )
+        totalIntention = await self.memory.get("intentionTotal")
+        for i in range(totalIntention):
+            # Step1: intention generation —— this is a LLM request
+            # 1.1 format the prompt —— you can also format the prompt with other methods
+            # Notice: If you don't want to use FormatPrompt, you can always desing your own work as long as you give the LLM request a dialog
+            intention_generation.format(**{key: await self.memory.get(key) for key in intention_generation.variables})
+            # 1.2 Invoke LLM request
+            intention = await self.LLM.atext_request(intention_generation.to_dialog())
+            
+            # Step2: POI selection —— gravity model
+            nowPlace = await self.memory.get("nowPlace")
+            time = await self.memory.get("time")
+            map = self._simulator.map
+
+            eventId = getDirectEventID(intention)
+            POIs = event2poi_gravity(map, eventId, nowPlace)
+            options = list(range(len(POIs)))
+            probabilities = [item[2] for item in POIs]
+            sample = np.random.choice(options, size=1, p=probabilities)  # 根据计算出来的概率值进行采样
+            nextPlace = POIs[sample[0]]
+            nextPlace = (nextPlace[0], nextPlace[1])
+            time = time_add(time)
+            
+            await self.memory.update("nowPlace", nextPlace)
+            await self.memory.update("time", time)
+            print(f"intention: {intention}, time: {time}, nextPlace: {nextPlace}")
+        
 
 async def main():
     print("-----Loading configs...")
@@ -50,47 +99,13 @@ async def main():
             "occupation": "Student",
         },
     )
-    # Step:4 prepare Workflow
-    print("-----Preparing Workflow...")
-    workflow = NormalWorkflow(interval=5)
-    intention_generation = ReasonBlock(
-        context=Context(
-            input_keys=[
-                "gender",
-                "education",
-                "consumption",
-                "occupation",
-                "day",
-                "time",
-            ],
-            update_keys=["intention"],
-        ),
-        title="intention_generation",
-        description="generate mobility intention",
-        format_template=INTENTION_GENERATION,
+
+    # Step:4 prepare Agent
+    mobility_agent = MobilityAgent(
+        name="MobilityAgent", llm_client=llm, simulator=simulator, memory=memory
     )
 
-    place_selection = ReasonBlock(
-        context=Context(
-            input_keys=["intention", "time", "nowPlace", {"map": GetMap()}],
-            update_keys=["nowPlace", "time"],
-        ),
-        title="place_selection",
-        description="select a place",
-        self_define_function=get_place,
-    )
-
-    intention_generation.add_next_block(place_selection)
-    workflow.set_start_block(intention_generation)
-
-    # Step:5 preate Agent
-    print("-----Preparing Agent...")
-    agent = CitizenAgent("mobility_agent", llm, simulator, memory)
-    agent.add_workflow(workflow)
-
-    # Step:6 start the agent
-    print("-----Starting...")
-    await workflow.start(round=5)
+    await mobility_agent.forward()
 
 
 if __name__ == "__main__":

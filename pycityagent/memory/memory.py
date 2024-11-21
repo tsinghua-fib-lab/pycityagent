@@ -4,6 +4,7 @@ from copy import deepcopy
 from typing import (Any, Callable, Dict, List, Literal, Optional, Sequence,
                     Tuple, Union)
 
+from ..utils.decorators import lock_decorator
 from .const import *
 from .profile import ProfileMemory
 from .self_define import DynamicMemory
@@ -45,10 +46,11 @@ class Memory:
             motion (Optional[Dict[Any, Any]], optional): motion attribute dict from City Simulator.
             activate_timestamp (bool): Whether activate timestamp storage in MemoryUnit
         """
-        self._state = StateMemory(activate_timestamp=activate_timestamp)
-        self._profile = ProfileMemory(activate_timestamp=activate_timestamp)
         self.watchers: Dict[str, List[Callable]] = {}
+        self._lock = asyncio.Lock()
         _dynamic_config: Dict[Any, Any] = {}
+        _state_config: Dict[Any, Any] = {}
+        _profile_config: Dict[Any, Any] = {}
         if config is not None:
             for k, v in config.items():
                 try:
@@ -71,21 +73,28 @@ class Memory:
                 if k not in PROFILE_ATTRIBUTES:
                     logging.warning(f"key `{k}` is not a correct `profile` field!")
                     continue
-                self._profile.update(k, v)
+                _profile_config[k] = v
         if motion is not None:
             for k, v in motion.items():
                 if k not in STATE_ATTRIBUTES:
                     logging.warning(f"key `{k}` is not a correct `motion` field!")
                     continue
-                self._state.update(k, v)
+                _state_config[k] = v
         if base is not None:
             for k, v in base.items():
                 if k not in STATE_ATTRIBUTES:
                     logging.warning(f"key `{k}` is not a correct `base` field!")
                     continue
-                self._state.update(k, v)
+                _state_config[k] = v
+        self._state = StateMemory(
+            msg=_state_config, activate_timestamp=activate_timestamp
+        )
+        self._profile = ProfileMemory(
+            msg=_profile_config, activate_timestamp=activate_timestamp
+        )
 
-    def get(
+    @lock_decorator
+    async def get(
         self,
         key: Any,
         mode: Union[Literal["read only"], Literal["read and write"]] = "read only",
@@ -112,13 +121,14 @@ class Memory:
             raise ValueError(f"Invalid get mode `{mode}`!")
         for _mem in [self._state, self._profile, self._dynamic]:
             try:
-                value = _mem.get(key)
+                value = await _mem.get(key)
                 return process_func(value)
             except KeyError as e:
                 continue
         raise KeyError(f"No attribute `{key}` in memories!")
 
-    def update(
+    @lock_decorator
+    async def update(
         self,
         key: Any,
         value: Any,
@@ -146,13 +156,12 @@ class Memory:
                 return
         for _mem in [self._state, self._profile, self._dynamic]:
             try:
-                _ = _mem.get(key)
+                # read and write
+                original_value = await _mem.get(key)
             except KeyError as e:
                 continue
-            # read and write
-            original_value = _mem.get(key)
             if mode == "replace":
-                _mem.update(key, value, store_snapshot)
+                await _mem.update(key, value, store_snapshot)
                 if key in self.watchers:
                     for callback in self.watchers[key]:
                         asyncio.create_task(callback())
@@ -167,7 +176,7 @@ class Memory:
                     logging.warning(
                         f"Type of {type(original_value)} does not support mode `merge`, using `replace` instead!"
                     )
-                    _mem.update(key, value, store_snapshot)
+                    await _mem.update(key, value, store_snapshot)
                 if key in self.watchers:
                     for callback in self.watchers[key]:
                         asyncio.create_task(callback())
@@ -176,7 +185,7 @@ class Memory:
             return
         raise KeyError(f"No attribute `{key}` in memories!")
 
-    def update_batch(
+    async def update_batch(
         self,
         content: Union[Dict, Sequence[Tuple[Any, Any]]],
         mode: Union[Literal["replace"], Literal["merge"]] = "replace",
@@ -202,11 +211,12 @@ class Memory:
         else:
             raise TypeError(f"Invalid content type `{type(content)}`!")
         for k, v in _list_content[:1]:
-            self.update(k, v, mode, store_snapshot, protect_llm_read_only_fields)
+            await self.update(k, v, mode, store_snapshot, protect_llm_read_only_fields)
         for k, v in _list_content[1:]:
-            self.update(k, v, mode, False, protect_llm_read_only_fields)
+            await self.update(k, v, mode, False, protect_llm_read_only_fields)
 
-    def add_watcher(self, key: str, callback: Callable) -> None:
+    @lock_decorator
+    async def add_watcher(self, key: str, callback: Callable) -> None:
         """
         Adds a callback function to be invoked when the value
         associated with the specified key in memory is updated.
@@ -224,7 +234,8 @@ class Memory:
             self.watchers[key] = []
         self.watchers[key].append(callback)
 
-    def export(
+    @lock_decorator
+    async def export(
         self,
     ) -> Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]]:
         """
@@ -233,9 +244,14 @@ class Memory:
         Returns:
             Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]]: A tuple containing the exported data of profile, state, and dynamic memory sections.
         """
-        return (self._profile.export(), self._state.export(), self._dynamic.export())
+        return (
+            await self._profile.export(),
+            await self._state.export(),
+            await self._dynamic.export(),
+        )
 
-    def load(
+    @lock_decorator
+    async def load(
         self,
         snapshots: Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]],
         reset_memory: bool = True,
@@ -253,9 +269,10 @@ class Memory:
             [self._state, self._profile, self._dynamic],
         ):
             if _snapshot:
-                _mem.load(snapshots=_snapshot, reset_memory=reset_memory)
+                await _mem.load(snapshots=_snapshot, reset_memory=reset_memory)
 
-    def get_top_k(
+    @lock_decorator
+    async def get_top_k(
         self,
         key: Any,
         metric: Callable[[Any], Any],
@@ -288,7 +305,7 @@ class Memory:
             raise ValueError(f"Invalid get mode `{mode}`!")
         for _mem in [self._state, self._profile, self._dynamic]:
             try:
-                value = _mem.get_top_k(key, metric, top_k, preserve_order)
+                value = await _mem.get_top_k(key, metric, top_k, preserve_order)
                 return process_func(value)
             except KeyError as e:
                 continue

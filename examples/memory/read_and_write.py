@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from pycityagent.memory import Memory
@@ -35,7 +36,7 @@ def init_test_mem() -> Memory:
     return mem
 
 
-def mem_test_write():
+async def mem_test_write():
     logging.info("Memory Writing Test\n")
     _s = """1.`update` with `mode` == "replace" """
     logging.info(_s)
@@ -43,79 +44,79 @@ def mem_test_write():
     test_values = ["updated", {"updated": 0}]
     mem = init_test_mem()
     for _key in test_keys:
-        print(f"original `{_key}`:", mem.get(_key))
+        print(f"original `{_key}`:", await mem.get(_key))
     # Three ways to update the memory
     # 1.update one by one
     for _key, _value in zip(test_keys, test_values):
-        mem.update(key=_key, value=_value, mode="replace", store_snapshot=True)
+        await mem.update(key=_key, value=_value, mode="replace", store_snapshot=True)
     # 2.update in batch (sequence)
-    # mem.update_batch([z for z in zip(test_keys,test_values)],mode="replace")
+    # await  mem.update_batch([z for z in zip(test_keys,test_values)],mode="replace")
     # 3.update in batch (dict)
-    # mem.update_batch({k:v for k,v in zip(test_keys,test_values)},mode="replace")
+    # await mem.update_batch({k:v for k,v in zip(test_keys,test_values)},mode="replace")
     for _key in test_keys:
-        print(f"updated `{_key}`:", mem.get(_key))
+        print(f"updated `{_key}`:", await mem.get(_key))
     print()
     _s = """2.`update` with `mode` == "merge" """
     logging.info(_s)
     mem = init_test_mem()
     for _key in test_keys:
-        print(f"original `{_key}`:", mem.get(_key))
+        print(f"original `{_key}`:", await mem.get(_key))
     for _key, _value in zip(test_keys, test_values):
-        mem.update(key=_key, value=_value, mode="merge")
+        await mem.update(key=_key, value=_value, mode="merge")
     for _key in test_keys:
-        print(f"updated `{_key}`:", mem.get(_key))
+        print(f"updated `{_key}`:", await mem.get(_key))
     print()
     _s = """3.`update` protected fields (State Memory)"""
     logging.info(_s)
     mem = init_test_mem()
     _key = "id"
-    mem.update(key=_key, value=42)
-    print(f"updated `{_key}`:", mem.get(_key))
-    mem.update(key="id", value=42, protect_llm_read_only_fields=False)
-    print(f"updated `{_key}`:", mem.get(_key))
+    await mem.update(key=_key, value=42)
+    print(f"updated `{_key}`:", await mem.get(_key))
+    await mem.update(key="id", value=42, protect_llm_read_only_fields=False)
+    print(f"updated `{_key}`:", await mem.get(_key))
     _s = """4.Memory update snapshots"""
     logging.info(_s)
     mem = init_test_mem()
     # each update cause a snapshot
     for _key, _value in zip(test_keys, test_values):
-        mem.update(key=_key, value=_value, mode="replace", store_snapshot=True)
-    _, _, self_define_snapshots = mem.export()
+        await mem.update(key=_key, value=_value, mode="replace", store_snapshot=True)
+    _, _, self_define_snapshots = await mem.export()
     print("snapshots:", self_define_snapshots)  # self-define
     mem = init_test_mem()
     # one snapshot only
-    mem.update_batch(
+    await mem.update_batch(
         [(k, v) for k, v in zip(test_keys, test_values)],
         mode="replace",
         store_snapshot=True,
     )
-    _, _, self_define_snapshots = mem.export()
+    _, _, self_define_snapshots = await mem.export()
     print("snapshots:", self_define_snapshots)  # self-define
     print()
 
 
-def mem_test_read():
+async def mem_test_read():
     logging.info("Memory Reading Test\n")
     _s = """1.`get` with `mode` == "read only" """
     logging.info(_s)
     mem = init_test_mem()
-    temp = mem.get(key="_field_1", mode="read only")
+    temp = await mem.get(key="_field_1", mode="read only")
     print("original:", temp)
     temp.update({"new_key": 1})
-    print(f"fetched: {temp}, in memory: {mem.get(key = '_field_1')}")
+    print(f"fetched: {temp}, in memory: {await mem.get(key = '_field_1')}")
     print()
     _s = """2.`get` with `mode` == "read and write" """
     logging.info(_s)
     mem = init_test_mem()
-    temp = mem.get(key="_field_1", mode="read and write")
+    temp = await mem.get(key="_field_1", mode="read and write")
     print("original:", temp)
     temp.update({"new_key": 1})
-    print(f"fetched: {temp}, in memory: {mem.get(key = '_field_1')}")
+    print(f"fetched: {temp}, in memory: {await mem.get(key = '_field_1')}")
     print()
     _s = """3.`get top-k value` with specific metric """
     logging.info(_s)
     mem = init_test_mem()
-    mem.update("_field_2", [1, -2, 3, -4], mode="merge")
-    _top_k_values = mem.get_top_k(
+    await mem.update("_field_2", [1, -2, 3, -4], mode="merge")
+    _top_k_values = await mem.get_top_k(
         key="_field_2",
         top_k=3,
         metric=lambda x: x**2,
@@ -125,7 +126,7 @@ def mem_test_read():
     print()
 
 
-def mem_test_load():
+async def mem_test_load():
     logging.info("Memory Loading Test\n")
     _s = """1.`update` with `mode` == "replace" """
     logging.info(_s)
@@ -133,22 +134,22 @@ def mem_test_load():
     test_values = ["updated", {"updated": 0}]
     mem = init_test_mem()
     # one snapshot only
-    mem.update_batch(
+    await mem.update_batch(
         [(k, v) for k, v in zip(test_keys, test_values)],
         mode="replace",
         store_snapshot=True,
     )
-    _, _, self_define_snapshots = snapshots = mem.export()
+    _, _, self_define_snapshots = snapshots = await mem.export()
     print("snapshots:    ", self_define_snapshots)  # self-define
     mem = init_test_mem()
-    _, _, self_define_snapshots = mem.export()
+    _, _, self_define_snapshots = await mem.export()
     print("default mem:  ", self_define_snapshots)  # self-define
-    mem.load(snapshots, reset_memory=True)
-    _, _, self_define_snapshots = mem.export()
+    await mem.load(snapshots, reset_memory=True)
+    _, _, self_define_snapshots = await mem.export()
     print("after loading:", self_define_snapshots)  # self-define
 
 
 if __name__ == "__main__":
-    mem_test_write()
-    mem_test_read()
-    mem_test_load()
+    asyncio.run(mem_test_write())
+    asyncio.run(mem_test_read())
+    asyncio.run(mem_test_load())
