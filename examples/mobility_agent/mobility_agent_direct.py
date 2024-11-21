@@ -8,7 +8,7 @@ from pycityagent.memory import Memory
 from pycityagent.workflow import FormatPrompt
 import numpy as np
 
-from examples.demo.mobility_agent.utils import choiceHW, event2poi_gravity, getDirectEventID
+from examples.mobility_agent.utils import choiceHW, event2poi_gravity, getDirectEventID
 
 # time is a str, like "10:00", add a hour to time
 def time_add(time):
