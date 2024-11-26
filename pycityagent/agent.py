@@ -4,9 +4,9 @@ from abc import abstractmethod
 from enum import Enum
 from typing import List, Optional
 
+from .economy import EconomyClient
 from .environment import Simulator
 from .llm import *
-from .llm import LLM
 from .memory import Memory
 
 # from .workflow import Workflow
@@ -35,6 +35,7 @@ class Agent:
         name: str,
         type: AgentType = AgentType.Unspecified,
         llm_client: Optional[LLM] = None,
+        economy_client: Optional[EconomyClient] = None,
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
     ) -> None:
@@ -45,12 +46,14 @@ class Agent:
             name (str): The name of the agent.
             type (AgentType): The type of the agent. Defaults to `AgentType.Unspecified`
             llm_client (LLM): The language model client. Defaults to None.
+            economy_client (EconomyClient): The `EconomySim` client. Defaults to None.
             simulator (Simulator, optional): The simulator object. Defaults to None.
             memory (Memory, optional): The memory of the agent. Defaults to None.
         """
         self.name = name
         self._type = type
         self._llm = llm_client
+        self._economy_client = economy_client
         self._simulator = simulator
         self._memory = memory
 
@@ -66,6 +69,12 @@ class Agent:
         """
         self._simulator = simulator
 
+    def set_economy_client(self, economy_client: EconomyClient):
+        """
+        Set the economy_client of the agent.
+        """
+        self._economy_client = economy_client
+
     @property
     def LLM(self):
         """The Agent's LLM"""
@@ -74,6 +83,15 @@ class Agent:
                 f"LLM access before assignment, please `set_llm_client` first!"
             )
         return self._llm
+
+    @property
+    def economy_client(self):
+        """The Agent's EconomyClient"""
+        if self._economy_client is None:
+            raise RuntimeError(
+                f"EconomyClient access before assignment, please `set_economy_client` first!"
+            )
+        return self._economy_client
 
     @property
     def memory(self):
@@ -116,6 +134,7 @@ class CitizenAgent(Agent):
             name,
             AgentType.Citizen,
             llm_client,
+            None,
             simulator,
             memory,
         )
@@ -137,6 +156,7 @@ class InistitutionAgent(Agent):
             name,
             AgentType.Institution,
             llm_client,
+            None,
             simulator,
             memory,
         )

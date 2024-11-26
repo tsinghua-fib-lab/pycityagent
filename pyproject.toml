@@ -29,7 +29,7 @@ openai = "1.54.3"
 Pillow = "11.0.0"
 protobuf = "<=4.24.0,<5.0.0"
 pycitydata = "1.0.0"
-pycityproto = "2.0.0a8"
+pycityproto = "2.0.5"
 Requests = "2.32.3"
 Shapely = "2.0.6"
 sidecar = "0.7.0"
@@ -43,11 +43,3 @@ build-backend = "poetry.core.masonry.api"
 Homepage = "https://github.com/tsinghua-fib-lab/pycityagent"
 Repository = "https://github.com/tsinghua-fib-lab/pycityagent.git"
 Issues = "https://github.com/tsinghua-fib-lab/pycityagent/issues"
-
-
-
-
-
-
-
-

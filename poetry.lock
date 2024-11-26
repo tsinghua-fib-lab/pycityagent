@@ -2628,13 +2628,13 @@ stringcase = ">=1.2.0,<2.0.0"
 
 [[package]]
 name = "pycityproto"
-version = "2.0.0a8"
+version = "2.0.5"
 description = "City Proto Generated Python SDK"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pycityproto-2.0.0a8-py3-none-any.whl", hash = "sha256:2404c3c6dbd840ad812227a5f3af222875b1bd9b9c93a4772fbec374e502f88e"},
-    {file = "pycityproto-2.0.0a8.tar.gz", hash = "sha256:c5a97e419f794c1362b6743ad988c1d61920c2444dc53f5f10419fe1b8e51075"},
+    {file = "pycityproto-2.0.5-py3-none-any.whl", hash = "sha256:f72c31849d19303073e91f731f8863d16ea03e051bb852d46e53fe46aef17b3f"},
+    {file = "pycityproto-2.0.5.tar.gz", hash = "sha256:5b6cc0acd650864246cb28e60eb8c25b9c9db457350609ef2341cb16539f99b3"},
 ]
 
 [package.dependencies]
@@ -3763,4 +3763,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "f4ceb58ba20d8565a6d20ba08b5396c79050a20268ddbe886585eafe890db0fd"
+content-hash = "7b63c7b2c1a44d4a227ac3d133ede60f5aa9185f1c8e6bf0ddffae19d937e7f6"
