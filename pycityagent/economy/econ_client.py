@@ -201,31 +201,59 @@ class EconomyClient:
             for config in configs
         ]
         responses = await asyncio.gather(*tasks)
-        
-        
-    async def calculate_taxes_due(self,org_id:int,agent_ids:list[int],incomes:list[float]):
+
+    async def calculate_taxes_due(
+        self, org_id: int, agent_ids: list[int], incomes: list[float]
+    ):
         request = org_service.CalculateTaxesDueRequest(
             government_id=org_id,
             agent_ids=agent_ids,
             incomes=incomes,
         )
-        response :org_service.CalculateTaxesDueResponse= await self._aio_stub.CalculateTaxesDue(request)
-        return (float(response.taxes_due),list(response.updated_incomes))
-        
-    
-    async def calculate_consumption(self,org_id:int,agent_ids:list[int],demands:list[int]):
+        response: org_service.CalculateTaxesDueResponse = (
+            await self._aio_stub.CalculateTaxesDue(request)
+        )
+        return (float(response.taxes_due), list(response.updated_incomes))
+
+    async def calculate_consumption(
+        self, org_id: int, agent_ids: list[int], demands: list[int]
+    ):
         request = org_service.CalculateConsumptionRequest(
             firm_id=org_id,
             agent_ids=agent_ids,
             demands=demands,
         )
-        response :org_service.CalculateConsumptionResponse = await self._aio_stub.CalculateConsumption(request)
-        return (int(response.remain_inventory),list(response.updated_currencies))
-    
-    async def calculate_interest(self,org_id:int,agent_ids:list[int]):
+        response: org_service.CalculateConsumptionResponse = (
+            await self._aio_stub.CalculateConsumption(request)
+        )
+        return (int(response.remain_inventory), list(response.updated_currencies))
+
+    async def calculate_interest(self, org_id: int, agent_ids: list[int]):
         request = org_service.CalculateInterestRequest(
             bank_id=org_id,
             agent_ids=agent_ids,
         )
-        response:org_service.CalculateInterestResponse = await self._aio_stub.CalculateInterest(request)
-        return (float(response.total_interest),list(response.updated_currencies))
+        response: org_service.CalculateInterestResponse = (
+            await self._aio_stub.CalculateInterest(request)
+        )
+        return (float(response.total_interest), list(response.updated_currencies))
+
+    async def remove_agents(self, agent_ids: Union[int, list[int]]):
+        if isinstance(agent_ids, int):
+            agent_ids = [agent_ids]
+        tasks = [
+            self._aio_stub.RemoveAgent(
+                org_service.RemoveAgentRequest(agent_id=agent_id)
+            )
+            for agent_id in agent_ids
+        ]
+        responses = await asyncio.gather(*tasks)
+
+    async def remove_orgs(self, org_ids: Union[int, list[int]]):
+        if isinstance(org_ids, int):
+            org_ids = [org_ids]
+        tasks = [
+            self._aio_stub.RemoveOrg(org_service.RemoveOrgRequest(org_id=org_id))
+            for org_id in org_ids
+        ]
+        responses = await asyncio.gather(*tasks)

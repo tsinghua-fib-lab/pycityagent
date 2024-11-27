@@ -73,6 +73,12 @@ class EconDemoBank(Agent):
 async def main():
     # check https://git.fiblab.net/llmsim/economysim to start server first
     econ_client = EconomyClient(server_address=SERVER_ADDRESS)
+    try:
+        # clear all data
+        await econ_client.remove_agents([0, 1, 2, 3, 4])
+        await econ_client.remove_orgs(500)
+    except:
+        pass
     econ_agents = []
     for ii in range(5):
         memory = Memory(
