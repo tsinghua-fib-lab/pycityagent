@@ -55,6 +55,10 @@ class Memory:
             for k, v in config.items():
                 try:
                     _type, _value = v
+                    try:
+                        _value = _type(_value)
+                    except TypeError as e:
+                        pass
                 except TypeError as e:
                     _value = v()
                 if (
