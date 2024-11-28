@@ -84,4 +84,3 @@ class JsonDictParser(JsonObjectParser):
                 f"but got {type(parsed_json)} instead."
             )
         return dict(parsed_json)
-

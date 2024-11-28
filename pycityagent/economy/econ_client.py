@@ -133,7 +133,7 @@ class EconomyClient:
             _orig_type = type(orig_value)
             _new_type = type(value)
             if _orig_type != _new_type:
-                logging.warning(
+                logging.debug(
                     f"Inconsistent type of original value {_orig_type.__name__} and to-update value {_new_type.__name__}"
                 )
             else:

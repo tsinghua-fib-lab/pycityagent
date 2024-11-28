@@ -177,7 +177,7 @@ class Memory:
                 elif isinstance(original_value, list):
                     original_value.extend(list(value))
                 else:
-                    logging.warning(
+                    logging.debug(
                         f"Type of {type(original_value)} does not support mode `merge`, using `replace` instead!"
                     )
                     await _mem.update(key, value, store_snapshot)
