@@ -4,6 +4,8 @@ from copy import deepcopy
 from typing import (Any, Callable, Dict, List, Literal, Optional, Sequence,
                     Tuple, Union)
 
+from pyparsing import deque
+
 from ..utils.decorators import lock_decorator
 from .const import *
 from .profile import ProfileMemory
@@ -56,7 +58,15 @@ class Memory:
                 try:
                     _type, _value = v
                     try:
-                        _value = _type(_value)
+                        if isinstance(_type, type):
+                            _value = _type(_value)
+                        else:
+                            if isinstance(_type, deque):
+                                _type.extend(_value)
+                                _value = deepcopy(_type)
+                            else:
+                                logging.warning(f"type `{_type}` is not supported!")
+                                pass
                     except TypeError as e:
                         pass
                 except TypeError as e:
@@ -176,6 +186,8 @@ class Memory:
                     original_value.update(dict(value))
                 elif isinstance(original_value, list):
                     original_value.extend(list(value))
+                elif isinstance(original_value, deque):
+                    original_value.extend(deque(value))
                 else:
                     logging.debug(
                         f"Type of {type(original_value)} does not support mode `merge`, using `replace` instead!"
