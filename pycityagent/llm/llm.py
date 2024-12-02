@@ -1,8 +1,7 @@
 """UrbanLLM: 智能能力类及其定义"""
 
-from ast import Dict, List
 from openai import OpenAI, AsyncOpenAI, APIConnectionError, OpenAIError
-import openai
+from zhipuai import ZhipuAI
 import asyncio
 from http import HTTPStatus
 import dashscope
@@ -25,6 +24,8 @@ class LLM:
     """
     def __init__(self, config: LLMConfig) -> None:
         self.config = config
+        if config.text['request_type'] not in ['openai', 'deepseek', 'qwen', 'zhipuai']:
+            raise ValueError("Invalid request type for text request")
         self.prompt_tokens_used = 0
         self.completion_tokens_used = 0
         self.request_number = 0
@@ -33,6 +34,8 @@ class LLM:
             self._aclient = AsyncOpenAI(api_key=self.config.text['api_key'], timeout=300)
         elif self.config.text['request_type'] == 'deepseek':
             self._aclient = AsyncOpenAI(api_key=self.config.text['api_key'], base_url="https://api.deepseek.com/beta", timeout=300)
+        elif self.config.text['request_type'] == 'zhipuai':
+            self._aclient = ZhipuAI(api_key=self.config.text['api_key'], timeout=300)
 
     def set_semaphore(self, number_of_coroutine:int):
         self.semaphore = asyncio.Semaphore(number_of_coroutine)
@@ -151,6 +154,19 @@ Token Usage:
             self.completion_tokens_used += response.usage.completion_tokens # type: ignore
             self.request_number += 1
             return response.choices[0].message.content
+        elif self.config.text['request_type'] == 'zhipuai':
+            client = ZhipuAI(api_key=self.config.text['api_key'])
+            response = client.chat.completions.create(
+                model=self.config.text['model'],
+                messages=dialog,
+                temperature=temperature,
+                top_p=top_p,
+                stream=False
+            )
+            self.prompt_tokens_used += response.usage.prompt_tokens # type: ignore
+            self.completion_tokens_used += response.usage.completion_tokens # type: ignore
+            self.request_number += 1
+            return response.choices[0].message.content # type: ignore
         else:
             print("ERROR: Wrong Config")
             return "wrong config"
@@ -179,8 +195,8 @@ Token Usage:
                                 temperature=temperature,
                                 max_tokens=max_tokens,
                                 top_p=top_p,
-                                frequency_penalty=frequency_penalty,
-                                presence_penalty=presence_penalty,
+                                frequency_penalty=frequency_penalty, # type: ignore
+                                presence_penalty=presence_penalty, # type: ignore
                                 stream=False,
                                 timeout=timeout,
                             ) # type: ignore
@@ -195,8 +211,8 @@ Token Usage:
                             temperature=temperature,
                             max_tokens=max_tokens,
                             top_p=top_p,
-                            frequency_penalty=frequency_penalty,
-                            presence_penalty=presence_penalty,
+                            frequency_penalty=frequency_penalty, # type: ignore
+                            presence_penalty=presence_penalty, # type: ignore
                             stream=False,
                             timeout=timeout,
                         ) # type: ignore
@@ -215,6 +231,38 @@ Token Usage:
                         print(f"HTTP status code: {e.http_status}") # type: ignore
                     else:
                         print("An error occurred:", e)
+                    if attempt < retries - 1:
+                        await asyncio.sleep(2 ** attempt)
+                    else:
+                        raise e
+        elif self.config.text['request_type'] == 'zhipuai':
+            for attempt in range(retries):
+                try:
+                    response = self._aclient.chat.asyncCompletions.create( # type: ignore
+                        model=self.config.text['model'],
+                        messages=dialog,
+                        temperature=temperature,
+                        top_p=top_p,
+                        timeout=timeout,
+                    )
+                    task_id = response.id
+                    task_status = ''
+                    get_cnt = 0
+
+                    while task_status != 'SUCCESS' and task_status != 'FAILED' and get_cnt <= 100:
+                        result_response = self._aclient.chat.asyncCompletions.retrieve_completion_result(id=task_id) # type: ignore
+                        task_status = result_response.task_status
+                        await asyncio.sleep(0.1)
+                        get_cnt += 1
+                    if task_status != 'SUCCESS':
+                        raise Exception(f"Task failed with status: {task_status}")
+
+                    self.prompt_tokens_used += result_response.usage.prompt_tokens # type: ignore
+                    self.completion_tokens_used += result_response.usage.completion_tokens # type: ignore
+                    self.request_number += 1
+                    return result_response.choices[0].message.content # type: ignore
+                except APIConnectionError as e:
+                    print("API connection error:", e)
                     if attempt < retries - 1:
                         await asyncio.sleep(2 ** attempt)
                     else:
