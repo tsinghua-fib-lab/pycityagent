@@ -203,12 +203,17 @@ class EconomyClient:
         responses = await asyncio.gather(*tasks)
 
     async def calculate_taxes_due(
-        self, org_id: int, agent_ids: list[int], incomes: list[float]
+        self,
+        org_id: int,
+        agent_ids: list[int],
+        incomes: list[float],
+        enable_redistribution: bool,
     ):
         request = org_service.CalculateTaxesDueRequest(
             government_id=org_id,
             agent_ids=agent_ids,
             incomes=incomes,
+            enable_redistribution=enable_redistribution,
         )
         response: org_service.CalculateTaxesDueResponse = (
             await self._aio_stub.CalculateTaxesDue(request)
@@ -257,3 +262,23 @@ class EconomyClient:
             for org_id in org_ids
         ]
         responses = await asyncio.gather(*tasks)
+
+    async def save(self, file_path: str) -> tuple[list[int], list[int]]:
+        request = org_service.SaveEconomyEntitiesRequest(
+            file_path=file_path,
+        )
+        response: org_service.SaveEconomyEntitiesResponse = (
+            await self._aio_stub.SaveEconomyEntities(request)
+        )
+        # current agent ids and org ids
+        return (list(response.agent_ids), list(response.org_ids))
+
+    async def load(self, file_path: str):
+        request = org_service.LoadEconomyEntitiesRequest(
+            file_path=file_path,
+        )
+        response: org_service.LoadEconomyEntitiesResponse = (
+            await self._aio_stub.LoadEconomyEntities(request)
+        )
+        # current agent ids and org ids
+        return (list(response.agent_ids), list(response.org_ids))
