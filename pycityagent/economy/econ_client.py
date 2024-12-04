@@ -78,7 +78,30 @@ class EconomyClient:
         - server_address (str): Economy server address
         - secure (bool, optional): Defaults to False. Whether to use a secure connection. Defaults to False.
         """
+        self.server_address = server_address
+        self.secure = secure
         aio_channel = _create_aio_channel(server_address, secure)
+        self._aio_stub = org_grpc.OrgServiceStub(aio_channel)
+
+    def __getstate__(self):
+        """
+        Copy the object's state from self.__dict__ which contains
+        all our instance attributes. Always use the dict.copy()
+        method to avoid modifying the original state.
+        """
+        state = self.__dict__.copy()
+        # Remove the non-picklable entries.
+        del state["_aio_stub"]
+        return state
+
+    def __setstate__(self, state):
+        """ "
+        Restore instance attributes (i.e., filename and mode) from the
+        unpickled state dictionary.
+        """
+        self.__dict__.update(state)
+        # Re-initialize the channel after unpickling
+        aio_channel = _create_aio_channel(self.server_address, self.secure)
         self._aio_stub = org_grpc.OrgServiceStub(aio_channel)
 
     async def get(
