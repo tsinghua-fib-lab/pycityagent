@@ -17,7 +17,7 @@ class InterviewUI:
         """创建界面"""
         with gr.Blocks(
             title="智能体模拟器",
-            theme=gr.themes.Soft()
+            theme=gr.themes.Ocean()
         ) as interface:
             with gr.Tabs():
                 # 采访标签页
