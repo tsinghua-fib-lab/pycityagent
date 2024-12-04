@@ -2,6 +2,9 @@
 
 from openai import OpenAI, AsyncOpenAI, APIConnectionError, OpenAIError
 from zhipuai import ZhipuAI
+import logging
+logging.getLogger("zhipuai").setLevel(logging.WARNING)
+
 import asyncio
 from http import HTTPStatus
 import dashscope
@@ -248,11 +251,11 @@ Token Usage:
                     task_id = response.id
                     task_status = ''
                     get_cnt = 0
-
-                    while task_status != 'SUCCESS' and task_status != 'FAILED' and get_cnt <= 100:
+                    cnt_threshold = int(timeout/0.5)
+                    while task_status != 'SUCCESS' and task_status != 'FAILED' and get_cnt <= cnt_threshold:
                         result_response = self._aclient.chat.asyncCompletions.retrieve_completion_result(id=task_id) # type: ignore
                         task_status = result_response.task_status
-                        await asyncio.sleep(0.1)
+                        await asyncio.sleep(0.5)
                         get_cnt += 1
                     if task_status != 'SUCCESS':
                         raise Exception(f"Task failed with status: {task_status}")
@@ -278,7 +281,6 @@ Token Usage:
                     }
                 }
                 async with session.post(api_url, json=payload, headers=headers) as resp:
-                    # 错误检查
                     response_json = await resp.json()
                     if 'code' in response_json.keys():
                         raise Exception(f"Error: {response_json['code']}, {response_json['message']}")
