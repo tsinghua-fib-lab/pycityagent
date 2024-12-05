@@ -19,14 +19,14 @@ class Simulator:
     - Simulator Class
     """
 
-    def __init__(self, config) -> None:
+    def __init__(self, config, secure: bool = False) -> None:
         self.config = config
         """
         - 模拟器配置
         - simulator config
         """
 
-        self._client = CityClient(self.config["simulator"]["server"], secure=True)
+        self._client = CityClient(self.config["simulator"]["server"], secure=secure)
         """
         - 模拟器grpc客户端
         - grpc client of simulator
