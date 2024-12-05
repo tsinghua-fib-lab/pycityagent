@@ -3,9 +3,12 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Tuple, Union, cast
+from typing import Any, Optional, Tuple, Union, cast
 
-from pycitydata.map import Map
+from mosstool.type import TripMode
+from pycitydata.map import Map as SimMap
+from pycityproto.city.person.v2 import person_pb2 as person_pb2
+from pycityproto.city.person.v2 import person_service_pb2 as person_service
 
 from .sim import CityClient
 
@@ -29,7 +32,7 @@ class Simulator:
         - grpc client of simulator
         """
 
-        self.map = Map(
+        self.map = SimMap(
             mongo_uri=config["map_request"]["mongo_uri"],
             mongo_db=config["map_request"]["mongo_db"],
             mongo_coll=config["map_request"]["mongo_coll"],
@@ -68,6 +71,7 @@ class Simulator:
         self.map_y_gap = None
         self._bbox: Tuple[float, float, float, float] = (-1, -1, -1, -1)
         self.poi_matrix_centers = []
+        self._lock = asyncio.Lock()
 
     # * Agent相关
     def FindAgentsByArea(self, req: dict, status=None):
@@ -251,7 +255,7 @@ class Simulator:
         - format (str): 格式化模板，默认为"Hour:Minute:Second" the formation
 
         Returns:
-        - time Union[int, str]: 时间 time in second(int) or formated time(str)
+        - time Union[int, str]: 时间 time in second(int) or formatted time(str)
         """
         t_sec = await self._client.clock_service.Now({})
         t_sec = cast(dict[str, int], t_sec)
@@ -264,3 +268,102 @@ class Simulator:
             return formatted_time
         else:
             return t_sec["t"]
+
+    async def GetPerson(self, person_id: int) -> dict:
+        return await self._client.person_service.GetPerson(
+            req={"person_id": person_id}
+        )  # type:ignore
+
+    async def AddPerson(self, person: Any) -> dict:
+        if isinstance(person, person_pb2.Person):
+            req = person_service.AddPersonRequest(person=person)
+        else:
+            req = person
+        return await self._client.person_service.AddPerson(req)  # type:ignore
+
+    async def SetAoiSchedules(
+        self,
+        person_id: int,
+        target_positions: Union[
+            list[Union[int, tuple[int, int]]], Union[int, tuple[int, int]]
+        ],
+        departure_times: Optional[list[float]] = None,
+        modes: Optional[list[TripMode]] = None,
+    ):
+        cur_time = float(await self.GetTime())
+        if not isinstance(target_positions, list):
+            target_positions = [target_positions]
+        if departure_times is None:
+            departure_times = [cur_time for _ in range(len(target_positions))]
+        else:
+            for _ in range(len(target_positions) - len(departure_times)):
+                departure_times.append(cur_time)
+        if modes is None:
+            modes = [
+                TripMode.TRIP_MODE_DRIVE_ONLY for _ in range(len(target_positions))
+            ]
+        else:
+            for _ in range(len(target_positions) - len(modes)):
+                modes.append(TripMode.TRIP_MODE_DRIVE_ONLY)
+        _schedules = []
+        for target_pos, _time, _mode in zip(target_positions, departure_times, modes):
+            if isinstance(target_pos, int):
+                aoi_id = target_pos
+                end = {
+                    "aoi_position": {
+                        "aoi_id": aoi_id,
+                    }
+                }
+            else:
+                aoi_id, poi_id = target_pos
+                end = {"aoi_position": {"aoi_id": aoi_id, "poi_id": poi_id}}
+                # activity = ""
+            trips = [
+                {
+                    "mode": _mode,
+                    "end": end,
+                    "departure_time": _time,
+                },
+            ]
+            _schedules.append(
+                {"trips": trips, "loop_count": 1, "departure_time": _time}
+            )
+        req = {"person_id": person_id, "schedules": _schedules}
+        await self._client.person_service.SetSchedule(req)
+
+    async def ResetPersonPosition(
+        self,
+        person_id: int,
+        aoi_id: Optional[int] = None,
+        poi_id: Optional[int] = None,
+        lane_id: Optional[int] = None,
+        s: Optional[float] = None,
+    ):
+        reset_position = {}
+        if aoi_id is not None:
+            reset_position["aoi_position"] = {"aoi_id": aoi_id}
+            if poi_id is not None:
+                reset_position["aoi_position"]["poi_id"] = poi_id
+            logging.debug(
+                f"Setting person {person_id} pos to AoiPosition {reset_position}"
+            )
+            await self._client.person_service.ResetPersonPosition(
+                {"person_id": person_id, "position": reset_position}
+            )
+        elif lane_id is not None:
+            reset_position["lane_position"] = {
+                "lane_id": lane_id,
+                "s": 0.0,
+            }
+            if s is not None:
+                reset_position["lane_position"]["s"] = s
+            logging.debug(
+                f"Setting person {person_id} pos to LanePosition {reset_position}"
+            )
+            await self._client.person_service.ResetPersonPosition(
+                {"person_id": person_id, "position": reset_position}
+            )
+        else:
+            logging.debug(
+                f"Neither aoi or lane pos provided for person {person_id} position reset!!"
+            )

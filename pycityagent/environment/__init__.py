@@ -1,6 +1,7 @@
 """Environment"""
 
+from .sence.static import LEVEL_ONE_PRE, POI_TYPE_DICT
+from .sim import AoiService, PersonService
 from .simulator import Simulator
-from .sence.static import POI_TYPE_DICT, LEVEL_ONE_PRE
 
-__all__ = ["Simulator", "POI_TYPE_DICT", "LEVEL_ONE_PRE"]
+__all__ = ["Simulator", "POI_TYPE_DICT", "LEVEL_ONE_PRE", "PersonService", "AoiService"]

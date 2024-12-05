@@ -1,5 +1,4 @@
-from .type import (BikeAttribute, BusAttribute, PedestrianAttribute,
-                   PersonAttribute, Position, Status, VehicleAttribute)
+from pycityproto.city.person.v2.motion_pb2 import Status
 
 PROFILE_ATTRIBUTES = {
     "gender": str(),
@@ -19,7 +18,7 @@ PROFILE_ATTRIBUTES = {
 
 STATE_ATTRIBUTES = {
     # base
-    "id": int(),
+    "id": -1,
     "attribute": dict(),
     "home": dict(),
     "work": dict(),

@@ -1,16 +1,14 @@
 """智能体模板类及其定义"""
 
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import List, Optional, Dict
 from datetime import datetime
+from enum import Enum
+from typing import Dict, List, Optional
 
 from .economy import EconomyClient
 from .environment import Simulator
 from .llm import LLM
 from .memory import Memory
-
-# from .workflow import Workflow
 
 
 class AgentType(Enum):
@@ -23,7 +21,7 @@ class AgentType(Enum):
 
     Unspecified = "Unspecified"
     Citizen = "Citizen"
-    Institution = "Inistitution"
+    Institution = "Institution"
 
 
 class Agent(ABC):
@@ -57,6 +55,7 @@ class Agent(ABC):
         self._economy_client = economy_client
         self._simulator = simulator
         self._memory = memory
+        self._has_bound_to_simulator = False
         self._interview_history: List[Dict] = []  # 存储采访历史
 
     def set_memory(self, memory: Memory):
@@ -115,53 +114,51 @@ class Agent(ABC):
 
     async def generate_response(self, question: str) -> str:
         """生成回答
-        
+
         基于智能体的记忆和当前状态，生成对问题的回答。
-        
+
         Args:
             question: 需要回答的问题
-            
+
         Returns:
             str: 智能体的回答
         """
         dialog = []
-        
+
         # 添加系统提示
         system_prompt = f"你是一个名叫{self._name}的{self._type.value}。请以第一人称的方式回答问题,保持回答简洁明了。"
-        dialog.append({
-            "role": "system",
-            "content": system_prompt
-        })
-        
+        dialog.append({"role": "system", "content": system_prompt})
+
         # 添加记忆上下文
         if self._memory:
             relevant_memories = await self._memory.search(question)
             if relevant_memories:
-                dialog.append({
-                    "role": "system", 
-                    "content": f"基于以下记忆回答问题:\n{relevant_memories}"
-                })
-        
+                dialog.append(
+                    {
+                        "role": "system",
+                        "content": f"基于以下记忆回答问题:\n{relevant_memories}",
+                    }
+                )
+
         # 添加用户问题
-        dialog.append({
-            "role": "user",
-            "content": question
-        })
-        
+        dialog.append({"role": "user", "content": question})
+
         # 使用LLM生成回答
         if not self._llm_client:
             return "抱歉，我现在无法回答问题。"
-            
-        response = await self._llm_client.atext_request(dialog)
-        
+
+        response = await self._llm_client.atext_request(dialog)  # type:ignore
+
         # 记录采访历史
-        self._interview_history.append({
-            "timestamp": datetime.now().isoformat(),
-            "question": question,
-            "response": response
-        })
-        
-        return response
+        self._interview_history.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "question": question,
+                "response": response,
+            }
+        )
+
+        return response  # type:ignore
 
     def get_interview_history(self) -> List[Dict]:
         """获取采访历史记录"""
@@ -181,7 +178,7 @@ class CitizenAgent(Agent):
     def __init__(
         self,
         name: str,
-        llm_client: LLM,
+        llm_client: Optional[LLM] = None,
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
     ) -> None:
@@ -195,15 +192,15 @@ class CitizenAgent(Agent):
         )
 
 
-class InistitutionAgent(Agent):
+class InstitutionAgent(Agent):
     """
-    InistitutionAgent: 机构智能体类及其定义
+    InstitutionAgent: 机构智能体类及其定义
     """
 
     def __init__(
         self,
         name: str,
-        llm_client: LLM,
+        llm_client: Optional[LLM] = None,
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
     ) -> None:

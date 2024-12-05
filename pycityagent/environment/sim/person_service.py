@@ -3,6 +3,8 @@ from typing import Any, Awaitable, Coroutine, Dict, Union, cast
 
 import grpc
 from google.protobuf.json_format import ParseDict
+from mosstool.trip.generator import default_person_template_generator
+from mosstool.util.format_converter import pb2dict
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pycityproto.city.person.v2 import person_service_pb2 as person_service
 from pycityproto.city.person.v2 import person_service_pb2_grpc as person_grpc
@@ -22,14 +24,6 @@ class PersonService:
         self._aio_stub = person_grpc.PersonServiceStub(aio_channel)
 
     @staticmethod
-    def default_agent() -> person_pb2.Person:
-        warnings.warn(
-            "default_agent is deprecated, use default_person instead",
-            DeprecationWarning,
-        )
-        return PersonService.default_person()
-
-    @staticmethod
     def default_person() -> person_pb2.Person:
         """
         获取person基本模板
@@ -38,21 +32,20 @@ class PersonService:
         需要补充的字段有person.home,person.schedules,person.labels
         The fields that need to be supplemented are person.home, person.schedules, person.labels
         """
-        person = person_pb2.Person(
-            attribute=person_pb2.PersonAttribute(),
-            vehicle_attribute=person_pb2.VehicleAttribute(
-                lane_change_length=10.0,
-                min_gap=1.0,
-                length=5.0,
-                width=2.0,
-                max_speed=41.6666666667,
-                max_acceleration=3.0,
-                max_braking_acceleration=-10.0,
-                usual_acceleration=2.0,
-                usual_braking_acceleration=-4.5,
-            ),
-        )
+        person = default_person_template_generator()
         return person
+
+    @staticmethod
+    def default_dict_person() -> dict:
+        """
+        获取person基本模板，字典格式
+        Get person basic template in dict format.
+
+        需要补充的字段有person.home,person.schedules,person.labels
+        The fields that need to be supplemented are person.home, person.schedules, person.labels
+        """
+        person = default_person_template_generator()
+        return pb2dict(person)
 
     def GetPerson(
         self,
@@ -64,10 +57,10 @@ class PersonService:
         Get person information
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v1.GetPersonRequest
+        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonRequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.v1.GetPersonResponse
+        - https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonResponse
         """
         if type(req) != person_service.GetPersonRequest:
             req = ParseDict(req, person_service.GetPersonRequest())
@@ -86,10 +79,10 @@ class PersonService:
         Add a new person
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v1.AddPersonRequest
+        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.AddPersonRequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.v1.AddPersonResponse
+        - https://cityproto.sim.fiblab.net/#city.person.v2.AddPersonResponse
         """
         if type(req) != person_service.AddPersonRequest:
             req = ParseDict(req, person_service.AddPersonRequest())
@@ -108,10 +101,10 @@ class PersonService:
         set person's schedule
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v1.SetScheduleRequest
+        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.SetScheduleRequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.v1.SetScheduleResponse
+        - https://cityproto.sim.fiblab.net/#city.person.v2.SetScheduleResponse
         """
         if type(req) != person_service.SetScheduleRequest:
             req = ParseDict(req, person_service.SetScheduleRequest())
@@ -131,10 +124,10 @@ class PersonService:
         Get information of multiple persons
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v1.GetPersonsRequest
+        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonsRequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.v1.GetPersonsResponse
+        - https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonsResponse
         """
         if type(req) != person_service.GetPersonsRequest:
             req = ParseDict(req, person_service.GetPersonsRequest())
@@ -156,10 +149,10 @@ class PersonService:
         Get persons in a specific region
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v1.GetPersonByLongLatBBoxRequest
+        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonByLongLatBBoxRequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.v1.GetPersonByLongLatBBoxResponse
+        - https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonByLongLatBBoxResponse
         """
         if type(req) != person_service.GetPersonByLongLatBBoxRequest:
             req = ParseDict(req, person_service.GetPersonByLongLatBBoxRequest())
@@ -181,10 +174,10 @@ class PersonService:
         Get all vehicles
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v1.GetAllVehiclesRequest
+        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.GetAllVehiclesRequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.v1.GetAllVehiclesResponse
+        - https://cityproto.sim.fiblab.net/#city.person.v2.GetAllVehiclesResponse
         """
         if type(req) != person_service.GetAllVehiclesRequest:
             req = ParseDict(req, person_service.GetAllVehiclesRequest())
@@ -206,10 +199,10 @@ class PersonService:
         Reset person's position (stop the current trip and switch to sleep status)
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v1.ResetPersonPositionRequest
+        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.ResetPersonPositionRequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.v1.ResetPersonPositionResponse
+        - https://cityproto.sim.fiblab.net/#city.person.v2.ResetPersonPositionResponse
         """
         if type(req) != person_service.ResetPersonPositionRequest:
             req = ParseDict(req, person_service.ResetPersonPositionRequest())
@@ -233,10 +226,10 @@ class PersonService:
         Set controlled vehicle ID
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v1.SetControlledVehicleIDsRequest
+        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.SetControlledVehicleIDsRequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.v1.SetControlledVehicleIDsResponse
+        - https://cityproto.sim.fiblab.net/#city.person.v2.SetControlledVehicleIDsResponse
         """
         if type(req) != person_service.SetControlledVehicleIDsRequest:
             req = ParseDict(req, person_service.SetControlledVehicleIDsRequest())
@@ -260,10 +253,10 @@ class PersonService:
         Fetch controlled vehicle environment information
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v1.FetchControlledVehicleEnvsRequest
+        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.FetchControlledVehicleEnvsRequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.v1.FetchControlledVehicleEnvsResponse
+        - https://cityproto.sim.fiblab.net/#city.person.v2.FetchControlledVehicleEnvsResponse
         """
         if type(req) != person_service.FetchControlledVehicleEnvsRequest:
             req = ParseDict(req, person_service.FetchControlledVehicleEnvsRequest())
@@ -287,10 +280,10 @@ class PersonService:
         Set controlled vehicle actions
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v1.SetControlledVehicleActionsRequest
+        - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.SetControlledVehicleActionsRequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.v1.SetControlledVehicleActionsResponse
+        - https://cityproto.sim.fiblab.net/#city.person.v2.SetControlledVehicleActionsResponse
         """
         if type(req) != person_service.SetControlledVehicleActionsRequest:
             req = ParseDict(req, person_service.SetControlledVehicleActionsRequest())
