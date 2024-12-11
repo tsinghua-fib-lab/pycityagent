@@ -27,7 +27,7 @@ class BlockDispatcher:
         """Generate function schema for LLM function call"""
         # 创建 block 选项说明
         block_descriptions = {
-            name: block.description 
+            name: block.description  # type: ignore
             for name, block in self.blocks.items()
         }
         
@@ -64,7 +64,7 @@ class BlockDispatcher:
         
         # Parse function call result
         try:
-            selected_block = function_args.get("block_name")
+            selected_block = function_args.get("block_name") # type: ignore
             print(f"selected_block: {selected_block}")
             
             if selected_block not in self.blocks:

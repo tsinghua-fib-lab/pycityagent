@@ -3,14 +3,14 @@ from pycityagent.workflow.block import Block
 import random
 from pycityagent.memory import Memory
 
-class CognitionBlock(Block):
+
+class SocialBlock(Block):
     def __init__(self, llm: LLM, memory: Memory):
-        super().__init__(llm)
+        super().__init__("SocialBlock", llm)
         self.memory = memory
 
     async def forward(self, step, context):
-        print(f"执行认知操作: {step['intention']}")
-        duration = random.randint(10, 30)  # 认知活动通常需要10-30分钟
+        duration = random.randint(30, 90)  # 社交活动通常需要30-90分钟
         return {
             'success': True,
             'evaluation': f'完成执行{step["intention"]}',

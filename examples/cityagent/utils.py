@@ -387,24 +387,22 @@ def event2poi_gravity(map, label, nowPlace):
     # 直接从意图对应到POI，好处是数量多
     # 这里还是考虑了POI类型的.
     
-    nowPlace = map.get_poi(nowPlace[1])  # 由poi id查询到poi的全部信息
+    if nowPlace[1] in map.pois.keys():
+        nowPlace = map.get_poi(nowPlace[1])  # 由poi id查询到poi的全部信息
+    else:
+        nowPlace = map.get_aoi(nowPlace[1])
+        nowPlace['position'] = {'x': nowPlace['positions'][0]['x'], 'y': nowPlace['positions'][0]['y']}
     labelQueryId = label
     
     # 现在就假设是在10km内进行POI的选择,10km应该已经是正常人进行出行选择的距离上限了,再远就不对劲了。
     pois10k = map.query_pois(
             center = (nowPlace['position']['x'], nowPlace['position']['y']), 
-            radius = 10000,  # 10km查到5000个POI是一件非常轻松的事情
+            radius = 100000,  # 10km查到5000个POI是一件非常轻松的事情
             category_prefix= labelQueryId, 
             limit = 20000  # 查询10000个POI
         )  # 得到的pois是全部的信息.
     
-    if pois10k[-1][1] < 5000:
-            pois10k = map.query_pois(
-            center = (nowPlace['position']['x'], nowPlace['position']['y']), 
-            radius = 10000,  # 10km查到5000个POI是一件非常轻松的事情
-            category_prefix= labelQueryId, 
-            limit = 30000  # 查询10000个POI
-        )  # 得到的pois是全部的信息.
+    print(pois10k)
     
     N = len(pois10k)
     # 这么一番操作之后的POI数量应该会有很多了, 关于密度如何计算的问题

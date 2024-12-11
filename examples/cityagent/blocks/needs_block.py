@@ -1,5 +1,6 @@
 import json
-from __other import Memory
+from datetime import datetime
+from pycityagent.memory.memory import Memory
 from pycityagent.llm.llm import LLM
 from pycityagent.workflow.block import Block
 from pycityagent.workflow.prompt import FormatPrompt
@@ -46,11 +47,20 @@ class NeedsBlock(Block):
         self.llm = llm
         self.memory = memory
         self.evaluation_prompt = FormatPrompt(EVALUATION_PROMPT)
+        self.last_evaluation_time = None
 
-    async def forward(self):
-        # 计算时间差并更新需求
-        # TODO: 计算时间差
-        time_diff = 0.5
+    async def forward(self, time_now):
+        # 计算时间差
+        if self.last_evaluation_time is None:
+            time_now = datetime.strptime(time_now, "%H:%M:%S")
+            self.last_evaluation_time = time_now
+            time_diff = 0
+        else:
+            time_now = datetime.strptime(time_now, "%H:%M:%S")
+            time_diff = (time_now - self.last_evaluation_time).total_seconds()/3600
+            self.last_evaluation_time = time_now
+
+        # 获取当前需求        
         needs = await self.memory.get("needs")
         
         # 根据经过的时间计算饥饿与疲劳的衰减
@@ -65,10 +75,7 @@ class NeedsBlock(Block):
 
         # TODO: 响应外部事件与消息更新安全需求与社交需求
         await self.memory.update("needs", needs)
-        
-        print(f"时间流逝: {time_diff:.2f}小时")
-        print(f"当前状态 - 饥饿: {hungry:.2f}, 疲劳: {tired:.2f}, 安全: {safe:.2f}, 社交: {social:.2f}")
-                
+
         # 判断当前是否有正在执行的plan
         current_plan = await self.memory.get("current_plan")
         if current_plan and current_plan.get("completed"):
@@ -79,6 +86,11 @@ class NeedsBlock(Block):
             history.append(current_plan)
             await self.memory.update("plan_history", history)
             await self.memory.update("current_plan", None)
+            await self.memory.update("current_step", {"intention": "", "type": ""})
+            await self.memory.update("execution_context", {})
+        
+        print(f"时间流逝: {time_diff:.2f}小时")
+        print(f"当前状态 - 饥饿: {hungry:.2f}, 疲劳: {tired:.2f}, 安全: {safe:.2f}, 社交: {social:.2f}")
 
         # 如果需要调整需求，更新当前需求
         # 调整方案为，如果当前的需求为空，或有更高级的需求出现，则调整需求
@@ -126,6 +138,7 @@ class NeedsBlock(Block):
             if needs_changed:
                 await self.memory.update("current_plan", None)
                 await self.memory.update("current_step", {"intention": "", "type": ""})
+                await self.memory.update("execution_context", {})
                 print("由于需求变化,当前计划已中断")
 
     async def evaluate_and_adjust_needs(self, completed_plan):
@@ -155,7 +168,7 @@ class NeedsBlock(Block):
             print("执行结果:")
             print(evaluation_results)
             
-            new_needs = json.loads(response)
+            new_needs = json.loads(response) # type: ignore
             # 更新所有需求的数值
             needs = await self.memory.get("needs")
             print(f"\n需求值调整:")

@@ -2,12 +2,11 @@ import asyncio
 import yaml
 
 from examples.needs2behavior.cityagent import MyAgent
-from examples.needs2behavior.utils import choiceHW
+from examples.needs2behavior.memory_config import get_memory_config
 from pycityagent.environment.simulator import Simulator
 from pycityagent.llm.llm import LLM
 from pycityagent.llm.llmconfig import LLMConfig
 from pycityagent.memory.memory import Memory
-from .memory_config import get_memory_config
 
 
 async def main():
@@ -39,13 +38,11 @@ async def main():
 
     # Step:3 prepare Memory
     print("-----Setting Memory...")
-    (home, work) = choiceHW()
-    Homeplace = (home[0], home[1])
-    Workplace = (work[0], work[1])
-    EXTRA_ATTRIBUTES, PROFILE = get_memory_config(Homeplace, Workplace)
+    EXTRA_ATTRIBUTES, PROFILE, BASE = get_memory_config()
     memory = Memory(
         config=EXTRA_ATTRIBUTES,
         profile=PROFILE,
+        base=BASE
     )
 
     # Step:4 prepare Agent

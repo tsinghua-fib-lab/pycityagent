@@ -57,7 +57,12 @@ DETAILED_PLAN_PROMPT = """基于选定的指导方案，生成具体的执行步
 
 注意：
 1. type只能是以下四种之一：mobility, social, economy, other
-2. steps中仅包含为满足target所必须的步骤
+    1.1 mobility：对应所有与移动相关的决策或行为，例如地点选择、前往某个地点等
+    1.2 social：对应所有与社交相关的决策或行为，例如找联系人，与朋友聊天等
+    1.3 economy：对应所有与经济相关的决策或行为，例如购物、支付等
+    1.4 other：对应其他类型的决策或行为，例如学习、休息等
+2. steps中仅包含为满足target所必须的步骤(限制在6个步骤以内)
+3. step中的intention应尽量精简明了
 
 示例输出:
 {{
@@ -84,6 +89,10 @@ DETAILED_PLAN_PROMPT = """基于选定的指导方案，生成具体的执行步
     "plan": {{
         "target": "外出吃饭", 
         "steps": [
+            {{
+                "intention": "选择餐厅",
+                "type": "mobility"
+            }},
             {{
                 "intention": "前往餐厅",
                 "type": "mobility"
@@ -119,6 +128,22 @@ DETAILED_PLAN_PROMPT = """基于选定的指导方案，生成具体的执行步
         ]
     }}
 }}
+
+{{
+    "plan": {{
+        "target": "工作",
+        "steps": [
+            {{
+                "intention": "前往工作地点",
+                "type": "mobility"
+            }},
+            {{
+                "intention": "工作",
+                "type": "other"
+            }}
+        ]
+    }}
+}}
 """
 
 class PlanBlock(Block):
@@ -132,7 +157,7 @@ class PlanBlock(Block):
         """选择指导方案"""
         options = GUIDANCE_OPTIONS.get(current_need, [])
         if not options:
-            return None
+            return None # type: ignore
 
         self.guidance_prompt.format(
             current_need=current_need,
@@ -141,10 +166,10 @@ class PlanBlock(Block):
 
         response = await self.llm.atext_request(
             self.guidance_prompt.to_dialog()
-        )
+        ) # type: ignore
 
         try:
-            result = json.loads(self.clean_json_response(response))
+            result = json.loads(self.clean_json_response(response)) # type: ignore
             print(f"\n=== 方案选择 ===")
             print(f"选定方案: {result['selected_option']}")
             print(f"评估结果:")
@@ -155,7 +180,7 @@ class PlanBlock(Block):
             return result
         except Exception as e:
             print(f"解析方案选择响应时发生错误: {str(e)}")
-            return None
+            return None # type: ignore
 
     async def generate_detailed_plan(self, current_need: str, selected_option: str) -> Dict:
         """生成具体执行计划"""
@@ -176,11 +201,11 @@ class PlanBlock(Block):
         )
 
         try:
-            result = json.loads(self.clean_json_response(response))
+            result = json.loads(self.clean_json_response(response)) # type: ignore
             return result
         except Exception as e:
             print(f"解析具体计划时发生错误: {str(e)}")
-            return None
+            return None # type: ignore
 
     async def forward(self):
         current_need = await self.memory.get("current_need")
@@ -225,6 +250,7 @@ class PlanBlock(Block):
 
         await self.memory.update("current_plan", plan)
         await self.memory.update("current_step", steps[0] if steps else {"intention": "", "type": ""})
+        await self.memory.update("execution_context", {})
 
     def clean_json_response(self, response: str) -> str:
         """清理LLM响应中的特殊字符"""
