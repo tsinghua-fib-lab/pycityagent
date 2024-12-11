@@ -4,7 +4,10 @@ from pycityagent.memory.memory import Memory
 from pycityagent.workflow.block import Block
 import random
 
+from pycityagent.workflow.tool import GetMap
+
 class PlaceSelectionBlock(Block):
+    get_map = GetMap()
     """
     选择目的地
     PlaceSelectionBlock

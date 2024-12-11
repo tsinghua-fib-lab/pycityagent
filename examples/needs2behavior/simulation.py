@@ -3,6 +3,7 @@ import yaml
 
 from examples.needs2behavior.cityagent import MyAgent
 from examples.needs2behavior.utils import choiceHW
+from pycityagent.environment.simulator import Simulator
 from pycityagent.llm.llm import LLM
 from pycityagent.llm.llmconfig import LLMConfig
 from pycityagent.memory.memory import Memory
@@ -21,7 +22,20 @@ async def main():
 
     # Step:2 prepare Simulator
     print("-----Loading Simulator...")
-    # simulator = Simulator(config["simulator_request"])
+    SERVER_ADDRESS = "localhost:51102"
+    simulator = Simulator(
+        {
+            "simulator": {
+                "server": SERVER_ADDRESS,
+            },
+            "map_request": {
+                "mongo_uri": "mongodb://sim:FiblabSim1001@mgo.db.fiblab.tech:8635",
+                "mongo_db": "srt",
+                "mongo_coll": "map_beijing_extend_20241201",
+                "cache_dir": "../cache",
+            },
+        }
+    )
 
     # Step:3 prepare Memory
     print("-----Setting Memory...")
@@ -36,7 +50,7 @@ async def main():
 
     # Step:4 prepare Agent
     my_agent = MyAgent(
-        name="MyAgent", llm_client=llm, simulator=None, memory=memory
+        name="MyAgent", llm_client=llm, simulator=simulator, memory=memory
     )
 
     # Step:5 run

@@ -8,10 +8,12 @@ from pycityagent import CitizenAgent, Simulator
 from pycityagent.llm.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.workflow import GetMap
+from pycityagent.workflow.tool import ResetAgentPosition, UpdateWithSimulator
 
 
 class MyAgent(CitizenAgent):
-    get_map = GetMap()
+    update_with_sim = UpdateWithSimulator()
+    reset_pos = ResetAgentPosition()
 
     def __init__(self, name: str, llm_client: LLM, simulator: Simulator | None = None, memory: Memory | None = None) -> None:
         super().__init__(name, llm_client, simulator, memory)
@@ -24,6 +26,8 @@ class MyAgent(CitizenAgent):
 
     # Main workflow
     async def forward(self):
+        # 与模拟器同步状态
+        await self.update_with_sim()
         # 需求更新
         await self.needsBlock.forward()
         current_need = await self.memory.get("current_need")
