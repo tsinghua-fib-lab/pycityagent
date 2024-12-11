@@ -1,5 +1,6 @@
 """UrbanLLM: 智能能力类及其定义"""
 
+import json
 from openai import OpenAI, AsyncOpenAI, APIConnectionError, OpenAIError
 from zhipuai import ZhipuAI
 import logging
@@ -89,7 +90,10 @@ Token Usage:
             max_tokens: Optional[int] = None, 
             top_p: Optional[float] = None, 
             frequency_penalty: Optional[float] = None, 
-            presence_penalty: Optional[float] = None) -> Optional[str]:
+            presence_penalty: Optional[float] = None,
+            tools:Optional[List[Dict[str, Any]]]=None,
+            tool_choice:Optional[Dict[str, Any]]=None
+            ) -> Optional[str]:
         """
         文本相关请求
         Text request
@@ -121,12 +125,17 @@ Token Usage:
                 max_tokens=max_tokens,
                 top_p=top_p,
                 frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty
+                presence_penalty=presence_penalty,
+                tools=tools,
+                tool_choice=tool_choice
             )
             self.prompt_tokens_used += response.usage.prompt_tokens # type: ignore
             self.completion_tokens_used += response.usage.completion_tokens # type: ignore
             self.request_number += 1
-            return response.choices[0].message.content
+            if tools != None:
+                return response.tool_calls[0].function.arguments
+            else:
+                return response.choices[0].message.content
         elif self.config.text['request_type'] == 'qwen':
             response = dashscope.Generation.call(
                 model=self.config.text['model'],
@@ -183,7 +192,10 @@ Token Usage:
             frequency_penalty:Optional[float]=None, 
             presence_penalty:Optional[float]=None, 
             timeout:int=300, 
-            retries=3):
+            retries=3,
+            tools:Optional[List[Dict[str, Any]]]=None,
+            tool_choice:Optional[Dict[str, Any]]=None
+            ):
         """
         异步版文本请求
         """
@@ -202,11 +214,16 @@ Token Usage:
                                 presence_penalty=presence_penalty, # type: ignore
                                 stream=False,
                                 timeout=timeout,
+                                tools=tools,
+                                tool_choice=tool_choice
                             ) # type: ignore
                             self.prompt_tokens_used += response.usage.prompt_tokens # type: ignore
                             self.completion_tokens_used += response.usage.completion_tokens # type: ignore
                             self.request_number += 1
-                            return response.choices[0].message.content
+                            if tools != None:
+                                return response.tool_calls[0].function.arguments
+                            else:
+                                return response.choices[0].message.content
                     else:
                         response = await self._aclient.chat.completions.create(
                             model=self.config.text['model'],
@@ -218,11 +235,16 @@ Token Usage:
                             presence_penalty=presence_penalty, # type: ignore
                             stream=False,
                             timeout=timeout,
+                            tools=tools,
+                            tool_choice=tool_choice
                         ) # type: ignore
                         self.prompt_tokens_used += response.usage.prompt_tokens # type: ignore
                         self.completion_tokens_used += response.usage.completion_tokens # type: ignore
                         self.request_number += 1
-                        return response.choices[0].message.content
+                        if tools != None:
+                            return response.tool_calls[0].function.arguments
+                        else:
+                            return response.choices[0].message.content
                 except APIConnectionError as e:
                     print("API connection error:", e)
                     if attempt < retries - 1:
@@ -247,6 +269,8 @@ Token Usage:
                         temperature=temperature,
                         top_p=top_p,
                         timeout=timeout,
+                        tools=tools,
+                        tool_choice=tool_choice
                     )
                     task_id = response.id
                     task_status = ''
@@ -263,7 +287,10 @@ Token Usage:
                     self.prompt_tokens_used += result_response.usage.prompt_tokens # type: ignore
                     self.completion_tokens_used += result_response.usage.completion_tokens # type: ignore
                     self.request_number += 1
-                    return result_response.choices[0].message.content # type: ignore
+                    if tools and result_response.choices[0].message.tool_calls:
+                        return json.loads(result_response.choices[0].message.tool_calls[0].function.arguments)
+                    else:
+                        return result_response.choices[0].message.content # type: ignore
                 except APIConnectionError as e:
                     print("API connection error:", e)
                     if attempt < retries - 1:

@@ -3,7 +3,6 @@ from __other import Memory
 from pycityagent.llm.llm import LLM
 from pycityagent.workflow.block import Block
 from pycityagent.workflow.prompt import FormatPrompt
-from examples.needs2behavior.time_utils import TimeManager
 
 
 alpha_H, alpha_D = 0.05, 0.04  # 饥饿感与疲劳感自然衰减速率
@@ -47,53 +46,45 @@ class NeedsBlock(Block):
         self.llm = llm
         self.memory = memory
         self.evaluation_prompt = FormatPrompt(EVALUATION_PROMPT)
-        self.time_manager = TimeManager()
-        self.last_update_time = self.time_manager.get_time()
 
     async def forward(self):
         # 计算时间差并更新需求
-        current_time = self.time_manager.get_time()
-        time_diff = self.time_manager.calculate_hours_difference(
-            self.last_update_time, 
-            current_time
-        )
+        # TODO: 计算时间差
+        time_diff = 0.5
         needs = await self.memory.get("needs")
         
-        # 根据经过的时间计算衰减
+        # 根据经过的时间计算饥饿与疲劳的衰减
         hungry_decay = alpha_H * time_diff
         tired_decay = alpha_D * time_diff
-        
         hungry = max(0, needs["hungry"] - hungry_decay)
         tired = max(0, needs["tired"] - tired_decay)
         safe = needs["safe"]
         social = needs["social"]
-        
         needs["hungry"] = hungry
         needs["tired"] = tired
+
+        # TODO: 响应外部事件与消息更新安全需求与社交需求
         await self.memory.update("needs", needs)
         
         print(f"时间流逝: {time_diff:.2f}小时")
         print(f"当前状态 - 饥饿: {hungry:.2f}, 疲劳: {tired:.2f}, 安全: {safe:.2f}, 社交: {social:.2f}")
-        
-        self.last_update_time = current_time
-        
+                
         # 判断当前是否有正在执行的plan
         current_plan = await self.memory.get("current_plan")
         if current_plan and current_plan.get("completed"):
+            # 评估计划执行过程并调整需求
             await self.evaluate_and_adjust_needs(current_plan)
             # 将完成的计划添加到历史记录
-            history = await self.memory.get("history")
+            history = await self.memory.get("plan_history")
             history.append(current_plan)
-            await self.memory.update("history", history)
+            await self.memory.update("plan_history", history)
             await self.memory.update("current_plan", None)
 
         # 如果需要调整需求，更新当前需求
         # 调整方案为，如果当前的需求为空，或有更高级的需求出现，则调整需求
-        needs = await self.memory.get("needs")
         current_need = await self.memory.get("current_need")
         
-        # 获取所有需求值，按优先级检查各需求是否达到阈值
-        # 如果当前没有计划或有更高优先级需求
+        # 当前没有计划或计划已执行完毕，获取所有需求值，按优先级检查各需求是否达到阈值
         if not current_plan or current_plan.get("completed"):
             # 按优先级顺序检查需求
             if hungry <= T_H:
@@ -113,9 +104,7 @@ class NeedsBlock(Block):
                 print("当前无需求。")
         else:
             # 有正在执行的计划时,只在出现更高优先级需求时调整
-            current_need = await self.memory.get("current_need")
             needs_changed = False
-            
             if hungry <= T_H and current_need not in ["hungry", "tired"]:
                 await self.memory.update("current_need", "hungry")
                 print("出现更高优先级需求,调整为：饥饿")
@@ -143,7 +132,7 @@ class NeedsBlock(Block):
         # 获取执行的计划和评估结果
         evaluation_results = []
         for step in completed_plan["steps"]:
-            evaluation_results.append(f"- {step['intention']} ({step['type']}): {step['evaluation']['details']}")
+            evaluation_results.append(f"- {step['intention']} ({step['type']}): {step['evaluation']['evaluation']}")
         evaluation_results = "\n".join(evaluation_results)
 
         # 使用 LLM 进行评估

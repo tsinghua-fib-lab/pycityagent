@@ -7,9 +7,9 @@ from pycityagent.workflow.prompt import FormatPrompt
 
 GUIDANCE_OPTIONS = {
     "hungry": ['在家吃饭', '外出吃饭'],
-    "tired": ['睡觉', '小憩'],
-    "safe": ['工作'],
-    "social": ['找家人聊天', '找朋友聊天']
+    "tired": ['睡觉'],
+    "safe": ['工作', '购物'],
+    "social": ['线上社交', '购物']
 }
 
 GUIDANCE_SELECTION_PROMPT = """作为一个智能体的决策系统，请从以下可选方案中选择一个最适合的方案来满足当前需求。
@@ -57,8 +57,68 @@ DETAILED_PLAN_PROMPT = """基于选定的指导方案，生成具体的执行步
 
 注意：
 1. type只能是以下四种之一：mobility, social, economy, other
-2. 忽略不重要的步骤，专注于关键决策和行动
-3. 将多个连续的other类型步骤合并为一个
+2. steps中仅包含为满足target所必须的步骤
+
+示例输出:
+{{
+    "plan": {{
+        "target": "在家吃饭",
+        "steps": [
+            {{
+                "intention": "从当前位置回家",
+                "type": "mobility"
+            }},
+            {{
+                "intention": "烹饪",
+                "type": "other"
+            }},
+            {{
+                "intention": "吃饭",
+                "type": "other"
+            }}
+        ]
+    }}
+}}
+
+{{
+    "plan": {{
+        "target": "外出吃饭", 
+        "steps": [
+            {{
+                "intention": "前往餐厅",
+                "type": "mobility"
+            }},
+            {{
+                "intention": "点餐",
+                "type": "economy"
+            }},
+            {{
+                "intention": "用餐",
+                "type": "other"
+            }}
+        ]
+    }}
+}}
+
+{{
+    "plan": {{
+        "target": "线下社交",
+        "steps": [
+            {{
+                "intention": "联系朋友约定见面地点",
+                "type": "social"
+            }},
+            {{
+                "intention": "前往约定地点",
+                "type": "mobility"
+            }},
+            {{
+                "intention": "与朋友交谈",
+                "type": "social"
+            }}
+        ]
+    }}
+}}
 """
 
 class PlanBlock(Block):
@@ -124,7 +184,6 @@ class PlanBlock(Block):
 
     async def forward(self):
         current_need = await self.memory.get("current_need")
-        
         if current_need == "none":
             await self.memory.update("current_plan", [])
             await self.memory.update("current_step", {"intention": "", "type": ""})
