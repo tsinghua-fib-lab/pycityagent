@@ -1,8 +1,8 @@
 import asyncio
 import yaml
 
-from examples.needs2behavior.cityagent import MyAgent
-from examples.needs2behavior.memory_config import get_memory_config
+from examples.cityagent.cityagent import MyAgent
+from examples.cityagent.memory_config import get_memory_config
 from pycityagent.environment.simulator import Simulator
 from pycityagent.llm.llm import LLM
 from pycityagent.llm.llmconfig import LLMConfig

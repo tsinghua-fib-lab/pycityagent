@@ -1,4 +1,4 @@
-from examples.needs2behavior.blocks.dispatcher import BlockDispatcher
+from examples.cityagent.blocks.dispatcher import BlockDispatcher
 from pycityagent.llm.llm import LLM
 from pycityagent.workflow.block import Block
 import random

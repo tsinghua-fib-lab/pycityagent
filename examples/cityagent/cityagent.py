@@ -1,12 +1,12 @@
 import asyncio
 from datetime import datetime, timedelta
-from examples.needs2behavior.blocks.cognition_block import CognitionBlock
-from examples.needs2behavior.blocks.economy_block import EconomyBlock
-from examples.needs2behavior.blocks.mobility_block import MobilityBlock
-from examples.needs2behavior.blocks.needs_block import NeedsBlock
-from examples.needs2behavior.blocks.other import OtherBlock
-from examples.needs2behavior.blocks.plan_block import PlanBlock
-from examples.needs2behavior.blocks.social_block import SocialBlock
+from examples.cityagent.blocks.cognition_block import CognitionBlock
+from examples.cityagent.blocks.economy_block import EconomyBlock
+from examples.cityagent.blocks.mobility_block import MobilityBlock
+from examples.cityagent.blocks.needs_block import NeedsBlock
+from examples.cityagent.blocks.other import OtherBlock
+from examples.cityagent.blocks.plan_block import PlanBlock
+from examples.cityagent.blocks.social_block import SocialBlock
 from pycityagent import CitizenAgent, Simulator
 from pycityagent.llm.llm import LLM
 from pycityagent.memory import Memory

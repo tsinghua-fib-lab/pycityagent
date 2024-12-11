@@ -1,5 +1,5 @@
-from examples.needs2behavior.blocks.dispatcher import BlockDispatcher
-from examples.needs2behavior.utils import event2poi_gravity, getDirectEventID
+from examples.cityagent.blocks.dispatcher import BlockDispatcher
+from examples.cityagent.utils import event2poi_gravity, getDirectEventID
 from pycityagent.environment.simulator import Simulator
 from pycityagent.llm.llm import LLM
 from pycityagent.memory.memory import Memory
