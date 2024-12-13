@@ -11,7 +11,7 @@ from pycityagent.memory.memory import Memory
 from pycityagent.workflow.tool import ResetAgentPosition, UpdateWithSimulator
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
 )
 
 
@@ -56,12 +56,12 @@ class SimDemoAgent(CitizenAgent):
 
 
 async def main():
-    SERVER_ADDRESS = "localhost:51102"
+    # SERVER_ADDRESS = "localhost:51102"
     # reading from config is also available
     simulator = Simulator(
         {
             "simulator": {
-                "server": SERVER_ADDRESS,
+                # "server": SERVER_ADDRESS,
             },
             "map_request": {
                 "mongo_uri": "******",
@@ -87,7 +87,7 @@ async def main():
         memory=memory,
     )
     try:
-        await demo_agent.reset_pos(aoi_id=500000001)
+        await demo_agent.reset_pos(aoi_id=AOI_START_ID + 1)
     except:
         pass
     demo_agents.append(demo_agent)

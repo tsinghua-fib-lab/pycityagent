@@ -2,15 +2,19 @@
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timedelta
 from typing import Any, Optional, Tuple, Union, cast
 
 from mosstool.type import TripMode
+from mosstool.util.format_converter import coll2pb
 from pycitydata.map import Map as SimMap
+from pycityproto.city.map.v2 import map_pb2 as map_pb2
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pycityproto.city.person.v2 import person_service_pb2 as person_service
+from pymongo import MongoClient
 
-from .sim import CityClient
+from .sim import CityClient, ControlSimEnv
 
 
 class Simulator:
@@ -25,18 +29,49 @@ class Simulator:
         - 模拟器配置
         - simulator config
         """
+        _mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir = (
+            config["map_request"]["mongo_uri"],
+            config["map_request"]["mongo_db"],
+            config["map_request"]["mongo_coll"],
+            config["map_request"]["cache_dir"],
+        )
+        _mongo_client = MongoClient(_mongo_uri)
+        os.makedirs(_map_cache_dir, exist_ok=True)
+        _map_pb_path = os.path.join(_map_cache_dir, f"{_mongo_db}.{_mongo_coll}.pb")  # type: ignore
+        _map_pb = map_pb2.Map()
+        if os.path.exists(_map_pb_path):
+            with open(_map_pb_path, "rb") as f:
+                _map_pb.ParseFromString(f.read())
+        else:
+            _map_pb = coll2pb(_mongo_client[_mongo_db][_mongo_coll], _map_pb)
+            with open(_map_pb_path, "wb") as f:
+                f.write(_map_pb.SerializeToString())
 
-        self._client = CityClient(self.config["simulator"]["server"], secure=secure)
+        self._sim_env = sim_env = ControlSimEnv(
+            task_name=config["simulator"].get("task", "citysim"),
+            map_file=_map_pb_path,
+            start_step=config["simulator"].get("start_step", 0),
+            total_step=2147000000,
+            log_dir=config["simulator"].get("log_dir", "./log"),
+            min_step_time=config["simulator"].get("min_step_time", 1000),
+            simuletgo_addr=config["simulator"].get("server", None),
+        )
+
+        # self._client = CityClient(self.config["simulator"]["server"], secure=secure)
+
+        # using local client
+        self._client = CityClient(sim_env.simuletgo_addr, secure=False)
         """
         - 模拟器grpc客户端
         - grpc client of simulator
         """
 
         self.map = SimMap(
-            mongo_uri=config["map_request"]["mongo_uri"],
-            mongo_db=config["map_request"]["mongo_db"],
-            mongo_coll=config["map_request"]["mongo_coll"],
-            cache_dir=config["map_request"]["cache_dir"],
+            mongo_uri=_mongo_uri,
+            mongo_db=_mongo_db,
+            mongo_coll=_mongo_coll,
+            cache_dir=_map_cache_dir,
+            pb_path=_map_pb_path,
         )
         """
         - 模拟器地图对象

@@ -28,7 +28,7 @@ async def main():
                 "server": SERVER_ADDRESS,
             },
             "map_request": {
-                "mongo_uri": "mongodb://sim:FiblabSim1001@mgo.db.fiblab.tech:8635",
+                "mongo_uri": "******",
                 "mongo_db": "srt",
                 "mongo_coll": "map_beijing_extend_20241201",
                 "cache_dir": "../cache",
