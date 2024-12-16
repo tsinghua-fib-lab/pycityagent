@@ -53,22 +53,25 @@ class Simulator:
                 f.write(_map_pb.SerializeToString())
 
         if 'simulator' in config:
-            self._sim_env = sim_env = ControlSimEnv(
-                task_name=config["simulator"].get("task", "citysim"),
-                map_file=_map_pb_path,
-                start_step=config["simulator"].get("start_step", 0),
-                total_step=2147000000,
-                log_dir=config["simulator"].get("log_dir", "./log"),
-                min_step_time=config["simulator"].get("min_step_time", 1000),
-                simuletgo_addr=config["simulator"].get("server", None),
-            )
+            if 'server' not in config["simulator"]:
+                self._sim_env = sim_env = ControlSimEnv(
+                    task_name=config["simulator"].get("task", "citysim"),
+                    map_file=_map_pb_path,
+                    start_step=config["simulator"].get("start_step", 0),
+                    total_step=2147000000,
+                    log_dir=config["simulator"].get("log_dir", "./log"),
+                    min_step_time=config["simulator"].get("min_step_time", 1000),
+                    simuletgo_addr=config["simulator"].get("server", None),
+                )
 
-            # using local client
-            self._client = CityClient(sim_env.simuletgo_addr, secure=False)
-            """
-            - 模拟器grpc客户端
-            - grpc client of simulator
-            """
+                # using local client
+                self._client = CityClient(sim_env.simuletgo_addr, secure=False)
+                """
+                - 模拟器grpc客户端
+                - grpc client of simulator
+                """
+            else:
+                self._client = CityClient(config['simulator']['server'], secure=False)
         else:
             logging.warning("No simulator config found, no simulator client will be used")
 
