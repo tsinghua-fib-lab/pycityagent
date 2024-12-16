@@ -121,18 +121,19 @@ def log_and_check(
     return decorator
 
 
-def check_trigger():
-    def decorator(func):
-        @functools.wraps(func)
-        async def wrapper(self, *args, **kwargs):
-            # Check if instance has trigger
+def check_trigger_class():
+    def decorator(cls):
+        original_forward = cls.forward
+        
+        @functools.wraps(original_forward)
+        async def wrapped_forward(self, *args, **kwargs):
             if self.trigger is not None:
-                # Wait until trigger condition is met
                 while not await self.trigger.wait_for_trigger():
                     await asyncio.sleep(TRIGGER_INTERVAL)
-            # Execute the original forward method
-            return await func(self, *args, **kwargs)
-        return wrapper
+            return await original_forward(self, *args, **kwargs)
+            
+        cls.forward = wrapped_forward
+        return cls
     return decorator
 
 
@@ -155,9 +156,6 @@ class Block:
             trigger.block = self
             trigger.initialize()  # 立即初始化trigger
         self.trigger = trigger
-        
-        if trigger is not None:
-            self.forward = check_trigger()(self.forward)
 
     async def forward(self):
         """
