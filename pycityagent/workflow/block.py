@@ -159,7 +159,7 @@ class Block:
         if trigger is not None:
             self.forward = check_trigger()(self.forward)
 
-    async def forward(self, *args, **kwargs):
+    async def forward(self):
         """
         Each block performs a specific reasoning task.
         To be overridden by specific block implementations.
