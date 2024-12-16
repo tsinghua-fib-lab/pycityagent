@@ -145,17 +145,22 @@ class Simulator:
         self.tree_id_2_poi_and_catg = tree_id_2_poi_and_catg
         self.pois_tree = STRtree(poi_geos)
 
-    def get_categories_from_pois(self, pois: list) -> list[str]:
-        cat_2_num = defaultdict(int)
-        for poi in pois:
-            cate = poi["category"].split("|")[-1]
-            cat_2_num[cate] += 1
-        sorted_cat_num = sorted(
-            [(k, v) for k, v in cat_2_num.items()], key=lambda k_v: -k_v[1]
-        )
-        # no filter
-        categories = [k_v[0] for k_v in sorted_cat_num]
-        return categories
+    def GetPoiCategories(
+        self,
+        center: Optional[Union[tuple[float, float], Point]] = None,
+        radius: Optional[float] = None,
+    ) -> list[str]:
+        if center is not None and radius is not None:
+            if not isinstance(center, Point):
+                center = Point(center)
+            indices = self.pois_tree.query(center.buffer(radius))
+        else:
+            indices = list(self.tree_id_2_poi_and_catg.keys())
+        categories = []
+        for index in indices:
+            _, catg = self.tree_id_2_poi_and_catg[index]
+            categories.append(catg.split("|")[-1])
+        return list(set(categories))
 
     async def GetTime(
         self, format_time: bool = False, format: str = "%H:%M:%S"
