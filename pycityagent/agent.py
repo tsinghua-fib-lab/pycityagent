@@ -126,7 +126,7 @@ class Agent(ABC):
         dialog = []
 
         # 添加系统提示
-        system_prompt = f"你是一个名叫{self._name}的{self._type.value}。请以第一人称的方式回答问题,保持回答简洁明了。"
+        system_prompt = f"请以第一人称的方式回答问题,保持回答简洁明了。"
         dialog.append({"role": "system", "content": system_prompt})
 
         # 添加记忆上下文

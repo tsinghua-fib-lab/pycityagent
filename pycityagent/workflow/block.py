@@ -1,14 +1,16 @@
 import asyncio
 import functools
 import inspect
-import time
 from typing import Any, Callable, Coroutine, Optional, Union
+
+from pycityagent.environment.simulator import Simulator
+from pycityagent.workflow.trigger import EventTrigger
 
 from ..llm import LLM
 from ..memory import Memory
 from ..utils.decorators import record_call_aio
 
-TRIGGER_INTERVAL = 0.1
+TRIGGER_INTERVAL = 1
 
 
 def log_and_check_with_memory(
@@ -119,17 +121,45 @@ def log_and_check(
     return decorator
 
 
+def check_trigger():
+    def decorator(func):
+        @functools.wraps(func)
+        async def wrapper(self, *args, **kwargs):
+            # Check if instance has trigger
+            if self.trigger is not None:
+                # Wait until trigger condition is met
+                while not await self.trigger.wait_for_trigger():
+                    await asyncio.sleep(TRIGGER_INTERVAL)
+            # Execute the original forward method
+            return await func(self, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
 # Define a Block, similar to a layer in PyTorch
 class Block:
     def __init__(
         self,
         name: str,
         llm: Optional[LLM] = None,
+        memory: Optional[Memory] = None,
+        simulator: Optional[Simulator] = None,
+        trigger: Optional[EventTrigger] = None,
     ):
         self.name = name
         self.llm = llm
+        self.memory = memory
+        self.simulator = simulator
+        # 如果传入trigger，将block注入到trigger中并立即初始化
+        if trigger is not None:
+            trigger.block = self
+            trigger.initialize()  # 立即初始化trigger
+        self.trigger = trigger
+        
+        if trigger is not None:
+            self.forward = check_trigger()(self.forward)
 
-    async def reason(self, *args, **kwargs):
+    async def forward(self, *args, **kwargs):
         """
         Each block performs a specific reasoning task.
         To be overridden by specific block implementations.

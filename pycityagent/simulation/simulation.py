@@ -1,13 +1,18 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from datetime import datetime
+import random
+from typing import Dict, List, Optional, Callable
+from mosstool.map._map_util.const import AOI_START_ID
+
+from pycityagent.llm.llm import LLM
+from pycityagent.memory.memory import Memory
 
 from ..agent import Agent
 from ..environment import Simulator
 from .interview import InterviewManager
-from .survey import QuestionType, Survey, SurveyManager
+from .survey import QuestionType, SurveyManager
 from .ui import InterviewUI
 
 logger = logging.getLogger(__name__)
@@ -15,9 +20,18 @@ logger = logging.getLogger(__name__)
 
 class AgentSimulation:
     """城市智能体模拟器"""
-
-    def __init__(self, simulator: Optional[Simulator] = None):
+    def __init__(self, agent_class: type[Agent], simulator: Simulator, llm: LLM, agent_prefix: str = "agent_"):
+        """
+        Args:
+            agent_class: 智能体类
+            simulator: 模拟器
+            llm: 语言模型
+            agent_prefix: 智能体名称前缀
+        """
+        self.agent_class = agent_class
         self.simulator = simulator
+        self.llm = llm
+        self.agent_prefix = agent_prefix
         self._agents: Dict[str, Agent] = {}
         self._interview_manager = InterviewManager()
         self._interview_lock = asyncio.Lock()
@@ -28,20 +42,77 @@ class AgentSimulation:
         self._blocked_agents: List[str] = []  # 新增：持续阻塞的智能体列表
         self._survey_manager = SurveyManager()
 
-    def add_agent(self, agent: Agent) -> None:
-        """添加智能体到模拟器"""
-        if agent._name in self._agents:
-            raise ValueError(f"智能体 {agent._name} 已存在")
-        self._agents[agent._name] = agent
-        self._agent_run_times[agent._name] = datetime.now()
-        logger.info(f"添加智能体: {agent._name}")
+    def init_agents(self, agent_count: int, memory_config_func: Callable = None) -> None:
+        """初始化智能体
+        
+        Args:
+            agent_count: 要创建的智能体数量
+            memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组
+        """
+        if memory_config_func is None:
+            memory_config_func = self.default_memory_config_func
+        
+        for i in range(agent_count):
+            agent_name = f"{self.agent_prefix}{i}"
 
-    def remove_agent(self, agent_name: str) -> None:
-        """从模拟器中移除智能体"""
-        if agent_name in self._agents:
-            del self._agents[agent_name]
-            del self._agent_run_times[agent_name]
-            logger.info(f"移除智能体: {agent_name}")
+            # 获取Memory配置
+            extra_attributes, profile, base = memory_config_func()
+            memory = Memory(
+                config=extra_attributes,
+                profile=profile.copy(),
+                base=base.copy()
+            )
+            
+            # 创建智能体时传入Memory配置
+            agent = self.agent_class(
+                name=agent_name,
+                simulator=self.simulator,
+                llm=self.llm,
+                memory=memory
+            )
+            
+            self.add_agent(agent)
+
+    def default_memory_config_func(self):
+        """默认的Memory配置函数"""
+        EXTRA_ATTRIBUTES = {
+            # 需求信息
+            "needs": (dict, {
+                'hungry': random.random(),  # 饥饿感
+                'tired': random.random(),   # 疲劳感
+                'safe': random.random(),    # 安全需
+                'social': random.random(),  # 社会需求
+            }, True),
+            "current_need": (str, "none", True),
+            "current_plan": (list, [], True),
+            "current_step": (dict, {"intention": "", "type": ""}, True),
+            "execution_context" : (dict, {}, True),
+            "plan_history": (list, [], True),
+        }
+
+        PROFILE = {
+            "gender": random.choice(["male", "female"]),
+            "education": random.choice(["Doctor", "Master", "Bachelor", "College", "High School"]),
+            "consumption": random.choice(["sightly low", "low", "medium", "high"]),
+            "occupation": random.choice(["Student", "Teacher", "Doctor", "Engineer", "Manager", "Businessman", "Artist", "Athlete", "Other"]),
+            "age": random.randint(18, 65),
+            "skill": random.choice(["Good at problem-solving", "Good at communication", "Good at creativity", "Good at teamwork", "Other"]),
+            "family_consumption": random.choice(["low", "medium", "high"]),
+            "personality": random.choice(["outgoint", "introvert", "ambivert", "extrovert"]),
+            "income": random.randint(1000, 10000),
+            "residence": random.choice(["city", "suburb", "rural"]),
+            "race": random.choice(["Chinese", "American", "British", "French", "German", "Japanese", "Korean", "Russian", "Other"]),
+            "religion": random.choice(["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]),
+            "marital_status": random.choice(["not married", "married", "divorced", "widowed"]),
+            }
+
+        aois = self.simulator.aois.keys()
+        BASE = {
+            "home": {"aoi_position": {"aoi_id": random.choice(aois)}},
+            "work": {"aoi_position": {"aoi_id": random.choice(aois)}},
+        }
+
+        return EXTRA_ATTRIBUTES, PROFILE, BASE
 
     def get_agent_runtime(self, agent_name: str) -> str:
         """获取智能体运行时间"""
@@ -133,74 +204,7 @@ class AgentSimulation:
         except Exception as e:
             logger.error(f"采访过程出错: {str(e)}")
             return f"采访过程出现错误: {str(e)}"
-
-    async def run(
-        self,
-        steps: int = -1,
-        interval: float = 1.0,
-        start_ui: bool = True,
-        server_name: str = "127.0.0.1",
-        server_port: int = 7860,
-    ):
-        """运行模拟器
-
-        Args:
-            steps: 运行步数,默认为-1表示无限运行
-            interval: 智能体forward间隔时间,单位为秒,默认1秒
-            start_ui: 是否启动UI,默认为True
-            server_name: UI服务器地址,默认为"127.0.0.1"
-            server_port: UI服务器端口,默认为7860
-        """
-        try:
-            self._interview_lock = asyncio.Lock()
-            # 初始化UI
-            if start_ui:
-                self._ui = InterviewUI(self)
-                interface = self._ui.create_interface()
-                interface.queue().launch(
-                    server_name=server_name,
-                    server_port=server_port,
-                    prevent_thread_lock=True,
-                    quiet=True,
-                )
-                print(
-                    f"Gradio Frontend is running on http://{server_name}:{server_port}"
-                )
-
-            # 运行所有agents
-            tasks = []
-            for agent in self._agents.values():
-                tasks.append(self._run_agent(agent, steps, interval))
-
-            await asyncio.gather(*tasks)
-
-        except Exception as e:
-            logger.error(f"模拟器运行错误: {str(e)}")
-            raise
-
-    async def _run_agent(self, agent: Agent, steps: int = -1, interval: float = 1.0):
-        """运行单个agent的包装器
-
-        Args:
-            agent: 要运行的能体
-            steps: 运行步数,默认为-1表示无限运行
-            interval: 智能体forward间隔时间,单位为秒
-        """
-        step_count = 0
-        while steps == -1 or step_count < steps:
-            try:
-                if agent._name in self._blocked_agents:
-                    await asyncio.sleep(interval)
-                    continue
-
-                await agent.forward()
-                await asyncio.sleep(interval)  # 控制运行频率
-                step_count += 1
-
-            except Exception as e:
-                logger.error(f"智能体 {agent._name} 运行错误: {str(e)}")
-                await asyncio.sleep(interval)  # 发生错误时暂停一下
-
+        
     async def submit_survey(self, agent_name: str, survey_id: str) -> str:
         """向智能体提交问卷
 
@@ -284,3 +288,65 @@ class AgentSimulation:
             if survey_dict["id"] == survey_id:
                 return survey_dict
         return None
+
+    async def init_ui(
+        self,
+        server_name: str = "127.0.0.1",
+        server_port: int = 7860,
+    ):
+        """初始化UI"""
+        self._interview_lock = asyncio.Lock()
+        # 初始化GradioUI
+        self._ui = InterviewUI(self)
+        interface = self._ui.create_interface()
+        interface.queue().launch(
+            server_name=server_name,
+            server_port=server_port,
+            prevent_thread_lock=True,
+            quiet=True,
+        )
+        print(
+            f"Gradio Frontend is running on http://{server_name}:{server_port}"
+        )
+
+    async def step(self):
+        """运行一步, 即每个智能体执行一次forward"""
+        try:
+            tasks = []
+            for agent in self._agents.values():
+                tasks.append(agent.forward())
+            await asyncio.gather(*tasks)
+        except Exception as e:
+            logger.error(f"运行错误: {str(e)}")
+            raise
+        
+    async def run(
+        self,
+        day: int = 1,
+    ):
+        """运行模拟器
+
+        Args:
+            day: 运行天数,默认为1天
+        """
+        try:
+            # 获取开始时间
+            start_time = self.simulator.GetTime()
+            # 计算结束时间（秒）
+            end_time = start_time + day * 24 * 3600  # 将天数转换为秒
+            
+            while True:
+                current_time = self.simulator.GetTime()
+                if current_time >= end_time:
+                    break
+                
+                tasks = []
+                for agent in self._agents.values():
+                    if agent.name not in self._blocked_agents:
+                        tasks.append(agent.forward())
+                
+                await asyncio.gather(*tasks)
+
+        except Exception as e:
+            logger.error(f"模拟器运行错误: {str(e)}")
+            raise

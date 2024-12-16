@@ -131,7 +131,7 @@ class MobilityAgent(CitizenAgent):
 
 async def main():
     print("-----Loading configs...")
-    with open("config_template.yaml", "r") as file:
+    with open("../__config_template.yaml", "r") as file:
         config = yaml.safe_load(file)
 
     # Step:1 prepare LLM client

@@ -7,14 +7,15 @@ This module contains classes for creating blocks and running workflows.
 from .block import Block, log_and_check, log_and_check_with_memory
 from .prompt import FormatPrompt
 from .tool import GetMap, SencePOI, Tool
-from .trigger import MemoryChangeTrigger, PortMessageTrigger
+from .trigger import MemoryChangeTrigger, TimeTrigger, EventTrigger
 
 __all__ = [
     "SencePOI",
     "Tool",
     "GetMap",
     "MemoryChangeTrigger",
-    "PortMessageTrigger",
+    "TimeTrigger",
+    "EventTrigger",
     "Block",
     "log_and_check",
     "log_and_check_with_memory",

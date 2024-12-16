@@ -13,8 +13,6 @@ llm_request:
     model: none
 
 simulator_request:
-  simulator: 
-    server: https://api-opencity-2x.fiblab.net:58081
   map_request:
     mongo_uri: <MONGO_URI>
     mongo_db: llmsim
