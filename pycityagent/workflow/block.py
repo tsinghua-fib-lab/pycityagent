@@ -128,8 +128,7 @@ def trigger_class():
         @functools.wraps(original_forward)
         async def wrapped_forward(self, *args, **kwargs):
             if self.trigger is not None:
-                while not await self.trigger.wait_for_trigger():
-                    await asyncio.sleep(TRIGGER_INTERVAL)
+                await self.trigger.wait_for_trigger()
             return await original_forward(self, *args, **kwargs)
             
         cls.forward = wrapped_forward
