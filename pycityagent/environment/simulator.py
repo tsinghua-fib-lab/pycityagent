@@ -80,7 +80,6 @@ class Simulator:
             mongo_db=_mongo_db,
             mongo_coll=_mongo_coll,
             cache_dir=_map_cache_dir,
-            pb_path=_map_pb_path,
         )
         """
         - 模拟器地图对象
