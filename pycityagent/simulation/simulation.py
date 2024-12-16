@@ -331,18 +331,18 @@ class AgentSimulation:
         """
         try:
             # 获取开始时间
-            start_time = self.simulator.GetTime()
+            start_time = await self.simulator.GetTime()
             # 计算结束时间（秒）
             end_time = start_time + day * 24 * 3600  # 将天数转换为秒
             
             while True:
-                current_time = self.simulator.GetTime()
+                current_time = await self.simulator.GetTime()
                 if current_time >= end_time:
                     break
                 
                 tasks = []
                 for agent in self._agents.values():
-                    if agent.name not in self._blocked_agents:
+                    if agent._name not in self._blocked_agents:
                         tasks.append(agent.forward())
                 
                 await asyncio.gather(*tasks)
