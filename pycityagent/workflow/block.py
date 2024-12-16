@@ -121,7 +121,7 @@ def log_and_check(
     return decorator
 
 
-def check_trigger_class():
+def trigger_class():
     def decorator(cls):
         original_forward = cls.forward
         
