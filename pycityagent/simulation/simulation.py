@@ -71,7 +71,7 @@ class AgentSimulation:
                 memory=memory
             )
             
-            self.add_agent(agent)
+            self._agents[agent_name] = agent
 
     def default_memory_config_func(self):
         """默认的Memory配置函数"""
