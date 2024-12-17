@@ -3,9 +3,6 @@ import logging
 from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from mosstool.util.format_converter import dict2pb
-from pycityproto.city.person.v2 import person_pb2 as person_pb2
-
 from ..agent import Agent
 from ..environment import (LEVEL_ONE_PRE, POI_TYPE_DICT, AoiService,
                            PersonService)
@@ -136,63 +133,8 @@ class SencePOI(Tool):
 
 
 class UpdateWithSimulator(Tool):
-    def __init__(
-        self,
-        person_template_func: Callable[[], dict] = PersonService.default_dict_person,
-    ) -> None:
-        self.person_template_func = person_template_func
-
-    async def _bind_to_simulator(
-        self,
-    ):
-        """
-        Bind Agent to Simulator
-
-        Args:
-            person_template (dict, optional): The person template in dict format. Defaults to PersonService.default_dict_person().
-        """
-        agent = self.agent
-        if agent._simulator is None:
-            return
-        if not agent._has_bound_to_simulator:
-            FROM_MEMORY_KEYS = {
-                "attribute",
-                "home",
-                "work",
-                "vehicle_attribute",
-                "bus_attribute",
-                "pedestrian_attribute",
-                "bike_attribute",
-            }
-            simulator = agent.simulator
-            memory = agent.memory
-            person_id = await memory.get("id")
-            # ATTENTION:模拟器分配的id从0开始
-            if person_id >= 0:
-                await simulator.get_person(person_id)
-                logging.debug(f"Binding to Person `{person_id}` already in Simulator")
-            else:
-                dict_person = deepcopy(self.person_template_func())
-                for _key in FROM_MEMORY_KEYS:
-                    try:
-                        _value = await memory.get(_key)
-                        if _value:
-                            dict_person[_key] = _value
-                    except KeyError as e:
-                        continue
-                resp = await simulator.add_person(
-                    dict2pb(dict_person, person_pb2.Person())
-                )
-                person_id = resp["person_id"]
-                await memory.update("id", person_id, protect_llm_read_only_fields=False)
-                logging.debug(
-                    f"Binding to Person `{person_id}` just added to Simulator"
-                )
-                # 防止模拟器还没有到prepare阶段导致get_person出错
-                await asyncio.sleep(5)
-            agent._has_bound_to_simulator = True
-        else:
-            pass
+    def __init__(self) -> None:
+        pass
 
     async def _update_motion_with_sim(
         self,
@@ -220,7 +162,6 @@ class UpdateWithSimulator(Tool):
         self,
     ):
         agent = self.agent
-        await self._bind_to_simulator()
         await self._update_motion_with_sim()
 
 

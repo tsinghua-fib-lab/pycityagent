@@ -1,9 +1,16 @@
 """智能体模板类及其定义"""
 
 from abc import ABC, abstractmethod
+import asyncio
+from copy import deepcopy
 from datetime import datetime
 from enum import Enum
+import logging
 from typing import Dict, List, Optional
+
+from pycityagent.environment.sim.person_service import PersonService
+from mosstool.util.format_converter import dict2pb
+from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
 from .economy import EconomyClient
 from .environment import Simulator
@@ -56,7 +63,76 @@ class Agent(ABC):
         self._simulator = simulator
         self._memory = memory
         self._has_bound_to_simulator = False
+        self._has_bound_to_economy = False
         self._interview_history: List[Dict] = []  # 存储采访历史
+        self._person_template = PersonService.default_dict_person()
+        asyncio.create_task(self._bind_to_simulator())
+        asyncio.create_task(self._bind_to_economy())
+
+    async def _bind_to_simulator(self):
+        """
+        Bind Agent to Simulator
+
+        Args:
+            person_template (dict, optional): The person template in dict format. Defaults to PersonService.default_dict_person().
+        """
+        if self._simulator is None:
+            return
+        if not self._has_bound_to_simulator:
+            FROM_MEMORY_KEYS = {
+                "attribute",
+                "home",
+                "work",
+                "vehicle_attribute",
+                "bus_attribute",
+                "pedestrian_attribute",
+                "bike_attribute",
+            }
+            simulator = self._simulator
+            memory = self._memory
+            person_id = await memory.get("id")
+            # ATTENTION:模拟器分配的id从0开始
+            if person_id >= 0:
+                await simulator.get_person(person_id)
+                logging.debug(f"Binding to Person `{person_id}` already in Simulator")
+            else:
+                dict_person = deepcopy(self._person_template)
+                for _key in FROM_MEMORY_KEYS:
+                    try:
+                        _value = await memory.get(_key)
+                        if _value:
+                            dict_person[_key] = _value
+                    except KeyError as e:
+                        continue
+                resp = await simulator.add_person(
+                    dict2pb(dict_person, person_pb2.Person())
+                )
+                person_id = resp["person_id"]
+                await memory.update("id", person_id, protect_llm_read_only_fields=False)
+                logging.debug(
+                    f"Binding to Person `{person_id}` just added to Simulator"
+                )
+                # 防止模拟器还没有到prepare阶段导致get_person出错
+                await asyncio.sleep(5)
+            self._has_bound_to_simulator = True
+
+    async def _bind_to_economy(self):
+        if self._economy_client is None:
+            return
+        if not self._has_bound_to_economy:
+            if self._has_bound_to_simulator:
+                person_id = await self._memory.get("id")
+                await self._economy_client.add_agents(
+                    {
+                        "id": person_id,
+                        "currency": await self._memory.get("currency"),
+                    }
+                )
+                self._has_bound_to_economy = True
+            else:
+                logging.debug(
+                    f"Binding to Economy before binding to Simulator, skip binding to Economy Simulator"
+                )
 
     def set_memory(self, memory: Memory):
         """

@@ -10,6 +10,7 @@ PROFILE_ATTRIBUTES = {
     "consumption": str(),
     "personality": str(),
     "income": str(),
+    "currency": float(),
     "residence": str(),
     "race": str(),
     "religion": str(),

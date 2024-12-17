@@ -8,6 +8,7 @@ from mosstool.map._map_util.const import AOI_START_ID
 
 from pycityagent.llm.llm import LLM
 from pycityagent.memory.memory import Memory
+from pycityagent.economy import EconomyClient
 
 from ..agent import Agent
 from ..environment import Simulator
@@ -20,17 +21,19 @@ logger = logging.getLogger(__name__)
 
 class AgentSimulation:
     """城市智能体模拟器"""
-    def __init__(self, agent_class: type[Agent], simulator: Simulator, llm: LLM, agent_prefix: str = "agent_"):
+    def __init__(self, agent_class: type[Agent], simulator: Simulator, llm: LLM, economy_client: Optional[EconomyClient] = None, agent_prefix: str = "agent_"):
         """
         Args:
             agent_class: 智能体类
             simulator: 模拟器
             llm: 语言模型
+            economy_client: 经济客户端
             agent_prefix: 智能体名称前缀
         """
         self.agent_class = agent_class
         self.simulator = simulator
         self.llm = llm
+        self.economy_client = economy_client
         self.agent_prefix = agent_prefix
         self._agents: Dict[str, Agent] = {}
         self._interview_manager = InterviewManager()
@@ -68,7 +71,8 @@ class AgentSimulation:
                 name=agent_name,
                 simulator=self.simulator,
                 llm=self.llm,
-                memory=memory
+                memory=memory,
+                economy_client=self.economy_client
             )
             
             self._agents[agent_name] = agent
@@ -100,6 +104,7 @@ class AgentSimulation:
             "family_consumption": random.choice(["low", "medium", "high"]),
             "personality": random.choice(["outgoint", "introvert", "ambivert", "extrovert"]),
             "income": random.randint(1000, 10000),
+            "currency": random.randint(10000, 100000),
             "residence": random.choice(["city", "suburb", "rural"]),
             "race": random.choice(["Chinese", "American", "British", "French", "German", "Japanese", "Korean", "Russian", "Other"]),
             "religion": random.choice(["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]),
