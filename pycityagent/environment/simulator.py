@@ -74,7 +74,6 @@ class Simulator:
                 self._client = CityClient(config['simulator']['server'], secure=False)
         else:
             logging.warning("No simulator config found, no simulator client will be used")
-
         self.map = SimMap(
             mongo_uri=_mongo_uri,
             mongo_db=_mongo_db,
@@ -107,7 +106,7 @@ class Simulator:
         self.set_poi_tree()
 
     # * Agent相关
-    def FindAgentsByArea(self, req: dict, status=None):
+    def find_agents_by_area(self, req: dict, status=None):
         """
         通过区域范围查找agent/person
         Get agents/persons in the provided area
@@ -148,7 +147,7 @@ class Simulator:
         self.tree_id_2_poi_and_catg = tree_id_2_poi_and_catg
         self.pois_tree = STRtree(poi_geos)
 
-    def GetPoiCategories(
+    def get_poi_categories(
         self,
         center: Optional[Union[tuple[float, float], Point]] = None,
         radius: Optional[float] = None,
@@ -165,7 +164,7 @@ class Simulator:
             categories.append(catg.split("|")[-1])
         return list(set(categories))
 
-    async def GetTime(
+    async def get_time(
         self, format_time: bool = False, format: str = "%H:%M:%S"
     ) -> Union[int, str]:
         """
@@ -192,19 +191,19 @@ class Simulator:
         else:
             return t_sec["t"]
 
-    async def GetPerson(self, person_id: int) -> dict:
+    async def get_person(self, person_id: int) -> dict:
         return await self._client.person_service.GetPerson(
             req={"person_id": person_id}
         )  # type:ignore
 
-    async def AddPerson(self, person: Any) -> dict:
+    async def add_person(self, person: Any) -> dict:
         if isinstance(person, person_pb2.Person):
             req = person_service.AddPersonRequest(person=person)
         else:
             req = person
         return await self._client.person_service.AddPerson(req)  # type:ignore
 
-    async def SetAoiSchedules(
+    async def set_aoi_schedules(
         self,
         person_id: int,
         target_positions: Union[
@@ -213,7 +212,7 @@ class Simulator:
         departure_times: Optional[list[float]] = None,
         modes: Optional[list[TripMode]] = None,
     ):
-        cur_time = float(await self.GetTime())
+        cur_time = float(await self.get_time())
         if not isinstance(target_positions, list):
             target_positions = [target_positions]
         if departure_times is None:
@@ -254,7 +253,7 @@ class Simulator:
         req = {"person_id": person_id, "schedules": _schedules}
         await self._client.person_service.SetSchedule(req)
 
-    async def ResetPersonPosition(
+    async def reset_person_position(
         self,
         person_id: int,
         aoi_id: Optional[int] = None,
@@ -291,7 +290,7 @@ class Simulator:
                 f"Neither aoi or lane pos provided for person {person_id} position reset!!"
             )
 
-    def GetAroundPoi(
+    def get_around_poi(
         self,
         center: Union[tuple[float, float], Point],
         radius: float,

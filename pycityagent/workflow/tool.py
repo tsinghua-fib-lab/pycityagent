@@ -169,7 +169,7 @@ class UpdateWithSimulator(Tool):
             person_id = await memory.get("id")
             # ATTENTION:模拟器分配的id从0开始
             if person_id >= 0:
-                await simulator.GetPerson(person_id)
+                await simulator.get_person(person_id)
                 logging.debug(f"Binding to Person `{person_id}` already in Simulator")
             else:
                 dict_person = deepcopy(self.person_template_func())
@@ -180,7 +180,7 @@ class UpdateWithSimulator(Tool):
                             dict_person[_key] = _value
                     except KeyError as e:
                         continue
-                resp = await simulator.AddPerson(
+                resp = await simulator.add_person(
                     dict2pb(dict_person, person_pb2.Person())
                 )
                 person_id = resp["person_id"]
@@ -188,7 +188,7 @@ class UpdateWithSimulator(Tool):
                 logging.debug(
                     f"Binding to Person `{person_id}` just added to Simulator"
                 )
-                # 防止模拟器还没有到prepare阶段导致GetPerson出错
+                # 防止模拟器还没有到prepare阶段导致get_person出错
                 await asyncio.sleep(5)
             agent._has_bound_to_simulator = True
         else:
@@ -205,7 +205,7 @@ class UpdateWithSimulator(Tool):
         simulator = agent.simulator
         memory = agent.memory
         person_id = await memory.get("id")
-        resp = await simulator.GetPerson(person_id)
+        resp = await simulator.get_person(person_id)
         resp_dict = resp["person"]
         for k, v in resp_dict.get("motion", {}).items():
             try:
@@ -237,7 +237,7 @@ class ResetAgentPosition(Tool):
     ):
         agent = self.agent
         memory = agent.memory
-        await agent.simulator.ResetPersonPosition(
+        await agent.simulator.reset_person_position(
             person_id=await memory.get("id"),
             aoi_id=aoi_id,
             poi_id=poi_id,

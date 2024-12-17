@@ -55,7 +55,7 @@ class MyAgent(CitizenAgent):
             return
 
         # 需求更新
-        time_now = await self.simulator.GetTime(format_time=True)
+        time_now = await self.simulator.get_time(format_time=True)
         print(f"Current time: {time_now}")
         await self.needsBlock.forward(time_now=time_now)
         current_need = await self.memory.get("current_need")
@@ -74,7 +74,7 @@ class MyAgent(CitizenAgent):
         if current_step and current_step.get("type") and current_step.get("intention"):
             step_type = current_step.get("type")
             print(f"执行步骤: {current_step['intention']} - 类型: {step_type}")
-            time_start_exec = str(await self.simulator.GetTime(format_time=True))
+            time_start_exec = str(await self.simulator.get_time(format_time=True))
             time_start_exec = datetime.strptime(time_start_exec, "%H:%M:%S")
             result = None
             if step_type == "mobility":
@@ -87,14 +87,14 @@ class MyAgent(CitizenAgent):
                 result = await self.otherBlock.forward(current_step, execution_context)
             if result != None:
                 print(f"执行结果: {result}")
-                time_end_exec_actual = str(await self.simulator.GetTime(format_time=True))
+                time_end_exec_actual = str(await self.simulator.get_time(format_time=True))
                 time_end_exec_actual = datetime.strptime(time_end_exec_actual, "%H:%M:%S")
                 time_end_plan = time_start_exec + timedelta(minutes=result['consumed_time'])
                 if time_end_plan >= time_end_exec_actual:
                     # 等待
                     while time_end_plan >= time_end_exec_actual:
                         await asyncio.sleep(1)
-                        time_end_exec_actual = str(await self.simulator.GetTime(format_time=True))
+                        time_end_exec_actual = str(await self.simulator.get_time(format_time=True))
                         time_end_exec_actual = datetime.strptime(time_end_exec_actual, "%H:%M:%S")
                 else:
                     # 取两者大者

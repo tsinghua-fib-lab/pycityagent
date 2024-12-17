@@ -78,7 +78,7 @@ class MoveBlock(Block):
                     'evaluation': f'成功回到家(本来就在家中)',
                     'consumed_time': 0
                 }
-            await self.simulator.SetAoiSchedules(
+            await self.simulator.set_aoi_schedules(
                 person_id=agent_id,
                 target_positions=home,
             )
@@ -91,7 +91,7 @@ class MoveBlock(Block):
             # 返回到工作地点
             work = await self.memory.get('work')
             work = work['aoi_position']['aoi_id']
-            await self.simulator.SetAoiSchedules(
+            await self.simulator.set_aoi_schedules(
                 person_id=agent_id,
                 target_positions=work,
             )
@@ -104,7 +104,7 @@ class MoveBlock(Block):
             # 移动到其他地点
             next_place = context.get('next_place', None)
             if next_place != None:
-                await self.simulator.SetAoiSchedules(
+                await self.simulator.set_aoi_schedules(
                     person_id=agent_id,
                     target_positions=next_place[1],
                 )
@@ -112,7 +112,7 @@ class MoveBlock(Block):
                 r_aoi = random.choice(list(self.simulator.map.aois.values()))
                 r_poi = random.choice(r_aoi['poi_ids'].values())
                 next_place = (r_poi['name'], r_aoi['id'])
-                await self.simulator.SetAoiSchedules(
+                await self.simulator.set_aoi_schedules(
                     person_id=agent_id,
                     target_positions=next_place[1],
                 )

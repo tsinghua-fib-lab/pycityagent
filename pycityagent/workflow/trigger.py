@@ -129,7 +129,7 @@ class TimeTrigger(EventTrigger):
         
         while True:
             try:
-                current_time = await self.simulator.GetTime()
+                current_time = await self.simulator.get_time()
                 
                 # 如果是第一次或者已经过了指定的时间间隔
                 if (self._last_trigger_time is None or 

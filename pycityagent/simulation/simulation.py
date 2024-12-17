@@ -331,12 +331,12 @@ class AgentSimulation:
         """
         try:
             # 获取开始时间
-            start_time = await self.simulator.GetTime()
+            start_time = await self.simulator.get_time()
             # 计算结束时间（秒）
             end_time = start_time + day * 24 * 3600  # 将天数转换为秒
             
             while True:
-                current_time = await self.simulator.GetTime()
+                current_time = await self.simulator.get_time()
                 if current_time >= end_time:
                     break
                 

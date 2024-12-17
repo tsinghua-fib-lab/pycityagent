@@ -49,7 +49,7 @@ class SimDemoAgent(CitizenAgent):
         self,
     ):
         agent_id = await self.memory.get("id")
-        await self.simulator.SetAoiSchedules(
+        await self.simulator.set_aoi_schedules(
             person_id=agent_id,
             target_positions=AOI_START_ID + 2,
         )
@@ -97,7 +97,7 @@ async def main():
             tasks = [demo_agent.set_schedules() for demo_agent in demo_agents]
             await asyncio.gather(*tasks)
             agent_id = await memory.get("id")
-            print(await simulator.GetPerson(agent_id))
+            print(await simulator.get_person(agent_id))
         else:
             tasks = [demo_agent.forward() for demo_agent in demo_agents]
             await asyncio.gather(*tasks)
