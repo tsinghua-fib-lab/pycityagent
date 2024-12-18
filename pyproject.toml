@@ -40,6 +40,8 @@ pyyaml = "^6.0.2"
 zhipuai = "^2.1.5.20230904"
 gradio = "^5.7.1"
 mosstool = "1.0.24"
+ray = "^2.40.0"
+aiomqtt = "^2.3.0"
 
 [build-system]
 requires = ["poetry-core"]

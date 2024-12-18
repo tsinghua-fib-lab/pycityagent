@@ -12,6 +12,8 @@ from pycityagent.environment.sim.person_service import PersonService
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
+from pycityagent.message.messager import Messager
+
 from .economy import EconomyClient
 from .environment import Simulator
 from .llm import LLM
@@ -42,6 +44,7 @@ class Agent(ABC):
         type: AgentType = AgentType.Unspecified,
         llm_client: Optional[LLM] = None,
         economy_client: Optional[EconomyClient] = None,
+        messager: Optional[Messager] = None,
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
     ) -> None:
@@ -53,6 +56,7 @@ class Agent(ABC):
             type (AgentType): The type of the agent. Defaults to `AgentType.Unspecified`
             llm_client (LLM): The language model client. Defaults to None.
             economy_client (EconomyClient): The `EconomySim` client. Defaults to None.
+            messager (Messager, optional): The messager object. Defaults to None.
             simulator (Simulator, optional): The simulator object. Defaults to None.
             memory (Memory, optional): The memory of the agent. Defaults to None.
         """
@@ -60,14 +64,54 @@ class Agent(ABC):
         self._type = type
         self._llm_client = llm_client
         self._economy_client = economy_client
+        self._messager = messager
         self._simulator = simulator
         self._memory = memory
         self._has_bound_to_simulator = False
         self._has_bound_to_economy = False
+        self._blocked = False
         self._interview_history: List[Dict] = []  # 存储采访历史
         self._person_template = PersonService.default_dict_person()
-        asyncio.create_task(self._bind_to_simulator())
-        asyncio.create_task(self._bind_to_economy())
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # 排除锁对象
+        del state['_llm_client']
+        return state
+
+    async def bind_to_simulator(self):
+        await self._bind_to_simulator()
+        await self._bind_to_economy()
+
+    def set_messager(self, messager: Messager):
+        """
+        Set the messager of the agent.
+        """
+        self._messager = messager
+
+    def set_llm_client(self, llm_client: LLM):
+        """
+        Set the llm_client of the agent.
+        """
+        self._llm_client = llm_client
+
+    def set_simulator(self, simulator: Simulator):
+        """
+        Set the simulator of the agent.
+        """
+        self._simulator = simulator
+
+    def set_economy_client(self, economy_client: EconomyClient):
+        """
+        Set the economy_client of the agent.
+        """
+        self._economy_client = economy_client
+
+    def set_memory(self, memory: Memory):
+        """
+        Set the memory of the agent.
+        """
+        self._memory = memory
 
     async def _bind_to_simulator(self):
         """
@@ -77,6 +121,7 @@ class Agent(ABC):
             person_template (dict, optional): The person template in dict format. Defaults to PersonService.default_dict_person().
         """
         if self._simulator is None:
+            logging.warning("Simulator is not set")
             return
         if not self._has_bound_to_simulator:
             FROM_MEMORY_KEYS = {
@@ -113,14 +158,19 @@ class Agent(ABC):
                     f"Binding to Person `{person_id}` just added to Simulator"
                 )
                 # 防止模拟器还没有到prepare阶段导致get_person出错
-                await asyncio.sleep(5)
             self._has_bound_to_simulator = True
+            self._agent_id = person_id
 
     async def _bind_to_economy(self):
         if self._economy_client is None:
+            logging.warning("Economy client is not set")
             return
         if not self._has_bound_to_economy:
             if self._has_bound_to_simulator:
+                try:
+                    await self._economy_client.remove_agents([self._agent_id])
+                except:
+                    pass
                 person_id = await self._memory.get("id")
                 await self._economy_client.add_agents(
                     {
@@ -133,24 +183,6 @@ class Agent(ABC):
                 logging.debug(
                     f"Binding to Economy before binding to Simulator, skip binding to Economy Simulator"
                 )
-
-    def set_memory(self, memory: Memory):
-        """
-        Set the memory of the agent.
-        """
-        self._memory = memory
-
-    def set_simulator(self, simulator: Simulator):
-        """
-        Set the simulator of the agent.
-        """
-        self._simulator = simulator
-
-    def set_economy_client(self, economy_client: EconomyClient):
-        """
-        Set the economy_client of the agent.
-        """
-        self._economy_client = economy_client
 
     @property
     def LLM(self):
@@ -239,11 +271,32 @@ class Agent(ABC):
     def get_interview_history(self) -> List[Dict]:
         """获取采访历史记录"""
         return self._interview_history
+    
+    async def handle_message(self, payload: str):
+        """处理收到的消息，识别发送者"""
+        # 从消息中解析发送者 ID 和消息内容
+        message, sender_id = payload.split("|from:")
+        print(f"Agent {self._agent_id} received message: '{message}' from Agent {sender_id}")
+
+    async def send_message(self, to_agent_id: int, message: str):
+        """通过 Messager 发送消息，附带发送者的 ID"""
+        if self._messager is None:
+            raise RuntimeError("Messager is not set")
+        topic = f"/agents/{to_agent_id}/chat"
+        await self._messager.send_message(topic, message, self._agent_id)
 
     @abstractmethod
     async def forward(self) -> None:
         """智能体行为逻辑"""
         raise NotImplementedError
+
+    async def run(self) -> None:
+        """
+        统一的Agent执行入口
+        当_blocked为True时，不执行forward方法
+        """
+        if not self._blocked:
+            await self.forward()
 
 
 class CitizenAgent(Agent):
@@ -257,12 +310,15 @@ class CitizenAgent(Agent):
         llm_client: Optional[LLM] = None,
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
+        economy_client: Optional[EconomyClient] = None,
+        messager: Optional[Messager] = None,
     ) -> None:
         super().__init__(
             name,
             AgentType.Citizen,
             llm_client,
-            None,
+            economy_client,
+            messager,
             simulator,
             memory,
         )
@@ -279,12 +335,15 @@ class InstitutionAgent(Agent):
         llm_client: Optional[LLM] = None,
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
+        economy_client: Optional[EconomyClient] = None,
+        messager: Optional[Messager] = None,
     ) -> None:
         super().__init__(
             name,
             AgentType.Institution,
             llm_client,
-            None,
+            economy_client,
+            messager,
             simulator,
             memory,
         )

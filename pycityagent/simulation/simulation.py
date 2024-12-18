@@ -6,36 +6,33 @@ import random
 from typing import Dict, List, Optional, Callable
 from mosstool.map._map_util.const import AOI_START_ID
 
-from pycityagent.llm.llm import LLM
+from pycityagent.economy.econ_client import EconomyClient
+from pycityagent.environment.simulator import Simulator
 from pycityagent.memory.memory import Memory
-from pycityagent.economy import EconomyClient
+from pycityagent.message.messager import Messager
 
 from ..agent import Agent
-from ..environment import Simulator
 from .interview import InterviewManager
 from .survey import QuestionType, SurveyManager
 from .ui import InterviewUI
-
+from .agentgroup import AgentGroup
 logger = logging.getLogger(__name__)
 
 
 class AgentSimulation:
     """城市智能体模拟器"""
-    def __init__(self, agent_class: type[Agent], simulator: Simulator, llm: LLM, economy_client: Optional[EconomyClient] = None, agent_prefix: str = "agent_"):
+    def __init__(self, agent_class: type[Agent], config: dict, agent_prefix: str = "agent_"):
         """
         Args:
             agent_class: 智能体类
-            simulator: 模拟器
-            llm: 语言模型
-            economy_client: 经济客户端
+            config: 配置
             agent_prefix: 智能体名称前缀
         """
         self.agent_class = agent_class
-        self.simulator = simulator
-        self.llm = llm
-        self.economy_client = economy_client
+        self.config = config
         self.agent_prefix = agent_prefix
         self._agents: Dict[str, Agent] = {}
+        self._groups: Dict[str, AgentGroup] = {}
         self._interview_manager = InterviewManager()
         self._interview_lock = asyncio.Lock()
         self._start_time = datetime.now()
@@ -45,16 +42,17 @@ class AgentSimulation:
         self._blocked_agents: List[str] = []  # 新增：持续阻塞的智能体列表
         self._survey_manager = SurveyManager()
 
-    def init_agents(self, agent_count: int, memory_config_func: Callable = None) -> None:
+    async def init_agents(self, agent_count: int, group_size: int = 1000, memory_config_func: Callable = None) -> None:
         """初始化智能体
         
         Args:
-            agent_count: 要创建的智能体数量
+            agent_count: 要创建的总智能体数量
+            group_size: 每个组的智能体数量，每一个组为一个独立的ray actor
             memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组
         """
         if memory_config_func is None:
-            memory_config_func = self.default_memory_config_func
-        
+            memory_config_func = self.default_memory_config_func        
+
         for i in range(agent_count):
             agent_name = f"{self.agent_prefix}{i}"
 
@@ -69,13 +67,24 @@ class AgentSimulation:
             # 创建智能体时传入Memory配置
             agent = self.agent_class(
                 name=agent_name,
-                simulator=self.simulator,
-                llm=self.llm,
                 memory=memory,
-                economy_client=self.economy_client
             )
-            
+
             self._agents[agent_name] = agent
+
+        # 计算需要的组数,向上取整以处理不足一组的情况
+        num_group = (agent_count + group_size - 1) // group_size
+        
+        for i in range(num_group):
+            # 计算当前组的起始和结束索引
+            start_idx = i * group_size
+            end_idx = min((i + 1) * group_size, agent_count)
+            
+            # 获取当前组的agents
+            agents = list(self._agents.values())[start_idx:end_idx]
+            group_name = f"{self.agent_prefix}_group_{i}"
+            group = AgentGroup.remote(agents, self.config)
+            self._groups[group_name] = group
 
     def default_memory_config_func(self):
         """默认的Memory配置函数"""
@@ -111,10 +120,9 @@ class AgentSimulation:
             "marital_status": random.choice(["not married", "married", "divorced", "widowed"]),
             }
 
-        aois = self.simulator.aois.keys()
         BASE = {
-            "home": {"aoi_position": {"aoi_id": random.choice(aois)}},
-            "work": {"aoi_position": {"aoi_id": random.choice(aois)}},
+            "home": {"aoi_position": {"aoi_id": AOI_START_ID + random.randint(1, 50000)}},
+            "work": {"aoi_position": {"aoi_id": AOI_START_ID + random.randint(1, 50000)}},
         }
 
         return EXTRA_ATTRIBUTES, PROFILE, BASE
@@ -182,9 +190,11 @@ class AgentSimulation:
 
         if blocking and agent_name not in self._blocked_agents:
             self._blocked_agents.append(agent_name)
+            self._agents[agent_name]._blocked = True
             return f"已阻塞智能体 {agent_name}"
         elif not blocking and agent_name in self._blocked_agents:
             self._blocked_agents.remove(agent_name)
+            self._agents[agent_name]._blocked = False
             return f"已取消阻塞智能体 {agent_name}"
 
         return f"智能体 {agent_name} 状态未变"
@@ -310,7 +320,7 @@ class AgentSimulation:
             prevent_thread_lock=True,
             quiet=True,
         )
-        print(
+        logger.info(
             f"Gradio Frontend is running on http://{server_name}:{server_port}"
         )
 
@@ -318,8 +328,8 @@ class AgentSimulation:
         """运行一步, 即每个智能体执行一次forward"""
         try:
             tasks = []
-            for agent in self._agents.values():
-                tasks.append(agent.forward())
+            for group in self._groups.values():
+                tasks.append(group.step.remote())
             await asyncio.gather(*tasks)
         except Exception as e:
             logger.error(f"运行错误: {str(e)}")
@@ -336,21 +346,11 @@ class AgentSimulation:
         """
         try:
             # 获取开始时间
-            start_time = await self.simulator.get_time()
-            # 计算结束时间（秒）
-            end_time = start_time + day * 24 * 3600  # 将天数转换为秒
+            tasks = []
+            for group in self._groups.values():
+                tasks.append(group.run.remote(day))
             
-            while True:
-                current_time = await self.simulator.get_time()
-                if current_time >= end_time:
-                    break
-                
-                tasks = []
-                for agent in self._agents.values():
-                    if agent._name not in self._blocked_agents:
-                        tasks.append(agent.forward())
-                
-                await asyncio.gather(*tasks)
+            await asyncio.gather(*tasks)
 
         except Exception as e:
             logger.error(f"模拟器运行错误: {str(e)}")
