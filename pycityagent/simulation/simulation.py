@@ -1,15 +1,13 @@
 import asyncio
 import json
 import logging
+import uuid
 from datetime import datetime
 import random
 from typing import Dict, List, Optional, Callable
 from mosstool.map._map_util.const import AOI_START_ID
 
-from pycityagent.economy.econ_client import EconomyClient
-from pycityagent.environment.simulator import Simulator
 from pycityagent.memory.memory import Memory
-from pycityagent.message.messager import Messager
 
 from ..agent import Agent
 from .interview import InterviewManager
@@ -28,6 +26,7 @@ class AgentSimulation:
             config: 配置
             agent_prefix: 智能体名称前缀
         """
+        self.exp_id = uuid.uuid4()
         self.agent_class = agent_class
         self.config = config
         self.agent_prefix = agent_prefix
@@ -83,7 +82,7 @@ class AgentSimulation:
             # 获取当前组的agents
             agents = list(self._agents.values())[start_idx:end_idx]
             group_name = f"{self.agent_prefix}_group_{i}"
-            group = AgentGroup.remote(agents, self.config)
+            group = AgentGroup.remote(agents, self.config, self.exp_id)
             self._groups[group_name] = group
 
     def default_memory_config_func(self):

@@ -10,9 +10,10 @@ from pycityagent.message import Messager
 
 @ray.remote
 class AgentGroup:
-    def __init__(self, agents: list[Agent], config: dict):
+    def __init__(self, agents: list[Agent], config: dict, exp_id: str):
         self.agents = agents
         self.config = config
+        self.exp_id = exp_id
         self.messager = Messager(config["simulator_request"]["mqtt"]["server"], config["simulator_request"]["mqtt"]["port"])
         self.initialized = False
 
@@ -30,6 +31,7 @@ class AgentGroup:
         self.economy_client = EconomyClient(config["simulator_request"]["economy"]['server'])
 
         for agent in self.agents:
+            agent.set_exp_id(self.exp_id)
             agent.set_llm_client(self.llm)
             agent.set_simulator(self.simulator)
             agent.set_economy_client(self.economy_client)
@@ -44,7 +46,7 @@ class AgentGroup:
             await self.messager.start_listening()
             for agent in self.agents:
                 agent.set_messager(self.messager)
-                topic = f"/agents/{agent._agent_id}/chat"
+                topic = f"/exps/{self.exp_id}/agents/{agent._agent_id}/chat"
                 await self.messager.subscribe(topic, agent)
         self.initialized = True
 
@@ -71,9 +73,8 @@ class AgentGroup:
             # 添加解码步骤，将bytes转换为str
             if isinstance(payload, bytes):
                 payload = payload.decode('utf-8')
-
-            # 提取 agent_id（主题格式为 "/agents/{agent_id}/chat"）
-            _, agent_id, _ = topic.strip("/").split("/")
+            # 提取 agent_id（主题格式为 "/exps/{exp_id}/agents/{agent_id}/chat"）
+            _, _, _, agent_id, _ = topic.strip("/").split("/")
             agent_id = int(agent_id)
 
             if agent_id in self.id2agent:

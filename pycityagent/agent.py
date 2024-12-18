@@ -67,6 +67,7 @@ class Agent(ABC):
         self._messager = messager
         self._simulator = simulator
         self._memory = memory
+        self._exp_id = -1
         self._has_bound_to_simulator = False
         self._has_bound_to_economy = False
         self._blocked = False
@@ -112,6 +113,12 @@ class Agent(ABC):
         Set the memory of the agent.
         """
         self._memory = memory
+
+    def set_exp_id(self, exp_id: str):
+        """
+        Set the exp_id of the agent.
+        """
+        self._exp_id = exp_id
 
     async def _bind_to_simulator(self):
         """
@@ -185,7 +192,7 @@ class Agent(ABC):
                 )
 
     @property
-    def LLM(self):
+    def llm(self):
         """The Agent's LLM"""
         if self._llm_client is None:
             raise RuntimeError(
@@ -282,7 +289,7 @@ class Agent(ABC):
         """通过 Messager 发送消息，附带发送者的 ID"""
         if self._messager is None:
             raise RuntimeError("Messager is not set")
-        topic = f"/agents/{to_agent_id}/chat"
+        topic = f"/exps/{self._exp_id}/agents/{to_agent_id}/chat"
         await self._messager.send_message(topic, message, self._agent_id)
 
     @abstractmethod
