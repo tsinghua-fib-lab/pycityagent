@@ -287,11 +287,11 @@ class Agent(ABC):
             f"Agent {self._agent_id} received message: '{message}' from Agent {sender_id}"
         )
 
-    async def send_message(self, to_agent_id: int, message: str):
+    async def send_message(self, to_agent_id: int, message: str, sub_topic: str = "chat"):
         """通过 Messager 发送消息，附带发送者的 ID"""
         if self._messager is None:
             raise RuntimeError("Messager is not set")
-        topic = f"/exps/{self._exp_id}/agents/{to_agent_id}/chat"
+        topic = f"/exps/{self._exp_id}/agents/{to_agent_id}/{sub_topic}"
         await self._messager.send_message(topic, message, self._agent_id)
 
     @abstractmethod
@@ -332,6 +332,13 @@ class CitizenAgent(Agent):
             memory,
         )
 
+    async def handle_gather_message(self, payload: str):
+        """处理收到的消息，识别发送者"""
+        # 从消息中解析发送者 ID 和消息内容
+        target, sender_id = payload.split("|from:")
+        content = await self.memory.get(f"{target}")
+        await self.send_message(int(sender_id), content, "gather")
+
 
 class InstitutionAgent(Agent):
     """
@@ -356,3 +363,14 @@ class InstitutionAgent(Agent):
             simulator,
             memory,
         )
+
+    async def handle_gather_message(self, payload: str):
+        """处理收到的消息，识别发送者"""
+        # 从消息中解析发送者 ID 和消息内容
+        content, sender_id = payload.split("|from:")
+        print(f"Agent {self._agent_id} received gather message: '{content}' from Agent {sender_id}")
+
+    async def gather_messages(self, agent_ids: list[int], content: str):
+        """从多个智能体收集消息"""
+        for agent_id in agent_ids:
+            await self.send_message(agent_id, content, "gather")

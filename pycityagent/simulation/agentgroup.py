@@ -22,7 +22,7 @@ class AgentGroup:
             password=config["simulator_request"]["mqtt"].get("password", None),
         )
         self.initialized = False
-
+        self.id2agent = {}
         # Step:1 prepare LLM client
         llmConfig = LLMConfig(config["llm_request"])
         logging.info("-----Creating LLM client in remote...")
@@ -33,10 +33,11 @@ class AgentGroup:
         self.simulator = Simulator(config["simulator_request"])
 
         # Step:3 prepare Economy client
-        logging.info("-----Creating Economy client in remote...")
-        self.economy_client = EconomyClient(
-            config["simulator_request"]["economy"]["server"]
-        )
+        if 'economy' in config["simulator_request"]:
+            logging.info("-----Creating Economy client in remote...")
+            self.economy_client = EconomyClient(config["simulator_request"]["economy"]['server'])
+        else:
+            self.economy_client = None
 
         for agent in self.agents:
             agent.set_exp_id(self.exp_id)
@@ -56,7 +57,19 @@ class AgentGroup:
                 agent.set_messager(self.messager)
                 topic = f"/exps/{self.exp_id}/agents/{agent._agent_id}/chat"
                 await self.messager.subscribe(topic, agent)
+                topic = f"/exps/{self.exp_id}/agents/{agent._agent_id}/gather"
+                await self.messager.subscribe(topic, agent)
         self.initialized = True
+
+    async def gather(self, content: str):
+        results = {}
+        for agent in self.agents:
+            results[agent._agent_id] = await agent.memory.get(content)
+        return results
+    
+    async def update(self, target_agent_id: str, target_key: str, content: any):
+        agent = self.id2agent[target_agent_id]
+        await agent.memory.update(target_key, content)
 
     async def step(self):
         if not self.initialized:
@@ -73,6 +86,8 @@ class AgentGroup:
         # Step 2: 从 Messager 获取消息
         messages = await self.messager.fetch_messages()
 
+        print(f"Received {len(messages)} messages")
+
         # Step 3: 分发消息到对应的 Agent
         for message in messages:
             topic = message.topic.value
@@ -80,14 +95,18 @@ class AgentGroup:
 
             # 添加解码步骤，将bytes转换为str
             if isinstance(payload, bytes):
-                payload = payload.decode("utf-8")
-            # 提取 agent_id（主题格式为 "/exps/{exp_id}/agents/{agent_id}/chat"）
-            _, _, _, agent_id, _ = topic.strip("/").split("/")
+                payload = payload.decode('utf-8')
+
+            # 提取 agent_id（主题格式为 "/exps/{exp_id}/agents/{agent_id}/chat" 或 "/exps/{exp_id}/agents/{agent_id}/gather"）
+            _, _, _, agent_id, topic_type = topic.strip("/").split("/")
             agent_id = int(agent_id)
 
             if agent_id in self.id2agent:
                 agent = self.id2agent[agent_id]
-                await agent.handle_message(payload)
+                if topic_type == "chat":
+                    await agent.handle_message(payload)
+                elif topic_type == "gather":
+                    await agent.handle_gather_message(payload)
 
         # Step 4: 调用每个 Agent 的运行逻辑
         tasks = [agent.run() for agent in self.agents]

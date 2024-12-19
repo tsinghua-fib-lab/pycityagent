@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import datetime
 import random
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, Union
 from mosstool.map._map_util.const import AOI_START_ID
 
 from pycityagent.memory.memory import Memory
@@ -20,10 +20,7 @@ logger = logging.getLogger(__name__)
 
 class AgentSimulation:
     """城市智能体模拟器"""
-
-    def __init__(
-        self, agent_class: type[Agent], config: dict, agent_prefix: str = "agent_"
-    ):
+    def __init__(self, agent_class: Union[type[Agent], list[type[Agent]]], config: dict, agent_prefix: str = "agent_"):
         """
         Args:
             agent_class: 智能体类
@@ -31,7 +28,10 @@ class AgentSimulation:
             agent_prefix: 智能体名称前缀
         """
         self.exp_id = uuid.uuid4()
-        self.agent_class = agent_class
+        if isinstance(agent_class, list):
+            self.agent_class = agent_class
+        else:
+            self.agent_class = [agent_class]
         self.config = config
         self.agent_prefix = agent_prefix
         self._agents: Dict[str, Agent] = {}
@@ -44,53 +44,101 @@ class AgentSimulation:
         self._loop = asyncio.get_event_loop()
         self._blocked_agents: List[str] = []  # 新增：持续阻塞的智能体列表
         self._survey_manager = SurveyManager()
+        self._agentid2group: Dict[str, AgentGroup] = {}
+        self._agent_ids: List[str] = []
 
     async def init_agents(
         self,
-        agent_count: int,
+        agent_count: Union[int,list[int]], 
         group_size: int = 1000,
-        memory_config_func: Callable = None,
+        memory_config_func: Union[Callable, list[Callable]] = None,
     ) -> None:
         """初始化智能体
 
         Args:
-            agent_count: 要创建的总智能体数量
+            agent_count: 要创建的总智能体数量, 如果为列表，则每个元素表示一个智能体类创建的智能体数量
             group_size: 每个组的智能体数量，每一个组为一个独立的ray actor
-            memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组
+            memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组, 如果为列表，则每个元素表示一个智能体类创建的Memory配置函数
         """
+        if not isinstance(agent_count, list):
+            agent_count = [agent_count]
+
+        if len(self.agent_class) != len(agent_count):
+            raise ValueError("agent_class和agent_count的长度不一致")
+            
         if memory_config_func is None:
-            memory_config_func = self.default_memory_config_func
+            logging.warning("memory_config_func is None, using default memory config function")
+            memory_config_func = [self.default_memory_config_func]
+        elif not isinstance(memory_config_func, list):
+            memory_config_func = [memory_config_func]
+        
+        
+        if len(memory_config_func) != len(agent_count):
+            logging.warning("memory_config_func和agent_count的长度不一致，使用默认的memory_config_func")
+            memory_config_func = [self.default_memory_config_func] * len(agent_count)
 
-        for i in range(agent_count):
-            agent_name = f"{self.agent_prefix}{i}"
+        class_init_index = 0
+        for i in range(len(self.agent_class)):
+            agent_class = self.agent_class[i]
+            agent_count_i = agent_count[i]
+            memory_config_func_i = memory_config_func[i]
+            for j in range(agent_count_i):
+                agent_name = f"{self.agent_prefix}_{i}_{j}"
 
-            # 获取Memory配置
-            extra_attributes, profile, base = memory_config_func()
-            memory = Memory(
-                config=extra_attributes, profile=profile.copy(), base=base.copy()
-            )
+                # 获取Memory配置
+                extra_attributes, profile, base = memory_config_func_i()
+                memory = Memory(
+                    config=extra_attributes,
+                    profile=profile.copy(),
+                    base=base.copy()
+                )
+                
+                # 创建智能体时传入Memory配置
+                agent = agent_class(
+                    name=agent_name,
+                    memory=memory,
+                )
 
-            # 创建智能体时传入Memory配置
-            agent = self.agent_class(
-                name=agent_name,
-                memory=memory,
-            )
+                self._agents[agent_name] = agent
 
-            self._agents[agent_name] = agent
+            # 计算需要的组数,向上取整以处理不足一组的情况
+            num_group = (agent_count_i + group_size - 1) // group_size
+            
+            for k in range(num_group):
+                # 计算当前组的起始和结束索引
+                start_idx = class_init_index + k * group_size
+                end_idx = min(class_init_index + start_idx + group_size, class_init_index + agent_count_i)
+                
+                # 获取当前组的agents
+                agents = list(self._agents.values())[start_idx:end_idx]
+                group_name = f"{self.agent_prefix}_{i}_group_{k}"
+                group = AgentGroup.remote(agents, self.config, self.exp_id)
+                self._groups[group_name] = group
 
-        # 计算需要的组数,向上取整以处理不足一组的情况
-        num_group = (agent_count + group_size - 1) // group_size
+            class_init_index += agent_count_i   # 更新类初始索引
 
-        for i in range(num_group):
-            # 计算当前组的起始和结束索引
-            start_idx = i * group_size
-            end_idx = min((i + 1) * group_size, agent_count)
+        init_tasks = []
+        for group in self._groups.values():
+            init_tasks.append(group.init_agents.remote())
+        await asyncio.gather(*init_tasks)
 
-            # 获取当前组的agents
-            agents = list(self._agents.values())[start_idx:end_idx]
-            group_name = f"{self.agent_prefix}_group_{i}"
-            group = AgentGroup.remote(agents, self.config, self.exp_id)
-            self._groups[group_name] = group
+        for group in self._groups.values():
+            agent_ids = await group.gather.remote("id")
+            for agent_id in agent_ids:
+                self._agent_ids.append(agent_id)
+                self._agentid2group[agent_id] = group
+
+    async def gather(self, content: str):
+        """收集所有智能体的ID"""
+        gather_tasks = []
+        for group in self._groups.values():
+            gather_tasks.append(group.gather.remote(content))
+        return await asyncio.gather(*gather_tasks)
+    
+    async def update(self, target_agent_id: str, target_key: str, content: any):
+        """更新指定智能体的记忆"""
+        group = self._agentid2group[target_agent_id]
+        await group.update.remote(target_agent_id, target_key, content)
 
     def default_memory_config_func(self):
         """默认的Memory配置函数"""
@@ -111,6 +159,17 @@ class AgentSimulation:
             "current_step": (dict, {"intention": "", "type": ""}, True),
             "execution_context": (dict, {}, True),
             "plan_history": (list, [], True),
+
+            # cognition
+            "fulfillment": (int, 5, True),
+            "emotion": (int, 5, True),
+            "attitude": (int, 5, True),
+            "thought": (str, "Currently nothing good or bad is happening", True),
+            "emotion_types": (str, "Relief", True),
+            "incident": (list, [], True),
+            
+            # social
+            "friends": (list, [], True),
         }
 
         PROFILE = {
