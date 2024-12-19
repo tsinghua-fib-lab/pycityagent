@@ -287,7 +287,9 @@ class Agent(ABC):
             f"Agent {self._agent_id} received message: '{message}' from Agent {sender_id}"
         )
 
-    async def send_message(self, to_agent_id: int, message: str, sub_topic: str = "chat"):
+    async def send_message(
+        self, to_agent_id: int, message: str, sub_topic: str = "chat"
+    ):
         """通过 Messager 发送消息，附带发送者的 ID"""
         if self._messager is None:
             raise RuntimeError("Messager is not set")
@@ -368,7 +370,9 @@ class InstitutionAgent(Agent):
         """处理收到的消息，识别发送者"""
         # 从消息中解析发送者 ID 和消息内容
         content, sender_id = payload.split("|from:")
-        print(f"Agent {self._agent_id} received gather message: '{content}' from Agent {sender_id}")
+        print(
+            f"Agent {self._agent_id} received gather message: '{content}' from Agent {sender_id}"
+        )
 
     async def gather_messages(self, agent_ids: list[int], content: str):
         """从多个智能体收集消息"""

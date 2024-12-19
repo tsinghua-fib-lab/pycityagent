@@ -20,7 +20,13 @@ logger = logging.getLogger(__name__)
 
 class AgentSimulation:
     """城市智能体模拟器"""
-    def __init__(self, agent_class: Union[type[Agent], list[type[Agent]]], config: dict, agent_prefix: str = "agent_"):
+
+    def __init__(
+        self,
+        agent_class: Union[type[Agent], list[type[Agent]]],
+        config: dict,
+        agent_prefix: str = "agent_",
+    ):
         """
         Args:
             agent_class: 智能体类
@@ -49,7 +55,7 @@ class AgentSimulation:
 
     async def init_agents(
         self,
-        agent_count: Union[int,list[int]], 
+        agent_count: Union[int, list[int]],
         group_size: int = 1000,
         memory_config_func: Union[Callable, list[Callable]] = None,
     ) -> None:
@@ -65,16 +71,19 @@ class AgentSimulation:
 
         if len(self.agent_class) != len(agent_count):
             raise ValueError("agent_class和agent_count的长度不一致")
-            
+
         if memory_config_func is None:
-            logging.warning("memory_config_func is None, using default memory config function")
+            logging.warning(
+                "memory_config_func is None, using default memory config function"
+            )
             memory_config_func = [self.default_memory_config_func]
         elif not isinstance(memory_config_func, list):
             memory_config_func = [memory_config_func]
-        
-        
+
         if len(memory_config_func) != len(agent_count):
-            logging.warning("memory_config_func和agent_count的长度不一致，使用默认的memory_config_func")
+            logging.warning(
+                "memory_config_func和agent_count的长度不一致，使用默认的memory_config_func"
+            )
             memory_config_func = [self.default_memory_config_func] * len(agent_count)
 
         class_init_index = 0
@@ -88,11 +97,9 @@ class AgentSimulation:
                 # 获取Memory配置
                 extra_attributes, profile, base = memory_config_func_i()
                 memory = Memory(
-                    config=extra_attributes,
-                    profile=profile.copy(),
-                    base=base.copy()
+                    config=extra_attributes, profile=profile.copy(), base=base.copy()
                 )
-                
+
                 # 创建智能体时传入Memory配置
                 agent = agent_class(
                     name=agent_name,
@@ -103,19 +110,22 @@ class AgentSimulation:
 
             # 计算需要的组数,向上取整以处理不足一组的情况
             num_group = (agent_count_i + group_size - 1) // group_size
-            
+
             for k in range(num_group):
                 # 计算当前组的起始和结束索引
                 start_idx = class_init_index + k * group_size
-                end_idx = min(class_init_index + start_idx + group_size, class_init_index + agent_count_i)
-                
+                end_idx = min(
+                    class_init_index + start_idx + group_size,
+                    class_init_index + agent_count_i,
+                )
+
                 # 获取当前组的agents
                 agents = list(self._agents.values())[start_idx:end_idx]
                 group_name = f"{self.agent_prefix}_{i}_group_{k}"
                 group = AgentGroup.remote(agents, self.config, self.exp_id)
                 self._groups[group_name] = group
 
-            class_init_index += agent_count_i   # 更新类初始索引
+            class_init_index += agent_count_i  # 更新类初始索引
 
         init_tasks = []
         for group in self._groups.values():
@@ -134,7 +144,7 @@ class AgentSimulation:
         for group in self._groups.values():
             gather_tasks.append(group.gather.remote(content))
         return await asyncio.gather(*gather_tasks)
-    
+
     async def update(self, target_agent_id: str, target_key: str, content: any):
         """更新指定智能体的记忆"""
         group = self._agentid2group[target_agent_id]
@@ -159,7 +169,6 @@ class AgentSimulation:
             "current_step": (dict, {"intention": "", "type": ""}, True),
             "execution_context": (dict, {}, True),
             "plan_history": (list, [], True),
-
             # cognition
             "fulfillment": (int, 5, True),
             "emotion": (int, 5, True),
@@ -167,7 +176,6 @@ class AgentSimulation:
             "thought": (str, "Currently nothing good or bad is happening", True),
             "emotion_types": (str, "Relief", True),
             "incident": (list, [], True),
-            
             # social
             "friends": (list, [], True),
         }

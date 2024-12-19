@@ -33,9 +33,11 @@ class AgentGroup:
         self.simulator = Simulator(config["simulator_request"])
 
         # Step:3 prepare Economy client
-        if 'economy' in config["simulator_request"]:
+        if "economy" in config["simulator_request"]:
             logging.info("-----Creating Economy client in remote...")
-            self.economy_client = EconomyClient(config["simulator_request"]["economy"]['server'])
+            self.economy_client = EconomyClient(
+                config["simulator_request"]["economy"]["server"]
+            )
         else:
             self.economy_client = None
 
@@ -66,7 +68,7 @@ class AgentGroup:
         for agent in self.agents:
             results[agent._agent_id] = await agent.memory.get(content)
         return results
-    
+
     async def update(self, target_agent_id: str, target_key: str, content: any):
         agent = self.id2agent[target_agent_id]
         await agent.memory.update(target_key, content)
@@ -95,7 +97,7 @@ class AgentGroup:
 
             # 添加解码步骤，将bytes转换为str
             if isinstance(payload, bytes):
-                payload = payload.decode('utf-8')
+                payload = payload.decode("utf-8")
 
             # 提取 agent_id（主题格式为 "/exps/{exp_id}/agents/{agent_id}/chat" 或 "/exps/{exp_id}/agents/{agent_id}/gather"）
             _, _, _, agent_id, topic_type = topic.strip("/").split("/")
