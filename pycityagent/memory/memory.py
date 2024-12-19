@@ -2,8 +2,7 @@ import asyncio
 import logging
 from copy import deepcopy
 from datetime import datetime
-from typing import (Any, Callable, Dict, List, Literal, Optional, Sequence,
-                    Tuple, Union)
+from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from pyparsing import deque

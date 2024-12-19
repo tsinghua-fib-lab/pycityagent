@@ -39,10 +39,12 @@ EVALUATION_PROMPT = """你是一个智能体的评估系统。智能体为了满
 }}
 """
 
+
 class NeedsBlock(Block):
     """
     Generate needs
     """
+
     def __init__(self, llm: LLM, memory: Memory):
         self.llm = llm
         self.memory = memory
@@ -57,12 +59,12 @@ class NeedsBlock(Block):
             time_diff = 0
         else:
             time_now = datetime.strptime(time_now, "%H:%M:%S")
-            time_diff = (time_now - self.last_evaluation_time).total_seconds()/3600
+            time_diff = (time_now - self.last_evaluation_time).total_seconds() / 3600
             self.last_evaluation_time = time_now
 
-        # 获取当前需求        
+        # 获取当前需求
         needs = await self.memory.get("needs")
-        
+
         # 根据经过的时间计算饥饿与疲劳的衰减
         hungry_decay = alpha_H * time_diff
         tired_decay = alpha_D * time_diff
@@ -88,14 +90,16 @@ class NeedsBlock(Block):
             await self.memory.update("current_plan", None)
             await self.memory.update("current_step", {"intention": "", "type": ""})
             await self.memory.update("execution_context", {})
-        
+
         print(f"时间流逝: {time_diff:.2f}小时")
-        print(f"当前状态 - 饥饿: {hungry:.2f}, 疲劳: {tired:.2f}, 安全: {safe:.2f}, 社交: {social:.2f}")
+        print(
+            f"当前状态 - 饥饿: {hungry:.2f}, 疲劳: {tired:.2f}, 安全: {safe:.2f}, 社交: {social:.2f}"
+        )
 
         # 如果需要调整需求，更新当前需求
         # 调整方案为，如果当前的需求为空，或有更高级的需求出现，则调整需求
         current_need = await self.memory.get("current_need")
-        
+
         # 当前没有计划或计划已执行完毕，获取所有需求值，按优先级检查各需求是否达到阈值
         if not current_plan or current_plan.get("completed"):
             # 按优先级顺序检查需求
@@ -103,7 +107,7 @@ class NeedsBlock(Block):
                 await self.memory.update("current_need", "hungry")
                 print("需求调整为：饥饿")
             elif tired <= T_D:
-                await self.memory.update("current_need", "tired") 
+                await self.memory.update("current_need", "tired")
                 print("需求调整为：疲劳")
             elif safe <= T_P:
                 await self.memory.update("current_need", "safe")
@@ -129,11 +133,16 @@ class NeedsBlock(Block):
                 await self.memory.update("current_need", "safe")
                 print("出现更高优先级需求,调整为：安全需求")
                 needs_changed = True
-            elif social <= T_C and current_need not in ["hungry", "tired", "safe", "social"]:
+            elif social <= T_C and current_need not in [
+                "hungry",
+                "tired",
+                "safe",
+                "social",
+            ]:
                 await self.memory.update("current_need", "social")
                 print("出现更高优先级需求,调整为：社交需求")
                 needs_changed = True
-                
+
             # 如果需求发生变化,中断当前计划
             if needs_changed:
                 await self.memory.update("current_plan", None)
@@ -145,7 +154,9 @@ class NeedsBlock(Block):
         # 获取执行的计划和评估结果
         evaluation_results = []
         for step in completed_plan["steps"]:
-            evaluation_results.append(f"- {step['intention']} ({step['type']}): {step['evaluation']['evaluation']}")
+            evaluation_results.append(
+                f"- {step['intention']} ({step['type']}): {step['evaluation']['evaluation']}"
+            )
         evaluation_results = "\n".join(evaluation_results)
 
         # 使用 LLM 进行评估
@@ -154,12 +165,10 @@ class NeedsBlock(Block):
             current_need=current_need,
             plan_target=completed_plan["target"],
             evaluation_results=evaluation_results,
-            current_needs=await self.memory.get("needs")
+            current_needs=await self.memory.get("needs"),
         )
 
-        response = await self.llm.atext_request(
-            self.evaluation_prompt.to_dialog()
-        )
+        response = await self.llm.atext_request(self.evaluation_prompt.to_dialog())
 
         try:
             print("\n=== 需求评估 ===")
@@ -167,8 +176,8 @@ class NeedsBlock(Block):
             print(f"执行计划: {completed_plan['target']}")
             print("执行结果:")
             print(evaluation_results)
-            
-            new_needs = json.loads(response) # type: ignore
+
+            new_needs = json.loads(response)  # type: ignore
             # 更新所有需求的数值
             needs = await self.memory.get("needs")
             print(f"\n需求值调整:")

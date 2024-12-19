@@ -39,11 +39,7 @@ async def main():
     # Step:3 prepare Memory
     print("-----Setting Memory...")
     EXTRA_ATTRIBUTES, PROFILE, BASE = get_memory_config()
-    memory = Memory(
-        config=EXTRA_ATTRIBUTES,
-        profile=PROFILE,
-        base=BASE
-    )
+    memory = Memory(config=EXTRA_ATTRIBUTES, profile=PROFILE, base=BASE)
 
     # Step:4 prepare Agent
     my_agent = MyAgent(

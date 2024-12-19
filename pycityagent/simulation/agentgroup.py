@@ -8,13 +8,19 @@ from pycityagent.llm.llm import LLM
 from pycityagent.llm.llmconfig import LLMConfig
 from pycityagent.message import Messager
 
+
 @ray.remote
 class AgentGroup:
     def __init__(self, agents: list[Agent], config: dict, exp_id: str):
         self.agents = agents
         self.config = config
         self.exp_id = exp_id
-        self.messager = Messager(config["simulator_request"]["mqtt"]["server"], config["simulator_request"]["mqtt"]["port"])
+        self.messager = Messager(
+            hostname=config["simulator_request"]["mqtt"]["server"],
+            port=config["simulator_request"]["mqtt"]["port"],
+            username=config["simulator_request"]["mqtt"].get("username", None),
+            password=config["simulator_request"]["mqtt"].get("password", None),
+        )
         self.initialized = False
 
         # Step:1 prepare LLM client
@@ -28,7 +34,9 @@ class AgentGroup:
 
         # Step:3 prepare Economy client
         logging.info("-----Creating Economy client in remote...")
-        self.economy_client = EconomyClient(config["simulator_request"]["economy"]['server'])
+        self.economy_client = EconomyClient(
+            config["simulator_request"]["economy"]["server"]
+        )
 
         for agent in self.agents:
             agent.set_exp_id(self.exp_id)
@@ -72,7 +80,7 @@ class AgentGroup:
 
             # 添加解码步骤，将bytes转换为str
             if isinstance(payload, bytes):
-                payload = payload.decode('utf-8')
+                payload = payload.decode("utf-8")
             # 提取 agent_id（主题格式为 "/exps/{exp_id}/agents/{agent_id}/chat"）
             _, _, _, agent_id, _ = topic.strip("/").split("/")
             agent_id = int(agent_id)
@@ -96,15 +104,14 @@ class AgentGroup:
             start_time = await self.simulator.get_time()
             # 计算结束时间（秒）
             end_time = start_time + day * 24 * 3600  # 将天数转换为秒
-            
+
             while True:
                 current_time = await self.simulator.get_time()
                 if current_time >= end_time:
                     break
-                
+
                 await self.step()
 
         except Exception as e:
             logging.error(f"模拟器运行错误: {str(e)}")
             raise
-

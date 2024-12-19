@@ -5,47 +5,51 @@ from ..memory import Memory
 from ..environment import Simulator
 
 KEY_TRIGGER_COMPONENTS = [Memory, Simulator]
-    
+
+
 class EventTrigger:
     """Base class for event triggers that wait for specific conditions to be met."""
+
     # 定义该trigger需要的组件类型
     required_components: List[Type] = []
-    
+
     def __init__(self, block=None):
         self.block = block
         if block is not None:
             self.initialize()
-    
+
     def initialize(self) -> None:
         """Initialize the trigger with necessary dependencies."""
         if not self.block:
             raise RuntimeError("Block not set for trigger")
-            
+
         # 检查所需组件是否都存在
         missing_components = []
         for component_type in self.required_components:
             component_name = component_type.__name__.lower()
             if not hasattr(self.block, component_name):
                 missing_components.append(component_type.__name__)
-        
+
         if missing_components:
             raise RuntimeError(
                 f"Block is missing required components for {self.__class__.__name__}: "
                 f"{', '.join(missing_components)}"
             )
-    
+
     async def wait_for_trigger(self) -> None:
         """Wait for the event trigger to be activated.
-        
+
         Raises:
             NotImplementedError: Subclasses must implement this method.
         """
         raise NotImplementedError
-    
+
+
 class MemoryChangeTrigger(EventTrigger):
     """Event trigger that activates when a specific key in memory changes."""
+
     required_components = [Memory]
-    
+
     def __init__(self, key: str) -> None:
         """Initialize the memory change trigger.
 
@@ -74,12 +78,15 @@ class MemoryChangeTrigger(EventTrigger):
 
 class TimeTrigger(EventTrigger):
     """Event trigger that activates periodically based on time intervals."""
+
     required_components = [Simulator]
-    
-    def __init__(self, 
-                 days: Optional[int] = None, 
-                 hours: Optional[int] = None, 
-                 minutes: Optional[int] = None) -> None:
+
+    def __init__(
+        self,
+        days: Optional[int] = None,
+        hours: Optional[int] = None,
+        minutes: Optional[int] = None,
+    ) -> None:
         """Initialize the time trigger with interval settings.
 
         Args:
@@ -92,12 +99,16 @@ class TimeTrigger(EventTrigger):
         """
         if all(param is None for param in (days, hours, minutes)):
             raise ValueError("At least one time interval must be specified")
-        
+
         # 验证参数有效性
-        for param_name, param_value in [('days', days), ('hours', hours), ('minutes', minutes)]:
+        for param_name, param_value in [
+            ("days", days),
+            ("hours", hours),
+            ("minutes", minutes),
+        ]:
             if param_value is not None and param_value < 0:
                 raise ValueError(f"{param_name} cannot be negative")
-            
+
         # 将所有时间间隔转换为秒
         self.interval = 0
         if days is not None:
@@ -106,7 +117,7 @@ class TimeTrigger(EventTrigger):
             self.interval += hours * 60 * 60
         if minutes is not None:
             self.interval += minutes * 60
-            
+
         self.trigger_event = asyncio.Event()
         self._initialized = False
         self._monitoring_task = None
@@ -126,17 +137,19 @@ class TimeTrigger(EventTrigger):
         """持续监控时间并在达到间隔时触发事件"""
         # 第一次调用时直接触发
         self.trigger_event.set()
-        
+
         while True:
             try:
                 current_time = await self.simulator.get_time()
-                
+
                 # 如果是第一次或者已经过了指定的时间间隔
-                if (self._last_trigger_time is None or 
-                    current_time - self._last_trigger_time >= self.interval):
+                if (
+                    self._last_trigger_time is None
+                    or current_time - self._last_trigger_time >= self.interval
+                ):
                     self._last_trigger_time = current_time
                     self.trigger_event.set()
-                
+
                 await asyncio.sleep(5)  # 避免过于频繁的检查
             except Exception as e:
                 print(f"Error in time monitoring: {e}")

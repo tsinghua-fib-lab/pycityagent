@@ -3,8 +3,7 @@ import asyncio
 import numpy as np
 import yaml
 
-from examples.mobility_agent.utils import (choiceHW, event2poi_gravity,
-                                           getDirectEventID)
+from examples.mobility_agent.utils import choiceHW, event2poi_gravity, getDirectEventID
 from pycityagent import CitizenAgent, Simulator
 from pycityagent.llm import LLM, LLMConfig
 from pycityagent.memory import Memory

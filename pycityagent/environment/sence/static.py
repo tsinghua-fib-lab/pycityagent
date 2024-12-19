@@ -1,6 +1,7 @@
 """
 静态数据支持; Static Resources: Poi Type association; Type prefix.
 """
+
 POI_TYPE_DICT = {
     "100000": "\u7f8e\u98df",
     "101000": "\u7f8e\u98df:\u4e2d\u9910\u5385",
@@ -409,7 +410,7 @@ POI_TYPE_DICT = {
     "801012": "\u5ba4\u5185\u53ca\u9644\u5c5e\u8bbe\u65bd:\u901a\u884c\u8bbe\u65bd\u7c7b:\u7535\u68af",
     "801099": "\u5ba4\u5185\u53ca\u9644\u5c5e\u8bbe\u65bd:\u901a\u884c\u8bbe\u65bd\u7c7b:\u5176\u5b83\u901a\u884c\u8bbe\u65bd\u7c7b",
     "809900": "\u5ba4\u5185\u53ca\u9644\u5c5e\u8bbe\u65bd:\u5176\u5b83\u5ba4\u5185\u53ca\u9644\u5c5e\u8bbe\u65bd",
-    "990000": "\u5176\u5b83"
+    "990000": "\u5176\u5b83",
 }
 
 LEVEL_ONE_PRE = ["1", "2", "8", "9"]

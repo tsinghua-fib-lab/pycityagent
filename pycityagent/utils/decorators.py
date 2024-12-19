@@ -2,18 +2,21 @@ import time
 import functools
 import inspect
 
-CALLING_STRING = "function: `{func_name}` in \"{file_path}\", line {line_number}, arguments: `{arguments}` start time: `{start_time}` end time: `{end_time}` output: `{output}`"
+CALLING_STRING = 'function: `{func_name}` in "{file_path}", line {line_number}, arguments: `{arguments}` start time: `{start_time}` end time: `{end_time}` output: `{output}`'
 
-__all__ =[
+__all__ = [
     "record_call_aio",
     "record_call",
     "lock_decorator",
 ]
+
+
 def record_call_aio(record_function_calling: bool = True):
     """
     Decorator to log the async function call details if `record_function_calling` is True.
     """
-    def decorator(func): 
+
+    def decorator(func):
         async def wrapper(*args, **kwargs):
             cur_frame = inspect.currentframe()
             assert cur_frame is not None
@@ -40,14 +43,18 @@ def record_call_aio(record_function_calling: bool = True):
                     )
                 )
             return result
+
         return wrapper
+
     return decorator
+
 
 def record_call(record_function_calling: bool = True):
     """
     Decorator to log the function call details if `record_function_calling` is True.
     """
-    def decorator(func):        
+
+    def decorator(func):
         def wrapper(*args, **kwargs):
             cur_frame = inspect.currentframe()
             assert cur_frame is not None
@@ -74,8 +81,11 @@ def record_call(record_function_calling: bool = True):
                     )
                 )
             return result
+
         return wrapper
+
     return decorator
+
 
 def lock_decorator(func):
     async def wrapper(self, *args, **kwargs):

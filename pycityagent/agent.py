@@ -77,7 +77,7 @@ class Agent(ABC):
     def __getstate__(self):
         state = self.__dict__.copy()
         # 排除锁对象
-        del state['_llm_client']
+        del state["_llm_client"]
         return state
 
     async def bind_to_simulator(self):
@@ -278,12 +278,14 @@ class Agent(ABC):
     def get_interview_history(self) -> List[Dict]:
         """获取采访历史记录"""
         return self._interview_history
-    
+
     async def handle_message(self, payload: str):
         """处理收到的消息，识别发送者"""
         # 从消息中解析发送者 ID 和消息内容
         message, sender_id = payload.split("|from:")
-        print(f"Agent {self._agent_id} received message: '{message}' from Agent {sender_id}")
+        print(
+            f"Agent {self._agent_id} received message: '{message}' from Agent {sender_id}"
+        )
 
     async def send_message(self, to_agent_id: int, message: str):
         """通过 Messager 发送消息，附带发送者的 ID"""

@@ -14,12 +14,16 @@ from .interview import InterviewManager
 from .survey import QuestionType, SurveyManager
 from .ui import InterviewUI
 from .agentgroup import AgentGroup
+
 logger = logging.getLogger(__name__)
 
 
 class AgentSimulation:
     """城市智能体模拟器"""
-    def __init__(self, agent_class: type[Agent], config: dict, agent_prefix: str = "agent_"):
+
+    def __init__(
+        self, agent_class: type[Agent], config: dict, agent_prefix: str = "agent_"
+    ):
         """
         Args:
             agent_class: 智能体类
@@ -41,16 +45,21 @@ class AgentSimulation:
         self._blocked_agents: List[str] = []  # 新增：持续阻塞的智能体列表
         self._survey_manager = SurveyManager()
 
-    async def init_agents(self, agent_count: int, group_size: int = 1000, memory_config_func: Callable = None) -> None:
+    async def init_agents(
+        self,
+        agent_count: int,
+        group_size: int = 1000,
+        memory_config_func: Callable = None,
+    ) -> None:
         """初始化智能体
-        
+
         Args:
             agent_count: 要创建的总智能体数量
             group_size: 每个组的智能体数量，每一个组为一个独立的ray actor
             memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组
         """
         if memory_config_func is None:
-            memory_config_func = self.default_memory_config_func        
+            memory_config_func = self.default_memory_config_func
 
         for i in range(agent_count):
             agent_name = f"{self.agent_prefix}{i}"
@@ -58,11 +67,9 @@ class AgentSimulation:
             # 获取Memory配置
             extra_attributes, profile, base = memory_config_func()
             memory = Memory(
-                config=extra_attributes,
-                profile=profile.copy(),
-                base=base.copy()
+                config=extra_attributes, profile=profile.copy(), base=base.copy()
             )
-            
+
             # 创建智能体时传入Memory配置
             agent = self.agent_class(
                 name=agent_name,
@@ -73,12 +80,12 @@ class AgentSimulation:
 
         # 计算需要的组数,向上取整以处理不足一组的情况
         num_group = (agent_count + group_size - 1) // group_size
-        
+
         for i in range(num_group):
             # 计算当前组的起始和结束索引
             start_idx = i * group_size
             end_idx = min((i + 1) * group_size, agent_count)
-            
+
             # 获取当前组的agents
             agents = list(self._agents.values())[start_idx:end_idx]
             group_name = f"{self.agent_prefix}_group_{i}"
@@ -89,39 +96,87 @@ class AgentSimulation:
         """默认的Memory配置函数"""
         EXTRA_ATTRIBUTES = {
             # 需求信息
-            "needs": (dict, {
-                'hungry': random.random(),  # 饥饿感
-                'tired': random.random(),   # 疲劳感
-                'safe': random.random(),    # 安全需
-                'social': random.random(),  # 社会需求
-            }, True),
+            "needs": (
+                dict,
+                {
+                    "hungry": random.random(),  # 饥饿感
+                    "tired": random.random(),  # 疲劳感
+                    "safe": random.random(),  # 安全需
+                    "social": random.random(),  # 社会需求
+                },
+                True,
+            ),
             "current_need": (str, "none", True),
             "current_plan": (list, [], True),
             "current_step": (dict, {"intention": "", "type": ""}, True),
-            "execution_context" : (dict, {}, True),
+            "execution_context": (dict, {}, True),
             "plan_history": (list, [], True),
         }
 
         PROFILE = {
             "gender": random.choice(["male", "female"]),
-            "education": random.choice(["Doctor", "Master", "Bachelor", "College", "High School"]),
+            "education": random.choice(
+                ["Doctor", "Master", "Bachelor", "College", "High School"]
+            ),
             "consumption": random.choice(["sightly low", "low", "medium", "high"]),
-            "occupation": random.choice(["Student", "Teacher", "Doctor", "Engineer", "Manager", "Businessman", "Artist", "Athlete", "Other"]),
+            "occupation": random.choice(
+                [
+                    "Student",
+                    "Teacher",
+                    "Doctor",
+                    "Engineer",
+                    "Manager",
+                    "Businessman",
+                    "Artist",
+                    "Athlete",
+                    "Other",
+                ]
+            ),
             "age": random.randint(18, 65),
-            "skill": random.choice(["Good at problem-solving", "Good at communication", "Good at creativity", "Good at teamwork", "Other"]),
+            "skill": random.choice(
+                [
+                    "Good at problem-solving",
+                    "Good at communication",
+                    "Good at creativity",
+                    "Good at teamwork",
+                    "Other",
+                ]
+            ),
             "family_consumption": random.choice(["low", "medium", "high"]),
-            "personality": random.choice(["outgoint", "introvert", "ambivert", "extrovert"]),
+            "personality": random.choice(
+                ["outgoint", "introvert", "ambivert", "extrovert"]
+            ),
             "income": random.randint(1000, 10000),
             "currency": random.randint(10000, 100000),
             "residence": random.choice(["city", "suburb", "rural"]),
-            "race": random.choice(["Chinese", "American", "British", "French", "German", "Japanese", "Korean", "Russian", "Other"]),
-            "religion": random.choice(["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]),
-            "marital_status": random.choice(["not married", "married", "divorced", "widowed"]),
-            }
+            "race": random.choice(
+                [
+                    "Chinese",
+                    "American",
+                    "British",
+                    "French",
+                    "German",
+                    "Japanese",
+                    "Korean",
+                    "Russian",
+                    "Other",
+                ]
+            ),
+            "religion": random.choice(
+                ["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]
+            ),
+            "marital_status": random.choice(
+                ["not married", "married", "divorced", "widowed"]
+            ),
+        }
 
         BASE = {
-            "home": {"aoi_position": {"aoi_id": AOI_START_ID + random.randint(1, 50000)}},
-            "work": {"aoi_position": {"aoi_id": AOI_START_ID + random.randint(1, 50000)}},
+            "home": {
+                "aoi_position": {"aoi_id": AOI_START_ID + random.randint(1, 50000)}
+            },
+            "work": {
+                "aoi_position": {"aoi_id": AOI_START_ID + random.randint(1, 50000)}
+            },
         }
 
         return EXTRA_ATTRIBUTES, PROFILE, BASE
@@ -218,7 +273,7 @@ class AgentSimulation:
         except Exception as e:
             logger.error(f"采访过程出错: {str(e)}")
             return f"采访过程出现错误: {str(e)}"
-        
+
     async def submit_survey(self, agent_name: str, survey_id: str) -> str:
         """向智能体提交问卷
 
@@ -319,9 +374,7 @@ class AgentSimulation:
             prevent_thread_lock=True,
             quiet=True,
         )
-        logger.info(
-            f"Gradio Frontend is running on http://{server_name}:{server_port}"
-        )
+        logger.info(f"Gradio Frontend is running on http://{server_name}:{server_port}")
 
     async def step(self):
         """运行一步, 即每个智能体执行一次forward"""
@@ -333,7 +386,7 @@ class AgentSimulation:
         except Exception as e:
             logger.error(f"运行错误: {str(e)}")
             raise
-        
+
     async def run(
         self,
         day: int = 1,
@@ -348,7 +401,7 @@ class AgentSimulation:
             tasks = []
             for group in self._groups.values():
                 tasks.append(group.run.remote(day))
-            
+
             await asyncio.gather(*tasks)
 
         except Exception as e:

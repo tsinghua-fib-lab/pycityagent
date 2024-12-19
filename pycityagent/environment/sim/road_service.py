@@ -25,7 +25,7 @@ class RoadService:
         """
         查询道路信息
         Query road information
-        
+
         Args:
         - req (dict): https://cityproto.sim.fiblab.net/#city.map.v2.GetRoadRequest
 

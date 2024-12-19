@@ -29,7 +29,7 @@ class EconomyPersonService:
         """
         批量查询人的经济情况（资金、雇佣关系）
         Query person’s economic situation (funds, employment relationship) in batches
-        
+
         Args:
         - req (dict): https://cityproto.sim.fiblab.net/#city.economy.v1.GetPersonRequest
 

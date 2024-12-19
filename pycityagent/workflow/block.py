@@ -87,7 +87,7 @@ def log_and_check(
     A decorator that logs function calls and optionally checks a condition before executing the function.
 
     This decorator is specifically designed to be used with the `block` method.
-    
+
     Args:
         condition (Callable): A condition function that must be satisfied before the decorated function is executed.
                              Can be synchronous or asynchronous.
@@ -124,15 +124,16 @@ def log_and_check(
 def trigger_class():
     def decorator(cls):
         original_forward = cls.forward
-        
+
         @functools.wraps(original_forward)
         async def wrapped_forward(self, *args, **kwargs):
             if self.trigger is not None:
                 await self.trigger.wait_for_trigger()
             return await original_forward(self, *args, **kwargs)
-            
+
         cls.forward = wrapped_forward
         return cls
+
     return decorator
 
 

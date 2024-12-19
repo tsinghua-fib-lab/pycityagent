@@ -43,7 +43,7 @@ class SocialService:
         """
         接收消息
         Receive message
-        
+
         Args:
         - req (dict): https://cityproto.sim.fiblab.net/#city.social.v1.ReceiveRequest
 

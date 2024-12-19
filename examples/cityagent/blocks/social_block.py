@@ -12,7 +12,7 @@ class SocialBlock(Block):
     async def forward(self, step, context):
         duration = random.randint(30, 90)  # 社交活动通常需要30-90分钟
         return {
-            'success': True,
-            'evaluation': f'完成执行{step["intention"]}',
-            'consumed_time': duration
+            "success": True,
+            "evaluation": f'完成执行{step["intention"]}',
+            "consumed_time": duration,
         }

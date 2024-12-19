@@ -23,38 +23,42 @@ PLACE_ANALYSIS_PROMPT = """
 你的输出只能从['home', 'workplace', 'other']中选择一个输出，输出中不能包含任何额外的文本或解释。
 """
 
+
 class PlaceSelectionBlock(Block):
     """
     选择目的地
     PlaceSelectionBlock
     """
+
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__("PlaceSelectionBlock",llm)
+        super().__init__("PlaceSelectionBlock", llm)
         self.memory = memory
         self.simulator = simulator
         self.description = "用于选择和确定目的地的位置，比如选择具体的商场、餐厅等地点"
         self.typeSelectionPrompt = FormatPrompt(PLACE_TYPE_SELECTION_PROMPT)
 
     async def forward(self, step, context):
-        self.typeSelectionPrompt.format(intention = step['intention'])
-        intention = await self.llm.atext_request(self.typeSelectionPrompt.to_dialog()) # type: ignore
+        self.typeSelectionPrompt.format(intention=step["intention"])
+        intention = await self.llm.atext_request(self.typeSelectionPrompt.to_dialog())  # type: ignore
         simmap = self.simulator.map
         poi = random.choice(list(simmap.pois.values()))
-        nextPlace = (poi['name'], poi['aoi_id'])
+        nextPlace = (poi["name"], poi["aoi_id"])
         # 将地点信息保存到context中
-        context['next_place'] = nextPlace
+        context["next_place"] = nextPlace
         # 这里应该添加选择地点的具体逻辑
         return {
-            'success': True,
-            'evaluation': f'成功选择了目的地: {nextPlace}',
-            'consumed_time': 5
+            "success": True,
+            "evaluation": f"成功选择了目的地: {nextPlace}",
+            "consumed_time": 5,
         }
+
 
 class MoveBlock(Block):
     """
     移动操作
     MoveBlock
     """
+
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__("MoveBlock", llm)
         self.memory = memory
@@ -65,44 +69,43 @@ class MoveBlock(Block):
     async def forward(self, step, context):
         # 这里应该添加移动的具体逻辑
         agent_id = await self.memory.get("id")
-        self.placeAnalysisPrompt.format(intention = step["intention"])
-        response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog()) # type: ignore
-        if response == 'home':
+        self.placeAnalysisPrompt.format(intention=step["intention"])
+        response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog())  # type: ignore
+        if response == "home":
             # 返回到家
-            home = await self.memory.get('home')
-            home = home['aoi_position']['aoi_id']
-            nowPlace = await self.memory.get('position')
-            if 'aoi_position' in nowPlace and nowPlace['aoi_position']['aoi_id'] == home:
+            home = await self.memory.get("home")
+            home = home["aoi_position"]["aoi_id"]
+            nowPlace = await self.memory.get("position")
+            if (
+                "aoi_position" in nowPlace
+                and nowPlace["aoi_position"]["aoi_id"] == home
+            ):
                 return {
-                    'success': True,
-                    'evaluation': f'成功回到家(本来就在家中)',
-                    'consumed_time': 0
+                    "success": True,
+                    "evaluation": f"成功回到家(本来就在家中)",
+                    "consumed_time": 0,
                 }
             await self.simulator.set_aoi_schedules(
                 person_id=agent_id,
                 target_positions=home,
             )
-            return {
-                'success': True,
-                'evaluation': f'成功回到家',
-                'consumed_time': 45
-            }
-        elif response == 'workplace':
+            return {"success": True, "evaluation": f"成功回到家", "consumed_time": 45}
+        elif response == "workplace":
             # 返回到工作地点
-            work = await self.memory.get('work')
-            work = work['aoi_position']['aoi_id']
+            work = await self.memory.get("work")
+            work = work["aoi_position"]["aoi_id"]
             await self.simulator.set_aoi_schedules(
                 person_id=agent_id,
                 target_positions=work,
             )
             return {
-                'success': True,
-                'evaluation': f'成功到达工作地',
-                'consumed_time': 45
+                "success": True,
+                "evaluation": f"成功到达工作地",
+                "consumed_time": 45,
             }
         else:
             # 移动到其他地点
-            next_place = context.get('next_place', None)
+            next_place = context.get("next_place", None)
             if next_place != None:
                 await self.simulator.set_aoi_schedules(
                     person_id=agent_id,
@@ -110,23 +113,25 @@ class MoveBlock(Block):
                 )
             else:
                 r_aoi = random.choice(list(self.simulator.map.aois.values()))
-                r_poi = random.choice(r_aoi['poi_ids'].values())
-                next_place = (r_poi['name'], r_aoi['id'])
+                r_poi = random.choice(r_aoi["poi_ids"].values())
+                next_place = (r_poi["name"], r_aoi["id"])
                 await self.simulator.set_aoi_schedules(
                     person_id=agent_id,
                     target_positions=next_place[1],
                 )
             return {
-                'success': True,
-                'evaluation': f'成功到达目的地: {next_place}',
-                'consumed_time': 45
+                "success": True,
+                "evaluation": f"成功到达目的地: {next_place}",
+                "consumed_time": 45,
             }
+
 
 class MobilityNoneBlock(Block):
     """
     空操作
     MobilityNoneBlock
     """
+
     def __init__(self, llm: LLM, memory: Memory):
         super().__init__("MobilityNoneBlock", llm)
         self.memory = memory
@@ -134,10 +139,11 @@ class MobilityNoneBlock(Block):
 
     async def forward(self, step, context):
         return {
-            'success': True,
-            'evaluation': f'完成执行{step["intention"]}',
-            'consumed_time': 0
+            "success": True,
+            "evaluation": f'完成执行{step["intention"]}',
+            "consumed_time": 0,
         }
+
 
 class MobilityBlock(Block):
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
@@ -151,13 +157,15 @@ class MobilityBlock(Block):
         # 初始化调度器
         self.dispatcher = BlockDispatcher(llm)
         # 注册所有块
-        self.dispatcher.register_blocks([self.place_selection_block, self.move_block, self.mobility_none_block])
+        self.dispatcher.register_blocks(
+            [self.place_selection_block, self.move_block, self.mobility_none_block]
+        )
 
-    async def forward(self, step, context):        
+    async def forward(self, step, context):
         # Select the appropriate sub-block using dispatcher
         selected_block = await self.dispatcher.dispatch(step)
-        
+
         # Execute the selected sub-block and get the result
-        result = await selected_block.forward(step, context) # type: ignore
-        
+        result = await selected_block.forward(step, context)  # type: ignore
+
         return result

@@ -4,8 +4,7 @@ from copy import deepcopy
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from ..agent import Agent
-from ..environment import (LEVEL_ONE_PRE, POI_TYPE_DICT, AoiService,
-                           PersonService)
+from ..environment import LEVEL_ONE_PRE, POI_TYPE_DICT, AoiService, PersonService
 from ..workflow import Block
 
 

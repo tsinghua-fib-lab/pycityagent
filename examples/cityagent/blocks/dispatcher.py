@@ -11,18 +11,19 @@ Step information:
 {step}
 """
 
+
 class BlockDispatcher:
     def __init__(self, llm: LLM):
         self.llm = llm
         self.blocks: Dict[str, Block] = {}
         self.prompt = FormatPrompt(DISPATCHER_PROMPT)
-        
+
     def register_blocks(self, blocks: List[Block]) -> None:
         """Register multiple blocks at once"""
         for block in blocks:
             block_name = block.__class__.__name__.lower()
             self.blocks[block_name] = block
-        
+
     def _get_function_schema(self) -> dict:
         """Generate function schema for LLM function call"""
         # 创建 block 选项说明
@@ -30,7 +31,7 @@ class BlockDispatcher:
             name: block.description  # type: ignore
             for name, block in self.blocks.items()
         }
-        
+
         return {
             "type": "function",
             "function": {
@@ -42,35 +43,37 @@ class BlockDispatcher:
                         "block_name": {
                             "type": "string",
                             "enum": list(self.blocks.keys()),
-                            "description": f"Available blocks and their descriptions: {block_descriptions}"
+                            "description": f"Available blocks and their descriptions: {block_descriptions}",
                         }
                     },
-                    "required": ["block_name"]
-                }
-            }
+                    "required": ["block_name"],
+                },
+            },
         }
-        
+
     async def dispatch(self, step: dict) -> Block:
         """Dispatch the step to appropriate block based on LLM function call"""
         function_schema = self._get_function_schema()
         self.prompt.format(step=step)
-        
+
         # Call LLM with tools schema
         function_args = await self.llm.atext_request(
             self.prompt.to_dialog(),
             tools=[function_schema],
-            tool_choice={"type": "function", "function": {"name": "select_block"}}
+            tool_choice={"type": "function", "function": {"name": "select_block"}},
         )
-        
+
         # Parse function call result
         try:
-            selected_block = function_args.get("block_name") # type: ignore
+            selected_block = function_args.get("block_name")  # type: ignore
             print(f"selected_block: {selected_block}")
-            
+
             if selected_block not in self.blocks:
-                raise ValueError(f"Selected block '{selected_block}' not found in registered blocks")
-                
+                raise ValueError(
+                    f"Selected block '{selected_block}' not found in registered blocks"
+                )
+
             return self.blocks[selected_block]
-            
+
         except Exception as e:
             raise ValueError(f"Failed to parse LLM response: {str(e)}")

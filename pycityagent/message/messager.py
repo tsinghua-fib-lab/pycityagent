@@ -4,9 +4,14 @@ import logging
 import math
 from aiomqtt import Client
 
+
 class Messager:
-    def __init__(self, broker, port=1883, timeout=math.inf):
-        self.client = Client(broker, port=port, timeout=timeout)
+    def __init__(
+        self, hostname, port=1883, username=None, password=None, timeout=math.inf
+    ):
+        self.client = Client(
+            hostname, port=port, username=username, password=password, timeout=timeout
+        )
         self.connected = False  # 是否已连接标志
         self.message_queue = asyncio.Queue()  # 用于存储接收到的消息
         self.subscribers = {}  # 订阅者信息，topic -> Agent 映射
@@ -31,7 +36,9 @@ class Messager:
 
     async def subscribe(self, topic, agent):
         if not self.is_connected():
-            logging.error(f"Cannot subscribe to {topic} because not connected to the Broker.")
+            logging.error(
+                f"Cannot subscribe to {topic} because not connected to the Broker."
+            )
             return
         await self.client.subscribe(topic)
         self.subscribers[topic] = agent
@@ -48,7 +55,7 @@ class Messager:
         while not self.message_queue.empty():
             messages.append(await self.message_queue.get())
         return messages
-    
+
     async def send_message(self, topic: str, payload: str, sender_id: int):
         """通过 Messager 发送消息，包含发送者 ID"""
         # 构造消息，payload 中加入 sender_id 以便接收者识别

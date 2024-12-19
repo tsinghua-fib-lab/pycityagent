@@ -52,8 +52,8 @@ class Simulator:
             with open(_map_pb_path, "wb") as f:
                 f.write(_map_pb.SerializeToString())
 
-        if 'simulator' in config:
-            if 'server' not in config["simulator"]:
+        if "simulator" in config:
+            if "server" not in config["simulator"]:
                 self._sim_env = sim_env = ControlSimEnv(
                     task_name=config["simulator"].get("task", "citysim"),
                     map_file=_map_pb_path,
@@ -71,9 +71,11 @@ class Simulator:
                 - grpc client of simulator
                 """
             else:
-                self._client = CityClient(config['simulator']['server'], secure=False)
+                self._client = CityClient(config["simulator"]["server"], secure=False)
         else:
-            logging.warning("No simulator config found, no simulator client will be used")
+            logging.warning(
+                "No simulator config found, no simulator client will be used"
+            )
         self.map = SimMap(
             mongo_uri=_mongo_uri,
             mongo_db=_mongo_db,

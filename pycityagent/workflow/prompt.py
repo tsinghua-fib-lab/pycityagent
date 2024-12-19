@@ -1,11 +1,12 @@
 from typing import Any, Callable, Dict, List, Optional, Union
 import re
 
+
 class FormatPrompt:
     """
-    A class to handle the formatting of prompts based on a template, 
+    A class to handle the formatting of prompts based on a template,
     with support for system prompts and variable extraction.
-    
+
     Attributes:
         template (str): The template string containing placeholders.
         system_prompt (Optional[str]): An optional system prompt to add to the dialog.
@@ -24,7 +25,7 @@ class FormatPrompt:
         self.template = template
         self.system_prompt = system_prompt  # Store the system prompt
         self.variables = self._extract_variables()
-        self.formatted_string = ''  # To store the formatted string
+        self.formatted_string = ""  # To store the formatted string
 
     def _extract_variables(self) -> List[str]:
         """
@@ -33,7 +34,7 @@ class FormatPrompt:
         Returns:
             List[str]: A list of variable names found within the template.
         """
-        return re.findall(r'\{(\w+)\}', self.template)
+        return re.findall(r"\{(\w+)\}", self.template)
 
     def format(self, **kwargs) -> str:
         """
@@ -45,7 +46,9 @@ class FormatPrompt:
         Returns:
             str: The formatted string.
         """
-        self.formatted_string = self.template.format(**kwargs)  # Store the formatted string
+        self.formatted_string = self.template.format(
+            **kwargs
+        )  # Store the formatted string
         return self.formatted_string
 
     def to_dialog(self) -> List[Dict[str, str]]:
@@ -57,13 +60,17 @@ class FormatPrompt:
         """
         dialog = []
         if self.system_prompt:
-            dialog.append({'role': 'system', 'content': self.system_prompt})  # Add system prompt if it exists
-        dialog.append({'role': 'user', 'content': self.formatted_string})  # Add user content
+            dialog.append(
+                {"role": "system", "content": self.system_prompt}
+            )  # Add system prompt if it exists
+        dialog.append(
+            {"role": "user", "content": self.formatted_string}
+        )  # Add user content
         return dialog
 
     def log(self) -> None:
         """
-        Logs the details of the FormatPrompt, including the template, 
+        Logs the details of the FormatPrompt, including the template,
         system prompt, extracted variables, and formatted string.
         """
         print(f"FormatPrompt: {self.template}")

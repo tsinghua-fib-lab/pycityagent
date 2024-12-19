@@ -6,10 +6,10 @@ from pycityagent.memory import Memory
 from pycityagent.workflow.prompt import FormatPrompt
 
 GUIDANCE_OPTIONS = {
-    "hungry": ['在家吃饭', '外出吃饭'],
-    "tired": ['睡觉'],
-    "safe": ['工作', '购物'],
-    "social": ['线上社交', '购物']
+    "hungry": ["在家吃饭", "外出吃饭"],
+    "tired": ["睡觉"],
+    "safe": ["工作", "购物"],
+    "social": ["线上社交", "购物"],
 }
 
 GUIDANCE_SELECTION_PROMPT = """作为一个智能体的决策系统，请从以下可选方案中选择一个最适合的方案来满足当前需求。
@@ -146,6 +146,7 @@ DETAILED_PLAN_PROMPT = """基于选定的指导方案，生成具体的执行步
 }}
 """
 
+
 class PlanBlock(Block):
     def __init__(self, llm: LLM, memory: Memory):
         self.llm = llm
@@ -157,19 +158,16 @@ class PlanBlock(Block):
         """选择指导方案"""
         options = GUIDANCE_OPTIONS.get(current_need, [])
         if not options:
-            return None # type: ignore
+            return None  # type: ignore
 
-        self.guidance_prompt.format(
-            current_need=current_need,
-            options=options
-        )
+        self.guidance_prompt.format(current_need=current_need, options=options)
 
         response = await self.llm.atext_request(
             self.guidance_prompt.to_dialog()
-        ) # type: ignore
+        )  # type: ignore
 
         try:
-            result = json.loads(self.clean_json_response(response)) # type: ignore
+            result = json.loads(self.clean_json_response(response))  # type: ignore
             print(f"\n=== 方案选择 ===")
             print(f"选定方案: {result['selected_option']}")
             print(f"评估结果:")
@@ -180,9 +178,11 @@ class PlanBlock(Block):
             return result
         except Exception as e:
             print(f"解析方案选择响应时发生错误: {str(e)}")
-            return None # type: ignore
+            return None  # type: ignore
 
-    async def generate_detailed_plan(self, current_need: str, selected_option: str) -> Dict:
+    async def generate_detailed_plan(
+        self, current_need: str, selected_option: str
+    ) -> Dict:
         """生成具体执行计划"""
         current_location = await self.memory.get("nowPlace")
         home_location = await self.memory.get("home")
@@ -193,19 +193,17 @@ class PlanBlock(Block):
             selected_option=selected_option,
             current_location=current_location,
             home_location=home_location,
-            work_location=work_location
+            work_location=work_location,
         )
 
-        response = await self.llm.atext_request(
-            self.detail_prompt.to_dialog()
-        )
+        response = await self.llm.atext_request(self.detail_prompt.to_dialog())
 
         try:
-            result = json.loads(self.clean_json_response(response)) # type: ignore
+            result = json.loads(self.clean_json_response(response))  # type: ignore
             return result
         except Exception as e:
             print(f"解析具体计划时发生错误: {str(e)}")
-            return None # type: ignore
+            return None  # type: ignore
 
     async def forward(self):
         current_need = await self.memory.get("current_need")
@@ -221,10 +219,9 @@ class PlanBlock(Block):
 
         # 第二步：生成具体计划
         detailed_plan = await self.generate_detailed_plan(
-            current_need, 
-            guidance_result["selected_option"]
+            current_need, guidance_result["selected_option"]
         )
-        
+
         if not detailed_plan or "plan" not in detailed_plan:
             await self.memory.update("current_plan", [])
             await self.memory.update("current_step", {"intention": "", "type": ""})
@@ -232,10 +229,10 @@ class PlanBlock(Block):
         print("\n=== 生成计划 ===")
         print(f"目标: {detailed_plan['plan']['target']}")
         print("\n执行步骤:")
-        for i, step in enumerate(detailed_plan['plan']['steps'], 1):
+        for i, step in enumerate(detailed_plan["plan"]["steps"], 1):
             print(f"{i}. {step['intention']} ({step['type']})")
         print("===============\n")
-        
+
         # 更新计划和当前步骤
         steps = detailed_plan["plan"]["steps"]
         for step in steps:
@@ -245,14 +242,16 @@ class PlanBlock(Block):
             "target": detailed_plan["plan"]["target"],
             "steps": steps,
             "completed": False,
-            "guidance": guidance_result  # 保存方案选择的评估结果
+            "guidance": guidance_result,  # 保存方案选择的评估结果
         }
 
         await self.memory.update("current_plan", plan)
-        await self.memory.update("current_step", steps[0] if steps else {"intention": "", "type": ""})
+        await self.memory.update(
+            "current_step", steps[0] if steps else {"intention": "", "type": ""}
+        )
         await self.memory.update("execution_context", {})
 
     def clean_json_response(self, response: str) -> str:
         """清理LLM响应中的特殊字符"""
-        response = response.replace('```json', '').replace('```', '')
-        return response.strip() 
+        response = response.replace("```json", "").replace("```", "")
+        return response.strip()
