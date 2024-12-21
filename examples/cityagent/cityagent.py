@@ -25,13 +25,13 @@ class MyAgent(CitizenAgent):
         memory: Memory | None = None,
     ) -> None:
         super().__init__(name, llm_client, simulator, memory)
-        self.needsBlock = NeedsBlock(llm=self.LLM, memory=self.memory)
-        self.planBlock = PlanBlock(llm=self.LLM, memory=self.memory)
-        self.mobilityBlock = MobilityBlock(llm=self.LLM, memory=self.memory, simulator=simulator)  # type: ignore
-        self.socialBlock = SocialBlock(llm=self.LLM, memory=self.memory)
-        self.economyBlock = EconomyBlock(llm=self.LLM, memory=self.memory)
-        self.cognitionBlock = CognitionBlock(llm=self.LLM, memory=self.memory)
-        self.otherBlock = OtherBlock(llm=self.LLM, memory=self.memory)
+        self.needsBlock = NeedsBlock(llm=self.llm, memory=self.memory)
+        self.planBlock = PlanBlock(llm=self.llm, memory=self.memory)
+        self.mobilityBlock = MobilityBlock(llm=self.llm, memory=self.memory, simulator=simulator)  # type: ignore
+        self.socialBlock = SocialBlock(llm=self.llm, memory=self.memory)
+        self.economyBlock = EconomyBlock(llm=self.llm, memory=self.memory)
+        self.cognitionBlock = CognitionBlock(llm=self.llm, memory=self.memory)
+        self.otherBlock = OtherBlock(llm=self.llm, memory=self.memory)
 
     # Main workflow
     async def forward(self):

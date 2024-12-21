@@ -4,7 +4,7 @@ import logging
 import uuid
 from datetime import datetime
 import random
-from typing import Dict, List, Optional, Callable, Union
+from typing import Dict, List, Optional, Callable, Union,Any
 from mosstool.map._map_util.const import AOI_START_ID
 
 from pycityagent.memory.memory import Memory
@@ -41,7 +41,7 @@ class AgentSimulation:
         self.config = config
         self.agent_prefix = agent_prefix
         self._agents: Dict[str, Agent] = {}
-        self._groups: Dict[str, AgentGroup] = {}
+        self._groups: Dict[str, AgentGroup] = {} # type:ignore
         self._interview_manager = InterviewManager()
         self._interview_lock = asyncio.Lock()
         self._start_time = datetime.now()
@@ -50,14 +50,14 @@ class AgentSimulation:
         self._loop = asyncio.get_event_loop()
         self._blocked_agents: List[str] = []  # 新增：持续阻塞的智能体列表
         self._survey_manager = SurveyManager()
-        self._agentid2group: Dict[str, AgentGroup] = {}
+        self._agentid2group: Dict[str, AgentGroup] = {}# type:ignore
         self._agent_ids: List[str] = []
 
     async def init_agents(
         self,
         agent_count: Union[int, list[int]],
         group_size: int = 1000,
-        memory_config_func: Union[Callable, list[Callable]] = None,
+        memory_config_func: Optional[Union[Callable, list[Callable]]] = None,
     ) -> None:
         """初始化智能体
 
@@ -145,7 +145,7 @@ class AgentSimulation:
             gather_tasks.append(group.gather.remote(content))
         return await asyncio.gather(*gather_tasks)
 
-    async def update(self, target_agent_id: str, target_key: str, content: any):
+    async def update(self, target_agent_id: str, target_key: str, content: Any):
         """更新指定智能体的记忆"""
         group = self._agentid2group[target_agent_id]
         await group.update.remote(target_agent_id, target_key, content)

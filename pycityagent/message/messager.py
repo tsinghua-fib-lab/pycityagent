@@ -7,7 +7,7 @@ from aiomqtt import Client
 
 class Messager:
     def __init__(
-        self, hostname, port=1883, username=None, password=None, timeout=math.inf
+        self, hostname:str, port:int=1883, username=None, password=None, timeout=math.inf
     ):
         self.client = Client(
             hostname, port=port, username=username, password=password, timeout=timeout

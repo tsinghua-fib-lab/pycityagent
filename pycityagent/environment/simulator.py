@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import os
-from collections import defaultdict
 from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import Any, Optional, Tuple, Union, cast

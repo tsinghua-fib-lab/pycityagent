@@ -1,17 +1,18 @@
 import asyncio
 import logging
 import ray
+from uuid import UUID
 from pycityagent.agent import Agent
 from pycityagent.economy.econ_client import EconomyClient
 from pycityagent.environment.simulator import Simulator
 from pycityagent.llm.llm import LLM
 from pycityagent.llm.llmconfig import LLMConfig
 from pycityagent.message import Messager
-
+from typing import Any
 
 @ray.remote
 class AgentGroup:
-    def __init__(self, agents: list[Agent], config: dict, exp_id: str):
+    def __init__(self, agents: list[Agent], config: dict, exp_id: str|UUID):
         self.agents = agents
         self.config = config
         self.exp_id = exp_id
@@ -45,7 +46,8 @@ class AgentGroup:
             agent.set_exp_id(self.exp_id)
             agent.set_llm_client(self.llm)
             agent.set_simulator(self.simulator)
-            agent.set_economy_client(self.economy_client)
+            if self.economy_client is not None:
+                agent.set_economy_client(self.economy_client)
             agent.set_messager(self.messager)
 
     async def init_agents(self):
@@ -69,7 +71,7 @@ class AgentGroup:
             results[agent._agent_id] = await agent.memory.get(content)
         return results
 
-    async def update(self, target_agent_id: str, target_key: str, content: any):
+    async def update(self, target_agent_id: str, target_key: str, content: Any):
         agent = self.id2agent[target_agent_id]
         await agent.memory.update(target_key, content)
 
@@ -123,14 +125,15 @@ class AgentGroup:
         try:
             # 获取开始时间
             start_time = await self.simulator.get_time()
+            assert type(start_time)==int
             # 计算结束时间（秒）
             end_time = start_time + day * 24 * 3600  # 将天数转换为秒
 
             while True:
                 current_time = await self.simulator.get_time()
+                assert type(current_time)==int
                 if current_time >= end_time:
                     break
-
                 await self.step()
 
         except Exception as e:

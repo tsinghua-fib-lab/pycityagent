@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 import asyncio
+from uuid import UUID
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum
@@ -114,7 +115,7 @@ class Agent(ABC):
         """
         self._memory = memory
 
-    def set_exp_id(self, exp_id: str):
+    def set_exp_id(self, exp_id: str|UUID):
         """
         Set the exp_id of the agent.
         """
@@ -141,7 +142,7 @@ class Agent(ABC):
                 "bike_attribute",
             }
             simulator = self._simulator
-            memory = self._memory
+            memory = self.memory
             person_id = await memory.get("id")
             # ATTENTION:模拟器分配的id从0开始
             if person_id >= 0:
@@ -178,11 +179,11 @@ class Agent(ABC):
                     await self._economy_client.remove_agents([self._agent_id])
                 except:
                     pass
-                person_id = await self._memory.get("id")
+                person_id = await self.memory.get("id")
                 await self._economy_client.add_agents(
                     {
                         "id": person_id,
-                        "currency": await self._memory.get("currency"),
+                        "currency": await self.memory.get("currency"),
                     }
                 )
                 self._has_bound_to_economy = True
@@ -299,6 +300,9 @@ class Agent(ABC):
     @abstractmethod
     async def forward(self) -> None:
         """智能体行为逻辑"""
+        raise NotImplementedError
+    
+    async def handle_gather_message(self, payload: str):
         raise NotImplementedError
 
     async def run(self) -> None:
