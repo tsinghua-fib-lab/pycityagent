@@ -139,7 +139,7 @@ class AgentSimulation:
                 self._agentid2group[agent_id] = group
 
     async def gather(self, content: str):
-        """收集所有智能体的ID"""
+        """收集智能体的特定信息"""
         gather_tasks = []
         for group in self._groups.values():
             gather_tasks.append(group.gather.remote(content))

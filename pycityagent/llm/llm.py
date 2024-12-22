@@ -15,7 +15,6 @@ from dashscope import ImageSynthesis
 from PIL import Image
 from io import BytesIO
 from typing import Any, Optional, Union, List, Dict
-import aiohttp
 from .llmconfig import *
 from .utils import *
 
@@ -45,7 +44,13 @@ class LLM:
         elif self.config.text["request_type"] == "deepseek":
             self._aclient = AsyncOpenAI(
                 api_key=self.config.text["api_key"],
-                base_url="https://api.deepseek.com/beta",
+                base_url="https://api.deepseek.com/v1",
+                timeout=300,
+            )
+        elif self.config.text["request_type"] == "qwen":
+            self._aclient = AsyncOpenAI(
+                api_key=self.config.text["api_key"],
+                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
                 timeout=300,
             )
         elif self.config.text["request_type"] == "zhipuai":
@@ -102,106 +107,6 @@ Token Usage:
             "ratio": rate,
         }
 
-    def text_request(
-        self,
-        dialog: Any,
-        temperature: float = 1,
-        max_tokens: Optional[int] = None,
-        top_p: Optional[float] = None,
-        frequency_penalty: Optional[float] = None,
-        presence_penalty: Optional[float] = None,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        tool_choice: Optional[Dict[str, Any]] = None,
-    ) -> Optional[str]:
-        """
-        文本相关请求
-        Text request
-
-        Args:
-        - dialog (list[dict]): 标准的LLM文本dialog. The standard text LLM dialog
-        - temperature (float): default 1, used in openai
-        - max_tokens (int): default None, used in openai
-        - top_p (float): default None, used in openai
-        - frequency_penalty (float): default None, used in openai
-        - presence_penalty (float): default None, used in openai
-
-        Returns:
-        - (str): the response content
-        """
-        if "api_base" in self.config.text.keys():
-            api_base = self.config.text["api_base"]
-        else:
-            api_base = None
-        if self.config.text["request_type"] == "openai":
-            client = OpenAI(
-                api_key=self.config.text["api_key"],
-                base_url=api_base,
-            )
-            response = client.chat.completions.create(
-                model=self.config.text["model"],
-                messages=dialog,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                tools=tools,
-                tool_choice=tool_choice,
-            )
-            self.prompt_tokens_used += response.usage.prompt_tokens  # type: ignore
-            self.completion_tokens_used += response.usage.completion_tokens  # type: ignore
-            self.request_number += 1
-            if tools != None:
-                return response.tool_calls[0].function.arguments
-            else:
-                return response.choices[0].message.content
-        elif self.config.text["request_type"] == "qwen":
-            response = dashscope.Generation.call(
-                model=self.config.text["model"],
-                api_key=self.config.text["api_key"],
-                messages=dialog,
-                result_format="message",
-            )
-            if response.status_code == HTTPStatus.OK:  # type: ignore
-                return response.output.choices[0]["message"]["content"]  # type: ignore
-            else:
-                return "Error: {}, {}".format(response.status_code, response.message)  # type: ignore
-        elif self.config.text["request_type"] == "deepseek":
-            client = OpenAI(
-                api_key=self.config.text["api_key"],
-                base_url="https://api.deepseek.com/beta",
-            )
-            response = client.chat.completions.create(
-                model=self.config.text["model"],
-                messages=dialog,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                top_p=top_p,
-                frequency_penalty=frequency_penalty,
-                presence_penalty=presence_penalty,
-                stream=False,
-            )
-            self.prompt_tokens_used += response.usage.prompt_tokens  # type: ignore
-            self.completion_tokens_used += response.usage.completion_tokens  # type: ignore
-            self.request_number += 1
-            return response.choices[0].message.content
-        elif self.config.text["request_type"] == "zhipuai":
-            client = ZhipuAI(api_key=self.config.text["api_key"])
-            response = client.chat.completions.create(
-                model=self.config.text["model"],
-                messages=dialog,
-                temperature=temperature,
-                top_p=top_p,
-                stream=False,
-            )
-            self.prompt_tokens_used += response.usage.prompt_tokens  # type: ignore
-            self.completion_tokens_used += response.usage.completion_tokens  # type: ignore
-            self.request_number += 1
-            return response.choices[0].message.content  # type: ignore
-        else:
-            print("ERROR: Wrong Config")
-            return "wrong config"
-
     async def atext_request(
         self,
         dialog: Any,
@@ -221,6 +126,7 @@ Token Usage:
         if (
             self.config.text["request_type"] == "openai"
             or self.config.text["request_type"] == "deepseek"
+            or self.config.text["request_type"] == "qwen"
         ):
             for attempt in range(retries):
                 try:
@@ -242,8 +148,12 @@ Token Usage:
                             self.prompt_tokens_used += response.usage.prompt_tokens  # type: ignore
                             self.completion_tokens_used += response.usage.completion_tokens  # type: ignore
                             self.request_number += 1
-                            if tools != None:
-                                return response.tool_calls[0].function.arguments
+                            if tools and response.choices[0].message.tool_calls:
+                                return json.loads(
+                                    response.choices[0]
+                                    .message.tool_calls[0]
+                                    .function.arguments
+                                )
                             else:
                                 return response.choices[0].message.content
                     else:
@@ -263,8 +173,12 @@ Token Usage:
                         self.prompt_tokens_used += response.usage.prompt_tokens  # type: ignore
                         self.completion_tokens_used += response.usage.completion_tokens  # type: ignore
                         self.request_number += 1
-                        if tools != None:
-                            return response.tool_calls[0].function.arguments
+                        if tools and response.choices[0].message.tool_calls:
+                            return json.loads(
+                                response.choices[0]
+                                .message.tool_calls[0]
+                                .function.arguments
+                            )
                         else:
                             return response.choices[0].message.content
                 except APIConnectionError as e:
@@ -327,25 +241,6 @@ Token Usage:
                         await asyncio.sleep(2**attempt)
                     else:
                         raise e
-        elif self.config.text["request_type"] == "qwen":
-            async with aiohttp.ClientSession() as session:
-                api_url = "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation"
-                headers = {
-                    "Content-Type": "application/json",
-                    "Authorization": f"{self.config.text['api_key']}",
-                }
-                payload = {
-                    "model": self.config.text["model"],
-                    "input": {"messages": dialog},
-                }
-                async with session.post(api_url, json=payload, headers=headers) as resp:
-                    response_json = await resp.json()
-                    if "code" in response_json.keys():
-                        raise Exception(
-                            f"Error: {response_json['code']}, {response_json['message']}"
-                        )
-                    else:
-                        return response_json["output"]["text"]
         else:
             print("ERROR: Wrong Config")
             return "wrong config"
