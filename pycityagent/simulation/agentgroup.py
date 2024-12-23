@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import uuid
 import ray
 from uuid import UUID
 from pycityagent.agent import Agent
@@ -17,6 +18,7 @@ class AgentGroup:
         self.agents = agents
         self.config = config
         self.exp_id = exp_id
+        self._uuid = uuid.uuid4()
         self.messager = Messager(
             hostname=config["simulator_request"]["mqtt"]["server"],
             port=config["simulator_request"]["mqtt"]["port"],
@@ -95,7 +97,7 @@ class AgentGroup:
         # Step 2: 从 Messager 获取消息
         messages = await self.messager.fetch_messages()
 
-        print(f"Received {len(messages)} messages")
+        logging.info(f"Group {self._uuid} received {len(messages)} messages")
 
         # Step 3: 分发消息到对应的 Agent
         for message in messages:
@@ -110,8 +112,8 @@ class AgentGroup:
             # 提取 agent_id（主题格式为 "exps/{exp_id}/agents/{agent_uuid}/{topic_type}"）
             _, _, _, agent_uuid, topic_type = topic.strip("/").split("/")
                 
-            if agent_uuid in self.id2agent:
-                agent = self.id2agent[agent_uuid]
+            if uuid.UUID(agent_uuid) in self.id2agent:
+                agent = self.id2agent[uuid.UUID(agent_uuid)]
                 # topic_type: agent-chat, user-chat, user-survey, gather
                 if topic_type == "agent-chat":
                     await agent.handle_agent_chat_message(payload)

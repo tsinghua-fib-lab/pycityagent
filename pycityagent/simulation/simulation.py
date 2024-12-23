@@ -6,10 +6,10 @@ from datetime import datetime
 import random
 from typing import Dict, List, Optional, Callable, Union,Any
 from mosstool.map._map_util.const import AOI_START_ID
-
+import pycityproto.city.economy.v2.economy_pb2 as economyv2
 from pycityagent.memory.memory import Memory
 
-from ..agent import Agent
+from ..agent import Agent, InstitutionAgent
 from .interview import InterviewManager
 from .survey import QuestionType, SurveyManager
 from .ui import InterviewUI
@@ -42,12 +42,28 @@ class AgentSimulation:
         self.agent_prefix = agent_prefix
         self._agents: Dict[uuid.UUID, Agent] = {}
         self._groups: Dict[str, AgentGroup] = {}
-        self._agentid2group: Dict[uuid.UUID, AgentGroup] = {}
-        self._agent_ids: List[uuid.UUID] = []
+        self._agent_uuid2group: Dict[uuid.UUID, AgentGroup] = {}
+        self._agent_uuids: List[uuid.UUID] = []
 
         self._loop = asyncio.get_event_loop()
         self._interview_manager = InterviewManager()
         self._survey_manager = SurveyManager()
+
+    @property
+    def agents(self):
+        return self._agents
+    
+    @property
+    def groups(self):
+        return self._groups
+    
+    @property
+    def agent_uuids(self):
+        return self._agent_uuids
+    
+    @property
+    def agent_uuid2group(self):
+        return self._agent_uuid2group
 
     async def init_agents(
         self,
@@ -72,15 +88,25 @@ class AgentSimulation:
             logging.warning(
                 "memory_config_func is None, using default memory config function"
             )
-            memory_config_func = [self.default_memory_config_func]
+            memory_config_func = []
+            for agent_class in self.agent_class:
+                if issubclass(agent_class, InstitutionAgent):
+                    memory_config_func.append(self.default_memory_config_institution)
+                else:
+                    memory_config_func.append(self.default_memory_config_citizen)
         elif not isinstance(memory_config_func, list):
             memory_config_func = [memory_config_func]
 
         if len(memory_config_func) != len(agent_count):
             logging.warning(
-                "memory_config_func和agent_count的长度不一致，使用默认的memory_config_func"
+                "memory_config_func和agent_count的长度不一致，使用默认的memory_config"
             )
-            memory_config_func = [self.default_memory_config_func] * len(agent_count)
+            memory_config_func = []
+            for agent_class in self.agent_class:
+                if agent_class == InstitutionAgent:
+                    memory_config_func.append(self.default_memory_config_institution)
+                else:
+                    memory_config_func.append(self.default_memory_config_citizen)
 
         class_init_index = 0
         for i in range(len(self.agent_class)):
@@ -93,7 +119,7 @@ class AgentSimulation:
                 # 获取Memory配置
                 extra_attributes, profile, base = memory_config_func_i()
                 memory = Memory(
-                    config=extra_attributes, profile=profile.copy(), base=base.copy()
+                    config=extra_attributes, profile=profile, base=base
                 )
 
                 # 创建智能体时传入Memory配置
@@ -103,7 +129,7 @@ class AgentSimulation:
                 )
 
                 self._agents[agent._uuid] = agent
-                self._agent_ids.append(agent._uuid)
+                self._agent_uuids.append(agent._uuid)
 
             # 计算需要的组数,向上取整以处理不足一组的情况
             num_group = (agent_count_i + group_size - 1) // group_size
@@ -122,7 +148,7 @@ class AgentSimulation:
                 group = AgentGroup.remote(agents, self.config, self.exp_id)
                 self._groups[group_name] = group
                 for agent in agents:
-                    self._agentid2group[agent._uuid] = group
+                    self._agent_uuid2group[agent._uuid] = group
 
             class_init_index += agent_count_i  # 更新类初始索引
 
@@ -140,10 +166,29 @@ class AgentSimulation:
 
     async def update(self, target_agent_id: str, target_key: str, content: Any):
         """更新指定智能体的记忆"""
-        group = self._agentid2group[target_agent_id]
+        group = self._agent_uuid2group[target_agent_id]
         await group.update.remote(target_agent_id, target_key, content)
 
-    def default_memory_config_func(self):
+    def default_memory_config_institution(self):
+        """默认的Memory配置函数"""
+        EXTRA_ATTRIBUTES = {
+            "type": (int, random.choice([economyv2.ORG_TYPE_BANK, economyv2.ORG_TYPE_GOVERNMENT, economyv2.ORG_TYPE_FIRM, economyv2.ORG_TYPE_NBS, economyv2.ORG_TYPE_UNSPECIFIED])),
+            "nominal_gdp": (list, [], True),
+            "real_gdp": (list, [], True),
+            "unemployment": (list, [], True),
+            "wages": (list, [], True),
+            "prices": (list, [], True),
+            "inventory": (int, 0, True),
+            "price": (float, 0.0, True),
+            "interest_rate": (float, 0.0, True),
+            "bracket_cutoffs": (list, [], True),
+            "bracket_rates": (list, [], True),
+            "employees": (list, [], True),
+            "customers": (list, [], True),
+        }
+        return EXTRA_ATTRIBUTES, None, None
+
+    def default_memory_config_citizen(self):
         """默认的Memory配置函数"""
         EXTRA_ATTRIBUTES = {
             # 需求信息

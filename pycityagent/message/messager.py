@@ -59,7 +59,7 @@ class Messager:
 
     async def send_message(self, topic: str, payload: dict):
         """通过 Messager 发送消息"""
-        message = json.dumps(payload)
+        message = json.dumps(payload, default=str)
         await self.client.publish(topic, message)
         logging.info(f"Message sent to {topic}: {message}")
 

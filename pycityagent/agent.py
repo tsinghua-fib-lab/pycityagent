@@ -5,7 +5,8 @@ import asyncio
 import json
 from uuid import UUID
 from copy import deepcopy
-from datetime import datetime, time
+from datetime import datetime
+import time
 from enum import Enum
 import logging
 import random
@@ -122,6 +123,16 @@ class Agent(ABC):
         self._exp_id = exp_id
 
     @property
+    def uuid(self):
+        """The Agent's UUID"""
+        return self._uuid
+
+    @property
+    def sim_id(self):
+        """The Agent's Simulator ID"""
+        return self._agent_id
+
+    @property
     def llm(self):
         """The Agent's LLM"""
         if self._llm_client is None:
@@ -230,13 +241,13 @@ class Agent(ABC):
             f"Agent {self._uuid} received user survey message: '{payload['content']}' from User"
         )
 
-    async def send_message(
+    async def _send_message(
         self, to_agent_uuid: UUID, payload: dict, sub_topic: str
     ):
         """通过 Messager 发送消息"""
         if self._messager is None:
             raise RuntimeError("Messager is not set")
-        topic = f"/exps/{self._exp_id}/agents/{to_agent_uuid}/{sub_topic}"
+        topic = f"exps/{self._exp_id}/agents/{to_agent_uuid}/{sub_topic}"
         await self._messager.send_message(topic, payload)
 
     async def send_message_to_agent(
@@ -252,7 +263,7 @@ class Agent(ABC):
             "day": await self._simulator.get_simulator_day(),
             "t": await self._simulator.get_simulator_second_from_start_of_day(),
         }
-        await self.send_message(to_agent_uuid, payload, "agent-chat")
+        await self._send_message(to_agent_uuid, payload, "agent-chat")
 
     async def send_message_to_user(
         self, content: dict
@@ -390,7 +401,7 @@ class CitizenAgent(Agent):
             "from": self._uuid,
             "content": content,
         }
-        await self.send_message(sender_id, payload, "gather")
+        await self._send_message(sender_id, payload, "gather")
 
 
 class InstitutionAgent(Agent):
@@ -510,7 +521,11 @@ class InstitutionAgent(Agent):
             f"Agent {self._uuid} received gather message: '{content}' from Agent {sender_id}"
         )
 
-    async def gather_messages(self, agent_ids: list[UUID], content: str):
+    async def gather_messages(self, agent_ids: list[UUID], target: str):
         """从多个智能体收集消息"""
+        payload = {
+            "from": self._uuid,
+            "target": target,
+        }
         for agent_id in agent_ids:
-            await self.send_message(agent_id, content, "gather")
+            await self._send_message(agent_id, payload, "gather")
