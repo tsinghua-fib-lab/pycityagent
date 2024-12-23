@@ -427,7 +427,9 @@ class InstitutionAgent(Agent):
             simulator,
             memory,
         )
-
+        # 添加响应收集器
+        self._gather_responses: Dict[str, asyncio.Future] = {}
+        
     async def bind_to_simulator(self):
         await self._bind_to_economy()
 
@@ -514,18 +516,47 @@ class InstitutionAgent(Agent):
 
     async def handle_gather_message(self, payload: dict):
         """处理收到的消息，识别发送者"""
-        # 从消息中解析发送者 ID 和消息内容
         content = payload["content"]
         sender_id = payload["from"]
-        print(
-            f"Agent {self._uuid} received gather message: '{content}' from Agent {sender_id}"
-        )
+        
+        # 将响应存储到对应的Future中
+        response_key = str(sender_id)
+        if response_key in self._gather_responses:
+            self._gather_responses[response_key].set_result({
+                "from": sender_id,
+                "content": content,
+            })
 
-    async def gather_messages(self, agent_ids: list[UUID], target: str):
-        """从多个智能体收集消息"""
+    async def gather_messages(self, agent_ids: list[UUID], target: str) -> List[dict]:
+        """从多个智能体收集消息
+        
+        Args:
+            agent_ids: 目标智能体ID列表
+            target: 要收集的信息类型
+            
+        Returns:
+            List[dict]: 收集到的所有响应
+        """
+        # 为每个agent创建Future
+        futures = {}
+        for agent_id in agent_ids:
+            response_key = str(agent_id)
+            futures[response_key] = asyncio.Future()
+            self._gather_responses[response_key] = futures[response_key]
+            
+        # 发送gather请求
         payload = {
             "from": self._uuid,
             "target": target,
         }
         for agent_id in agent_ids:
             await self._send_message(agent_id, payload, "gather")
+            
+        try:
+            # 等待所有响应
+            responses = await asyncio.gather(*futures.values())
+            return responses
+        finally:
+            # 清理Future
+            for key in futures:
+                self._gather_responses.pop(key, None)

@@ -71,7 +71,8 @@ class AgentGroup:
                 topic = f"exps/{self.exp_id}/agents/{agent._uuid}/gather"
                 await self.messager.subscribe(topic, agent)
         self.initialized = True
-
+        self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
+        
     async def gather(self, content: str):
         results = {}
         for agent in self.agents:
@@ -82,49 +83,46 @@ class AgentGroup:
         agent = self.id2agent[target_agent_uuid]
         await agent.memory.update(target_key, content)
 
+    async def message_dispatch(self):
+        while True:
+            if not self.messager.is_connected():
+                logging.warning("Messager is not connected. Skipping message processing.")
+
+            # Step 1: 获取消息
+            messages = await self.messager.fetch_messages()
+            logging.info(f"Group {self._uuid} received {len(messages)} messages")
+
+            # Step 2: 分发消息到对应的 Agent
+            for message in messages:
+                topic = message.topic.value
+                payload = message.payload
+
+                # 添加解码步骤，将bytes转换为str
+                if isinstance(payload, bytes):
+                    payload = payload.decode("utf-8")
+                    payload = json.loads(payload)
+
+                # 提取 agent_id（主题格式为 "exps/{exp_id}/agents/{agent_uuid}/{topic_type}"）
+                _, _, _, agent_uuid, topic_type = topic.strip("/").split("/")
+                    
+                if uuid.UUID(agent_uuid) in self.id2agent:
+                    agent = self.id2agent[uuid.UUID(agent_uuid)]
+                    # topic_type: agent-chat, user-chat, user-survey, gather
+                    if topic_type == "agent-chat":
+                        await agent.handle_agent_chat_message(payload)
+                    elif topic_type == "user-chat":
+                        await agent.handle_user_chat_message(payload)
+                    elif topic_type == "user-survey":
+                        await agent.handle_user_survey_message(payload)
+                    elif topic_type == "gather":
+                        await agent.handle_gather_message(payload)
+
+            await asyncio.sleep(1)
+
     async def step(self):
         if not self.initialized:
             await self.init_agents()
 
-        # Step 1: 如果 Messager 无法连接，则跳过消息接收
-        if not self.messager.is_connected():
-            logging.warning("Messager is not connected. Skipping message processing.")
-            # 跳过接收和分发消息
-            tasks = [agent.run() for agent in self.agents]
-            await asyncio.gather(*tasks)
-            return
-
-        # Step 2: 从 Messager 获取消息
-        messages = await self.messager.fetch_messages()
-
-        logging.info(f"Group {self._uuid} received {len(messages)} messages")
-
-        # Step 3: 分发消息到对应的 Agent
-        for message in messages:
-            topic = message.topic.value
-            payload = message.payload
-
-            # 添加解码步骤，将bytes转换为str
-            if isinstance(payload, bytes):
-                payload = payload.decode("utf-8")
-                payload = json.loads(payload)
-
-            # 提取 agent_id（主题格式为 "exps/{exp_id}/agents/{agent_uuid}/{topic_type}"）
-            _, _, _, agent_uuid, topic_type = topic.strip("/").split("/")
-                
-            if uuid.UUID(agent_uuid) in self.id2agent:
-                agent = self.id2agent[uuid.UUID(agent_uuid)]
-                # topic_type: agent-chat, user-chat, user-survey, gather
-                if topic_type == "agent-chat":
-                    await agent.handle_agent_chat_message(payload)
-                elif topic_type == "user-chat":
-                    await agent.handle_user_chat_message(payload)
-                elif topic_type == "user-survey":
-                    await agent.handle_user_survey_message(payload)
-                elif topic_type == "gather":
-                    await agent.handle_gather_message(payload)
-
-        # Step 4: 调用每个 Agent 的运行逻辑
         tasks = [agent.run() for agent in self.agents]
         await asyncio.gather(*tasks)
 
