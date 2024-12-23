@@ -192,6 +192,23 @@ class Simulator:
         else:
             # BUG: 返回的time是float类型
             return t_sec["t"]
+        
+    async def get_simulator_day(self) -> int:
+        """
+        获取模拟器到第几日
+        """
+        t_sec = await self._client.clock_service.Now({})
+        t_sec = cast(dict[str, int], t_sec)
+        day = t_sec["t"] // 86400
+        return day
+    
+    async def get_simulator_second_from_start_of_day(self) -> int:
+        """
+        获取模拟器从00:00:00到当前的秒数
+        """
+        t_sec = await self._client.clock_service.Now({})
+        t_sec = cast(dict[str, int], t_sec)
+        return t_sec["t"] % 86400
 
     async def get_person(self, person_id: int) -> dict:
         return await self._client.person_service.GetPerson(

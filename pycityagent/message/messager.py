@@ -1,5 +1,6 @@
 import asyncio
 from collections import defaultdict
+import json
 import logging
 import math
 from aiomqtt import Client
@@ -42,7 +43,7 @@ class Messager:
             return
         await self.client.subscribe(topic)
         self.subscribers[topic] = agent
-        logging.info(f"Subscribed to {topic} for Agent {agent._agent_id}")
+        logging.info(f"Subscribed to {topic} for Agent {agent._uuid}")
 
     async def receive_messages(self):
         """监听并将消息存入队列"""
@@ -56,10 +57,9 @@ class Messager:
             messages.append(await self.message_queue.get())
         return messages
 
-    async def send_message(self, topic: str, payload: str, sender_id: int):
-        """通过 Messager 发送消息，包含发送者 ID"""
-        # 构造消息，payload 中加入 sender_id 以便接收者识别
-        message = f"{payload}|from:{sender_id}"
+    async def send_message(self, topic: str, payload: dict):
+        """通过 Messager 发送消息"""
+        message = json.dumps(payload)
         await self.client.publish(topic, message)
         logging.info(f"Message sent to {topic}: {message}")
 

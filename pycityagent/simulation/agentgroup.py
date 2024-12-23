@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import ray
 from uuid import UUID
@@ -53,26 +54,30 @@ class AgentGroup:
     async def init_agents(self):
         for agent in self.agents:
             await agent.bind_to_simulator()
-        self.id2agent = {agent._agent_id: agent for agent in self.agents}
+        self.id2agent = {agent._uuid: agent for agent in self.agents}
         await self.messager.connect()
         if self.messager.is_connected():
             await self.messager.start_listening()
             for agent in self.agents:
                 agent.set_messager(self.messager)
-                topic = f"/exps/{self.exp_id}/agents/{agent._agent_id}/chat"
+                topic = f"exps/{self.exp_id}/agents/{agent._uuid}/agent-chat"
                 await self.messager.subscribe(topic, agent)
-                topic = f"/exps/{self.exp_id}/agents/{agent._agent_id}/gather"
+                topic = f"exps/{self.exp_id}/agents/{agent._uuid}/user-chat"
+                await self.messager.subscribe(topic, agent)
+                topic = f"exps/{self.exp_id}/agents/{agent._uuid}/user-survey"
+                await self.messager.subscribe(topic, agent)
+                topic = f"exps/{self.exp_id}/agents/{agent._uuid}/gather"
                 await self.messager.subscribe(topic, agent)
         self.initialized = True
 
     async def gather(self, content: str):
         results = {}
         for agent in self.agents:
-            results[agent._agent_id] = await agent.memory.get(content)
+            results[agent._uuid] = await agent.memory.get(content)
         return results
 
-    async def update(self, target_agent_id: str, target_key: str, content: Any):
-        agent = self.id2agent[target_agent_id]
+    async def update(self, target_agent_uuid: str, target_key: str, content: Any):
+        agent = self.id2agent[target_agent_uuid]
         await agent.memory.update(target_key, content)
 
     async def step(self):
@@ -100,15 +105,20 @@ class AgentGroup:
             # 添加解码步骤，将bytes转换为str
             if isinstance(payload, bytes):
                 payload = payload.decode("utf-8")
+                payload = json.loads(payload)
 
-            # 提取 agent_id（主题格式为 "/exps/{exp_id}/agents/{agent_id}/chat" 或 "/exps/{exp_id}/agents/{agent_id}/gather"）
-            _, _, _, agent_id, topic_type = topic.strip("/").split("/")
-            agent_id = int(agent_id)
-
-            if agent_id in self.id2agent:
-                agent = self.id2agent[agent_id]
-                if topic_type == "chat":
-                    await agent.handle_message(payload)
+            # 提取 agent_id（主题格式为 "exps/{exp_id}/agents/{agent_uuid}/{topic_type}"）
+            _, _, _, agent_uuid, topic_type = topic.strip("/").split("/")
+                
+            if agent_uuid in self.id2agent:
+                agent = self.id2agent[agent_uuid]
+                # topic_type: agent-chat, user-chat, user-survey, gather
+                if topic_type == "agent-chat":
+                    await agent.handle_agent_chat_message(payload)
+                elif topic_type == "user-chat":
+                    await agent.handle_user_chat_message(payload)
+                elif topic_type == "user-survey":
+                    await agent.handle_user_survey_message(payload)
                 elif topic_type == "gather":
                     await agent.handle_gather_message(payload)
 

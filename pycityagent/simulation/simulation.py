@@ -40,18 +40,14 @@ class AgentSimulation:
             self.agent_class = [agent_class]
         self.config = config
         self.agent_prefix = agent_prefix
-        self._agents: Dict[str, Agent] = {}
-        self._groups: Dict[str, AgentGroup] = {} # type:ignore
-        self._interview_manager = InterviewManager()
-        self._interview_lock = asyncio.Lock()
-        self._start_time = datetime.now()
-        self._agent_run_times: Dict[str, datetime] = {}  # 记录每个智能体的运行开始时间
-        self._ui: Optional[InterviewUI] = None
+        self._agents: Dict[uuid.UUID, Agent] = {}
+        self._groups: Dict[str, AgentGroup] = {}
+        self._agentid2group: Dict[uuid.UUID, AgentGroup] = {}
+        self._agent_ids: List[uuid.UUID] = []
+
         self._loop = asyncio.get_event_loop()
-        self._blocked_agents: List[str] = []  # 新增：持续阻塞的智能体列表
+        self._interview_manager = InterviewManager()
         self._survey_manager = SurveyManager()
-        self._agentid2group: Dict[str, AgentGroup] = {}# type:ignore
-        self._agent_ids: List[str] = []
 
     async def init_agents(
         self,
@@ -106,7 +102,8 @@ class AgentSimulation:
                     memory=memory,
                 )
 
-                self._agents[agent_name] = agent
+                self._agents[agent._uuid] = agent
+                self._agent_ids.append(agent._uuid)
 
             # 计算需要的组数,向上取整以处理不足一组的情况
             num_group = (agent_count_i + group_size - 1) // group_size
@@ -121,9 +118,11 @@ class AgentSimulation:
 
                 # 获取当前组的agents
                 agents = list(self._agents.values())[start_idx:end_idx]
-                group_name = f"{self.agent_prefix}_{i}_group_{k}"
+                group_name = f"AgentType_{i}_Group_{k}"
                 group = AgentGroup.remote(agents, self.config, self.exp_id)
                 self._groups[group_name] = group
+                for agent in agents:
+                    self._agentid2group[agent._uuid] = group
 
             class_init_index += agent_count_i  # 更新类初始索引
 
@@ -131,12 +130,6 @@ class AgentSimulation:
         for group in self._groups.values():
             init_tasks.append(group.init_agents.remote())
         await asyncio.gather(*init_tasks)
-
-        for group in self._groups.values():
-            agent_ids = await group.gather.remote("id")
-            for agent_id in agent_ids:
-                self._agent_ids.append(agent_id)
-                self._agentid2group[agent_id] = group
 
     async def gather(self, content: str):
         """收集智能体的特定信息"""
@@ -247,201 +240,6 @@ class AgentSimulation:
         }
 
         return EXTRA_ATTRIBUTES, PROFILE, BASE
-
-    def get_agent_runtime(self, agent_name: str) -> str:
-        """获取智能体运行时间"""
-        if agent_name not in self._agent_run_times:
-            return "-"
-        delta = datetime.now() - self._agent_run_times[agent_name]
-        hours = delta.seconds // 3600
-        minutes = (delta.seconds % 3600) // 60
-        seconds = delta.seconds % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-
-    def get_total_runtime(self) -> str:
-        """获取总运行时间"""
-        delta = datetime.now() - self._start_time
-        hours = delta.seconds // 3600
-        minutes = (delta.seconds % 3600) // 60
-        seconds = delta.seconds % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-
-    def export_chat_history(self, agent_name: str | None) -> str:
-        """导出对话历史
-
-        Args:
-            agent_name: 可选的智能体名称，如果提供则只导出该智能体的对话
-
-        Returns:
-            str: JSON格式的对话历史
-        """
-        history = (
-            self._interview_manager.get_agent_history(agent_name)
-            if agent_name
-            else self._interview_manager.get_recent_history(limit=1000)
-        )
-
-        # 转换为易读格式
-        formatted_history = []
-        for record in history:
-            formatted_history.append(
-                {
-                    "timestamp": record.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-                    "agent": record.agent_name,
-                    "question": record.question,
-                    "response": record.response,
-                    "blocking": record.blocking,
-                }
-            )
-
-        return json.dumps(formatted_history, ensure_ascii=False, indent=2)
-
-    def toggle_agent_block(self, agent_name: str, blocking: bool) -> str:
-        """切换智能体的阻塞状态
-
-        Args:
-            agent_name: 能体名称
-            blocking: True表示阻塞，False表示取消阻塞
-
-        Returns:
-            str: 状态变更消息
-        """
-        if agent_name not in self._agents:
-            return f"找不到智能体 {agent_name}"
-
-        if blocking and agent_name not in self._blocked_agents:
-            self._blocked_agents.append(agent_name)
-            self._agents[agent_name]._blocked = True
-            return f"已阻塞智能体 {agent_name}"
-        elif not blocking and agent_name in self._blocked_agents:
-            self._blocked_agents.remove(agent_name)
-            self._agents[agent_name]._blocked = False
-            return f"已取消阻塞智能体 {agent_name}"
-
-        return f"智能体 {agent_name} 状态未变"
-
-    async def interview_agent(self, agent_name: str, question: str) -> str:
-        """采访指定智能体"""
-        agent = self._agents.get(agent_name)
-        if not agent:
-            return "找不到指定的智能体"
-
-        try:
-            response = await agent.generate_response(question)
-            # 记录采访历史
-            self._interview_manager.add_record(
-                agent_name,
-                question,
-                response,
-                blocking=(agent_name in self._blocked_agents),
-            )
-            return response
-
-        except Exception as e:
-            logger.error(f"采访过程出错: {str(e)}")
-            return f"采访过程出现错误: {str(e)}"
-
-    async def submit_survey(self, agent_name: str, survey_id: str) -> str:
-        """向智能体提交问卷
-
-        Args:
-            agent_name: 智能体名称
-            survey_id: 问卷ID
-
-        Returns:
-            str: 处理结果
-        """
-        agent = self._agents.get(agent_name)
-        if not agent:
-            return "找不到指定的智能体"
-
-        survey = self._survey_manager.get_survey(survey_id)
-        if not survey:
-            return "找不到指定的问卷"
-
-        try:
-            # 建问卷提示
-            prompt = f"""请以第一人称回答以下调查问卷:
-
-问卷标题: {survey.title}
-问卷说明: {survey.description}
-
-"""
-            for i, question in enumerate(survey.questions):
-                prompt += f"\n问题{i+1}. {question.content}"
-                if question.type in (
-                    QuestionType.SINGLE_CHOICE,
-                    QuestionType.MULTIPLE_CHOICE,
-                ):
-                    prompt += "\n选项: " + ", ".join(question.options)
-                elif question.type == QuestionType.RATING:
-                    prompt += (
-                        f"\n(请给出{question.min_rating}-{question.max_rating}的评分)"
-                    )
-                elif question.type == QuestionType.LIKERT:
-                    prompt += "\n(1-强烈不同意, 2-不同意, 3-中立, 4-同意, 5-强烈同意)"
-
-            # 生成回答
-            response = await agent.generate_response(prompt)
-
-            # 存储原始回答
-            self._survey_manager.add_response(
-                survey_id, agent_name, {"raw_response": response, "parsed": False}
-            )
-
-            return response
-
-        except Exception as e:
-            logger.error(f"问卷处理出错: {str(e)}")
-            return f"问卷处理出现错误: {str(e)}"
-
-    def create_survey(self, **survey_data: dict) -> None:
-        """创建新问卷
-
-        Args:
-            survey_data: 问卷数据，包含 title, description, questions
-
-        Returns:
-            更新后的问卷列表
-        """
-        self._survey_manager.create_survey(**survey_data)  # type:ignore
-
-    def get_surveys(self) -> list:
-        """获取所有问卷"""
-        return self._survey_manager.get_all_surveys()
-
-    def get_survey_questions(self, survey_id: str) -> dict | None:
-        """获取指定问卷的问题列表
-
-        Args:
-            survey_id: 问卷ID
-
-        Returns:
-            问卷数据，包含 title, description, questions
-        """
-        for _, survey in self._survey_manager._surveys.items():
-            survey_dict = survey.to_dict()
-            if survey_dict["id"] == survey_id:
-                return survey_dict
-        return None
-
-    async def init_ui(
-        self,
-        server_name: str = "127.0.0.1",
-        server_port: int = 7860,
-    ):
-        """初始化UI"""
-        self._interview_lock = asyncio.Lock()
-        # 初始化GradioUI
-        self._ui = InterviewUI(self)
-        interface = self._ui.create_interface()
-        interface.queue().launch(
-            server_name=server_name,
-            server_port=server_port,
-            prevent_thread_lock=True,
-            quiet=True,
-        )
-        logger.info(f"Gradio Frontend is running on http://{server_name}:{server_port}")
 
     async def step(self):
         """运行一步, 即每个智能体执行一次forward"""
