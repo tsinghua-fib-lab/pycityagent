@@ -125,13 +125,13 @@ class AgentGroup:
         try:
             # 获取开始时间
             start_time = await self.simulator.get_time()
-            assert type(start_time)==int
+            start_time = int(start_time)
             # 计算结束时间（秒）
             end_time = start_time + day * 24 * 3600  # 将天数转换为秒
 
             while True:
                 current_time = await self.simulator.get_time()
-                assert type(current_time)==int
+                current_time = int(current_time)
                 if current_time >= end_time:
                     break
                 await self.step()

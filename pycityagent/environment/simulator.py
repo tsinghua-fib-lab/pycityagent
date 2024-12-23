@@ -190,6 +190,7 @@ class Simulator:
             formatted_time = current_time.strftime(format)
             return formatted_time
         else:
+            # BUG: 返回的time是float类型
             return t_sec["t"]
 
     async def get_person(self, person_id: int) -> dict:

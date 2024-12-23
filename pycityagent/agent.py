@@ -8,6 +8,7 @@ from datetime import datetime
 from enum import Enum
 import logging
 import random
+import uuid
 from typing import Dict, List, Optional
 
 from pycityagent.environment.sim.person_service import PersonService
@@ -64,6 +65,7 @@ class Agent(ABC):
         """
         self._name = name
         self._type = type
+        self._uuid = uuid.uuid4()
         self._llm_client = llm_client
         self._economy_client = economy_client
         self._messager = messager
@@ -117,77 +119,6 @@ class Agent(ABC):
         Set the exp_id of the agent.
         """
         self._exp_id = exp_id
-
-    async def _bind_to_simulator(self):
-        """
-        Bind Agent to Simulator
-
-        Args:
-            person_template (dict, optional): The person template in dict format. Defaults to PersonService.default_dict_person().
-        """
-        if self._simulator is None:
-            logging.warning("Simulator is not set")
-            return
-        if not self._has_bound_to_simulator:
-            FROM_MEMORY_KEYS = {
-                "attribute",
-                "home",
-                "work",
-                "vehicle_attribute",
-                "bus_attribute",
-                "pedestrian_attribute",
-                "bike_attribute",
-            }
-            simulator = self._simulator
-            memory = self.memory
-            person_id = await memory.get("id")
-            # ATTENTION:模拟器分配的id从0开始
-            if person_id >= 0:
-                await simulator.get_person(person_id)
-                logging.debug(f"Binding to Person `{person_id}` already in Simulator")
-            else:
-                dict_person = deepcopy(self._person_template)
-                for _key in FROM_MEMORY_KEYS:
-                    try:
-                        _value = await memory.get(_key)
-                        if _value:
-                            dict_person[_key] = _value
-                    except KeyError as e:
-                        continue
-                resp = await simulator.add_person(
-                    dict2pb(dict_person, person_pb2.Person())
-                )
-                person_id = resp["person_id"]
-                await memory.update("id", person_id, protect_llm_read_only_fields=False)
-                logging.debug(
-                    f"Binding to Person `{person_id}` just added to Simulator"
-                )
-                # 防止模拟器还没有到prepare阶段导致get_person出错
-            self._has_bound_to_simulator = True
-            self._agent_id = person_id
-
-    async def _bind_to_economy(self):
-        if self._economy_client is None:
-            logging.warning("Economy client is not set")
-            return
-        if not self._has_bound_to_economy:
-            if self._has_bound_to_simulator:
-                try:
-                    await self._economy_client.remove_agents([self._agent_id])
-                except:
-                    pass
-                person_id = await self.memory.get("id")
-                await self._economy_client.add_agents(
-                    {
-                        "id": person_id,
-                        "currency": await self.memory.get("currency"),
-                    }
-                )
-                self._has_bound_to_economy = True
-            else:
-                logging.debug(
-                    f"Binding to Economy before binding to Simulator, skip binding to Economy Simulator"
-                )
 
     @property
     def llm(self):
@@ -455,28 +386,60 @@ class InstitutionAgent(Agent):
             self._agent_id = _id
             await self._memory.update("id", _id, protect_llm_read_only_fields=False)
             try:
-                await self._economy_client.remove_agents([self._agent_id])
+                await self._economy_client.remove_orgs([self._agent_id])
             except:
                 pass
             try:
                 id = await self._memory.get("id")
                 type = await self._memory.get("type")
-                nominal_gdp = await self._memory.get("nominal_gdp")
-                real_gdp = await self._memory.get("real_gdp")
-                unemployment = await self._memory.get("unemployment")
-                wages = await self._memory.get("wages")
-                prices = await self._memory.get("prices")
-                inventory = await self._memory.get("inventory")
-                price = await self._memory.get("price")
-                currency = await self._memory.get("currency")
-                interest_rate = await self._memory.get("interest_rate")
-                bracket_cutoffs = await self._memory.get("bracket_cutoffs")
-                bracket_rates = await self._memory.get("bracket_rates")
+                try:
+                    nominal_gdp = await self._memory.get("nominal_gdp")
+                except:
+                    nominal_gdp = []
+                try:
+                    real_gdp = await self._memory.get("real_gdp")
+                except:
+                    real_gdp = []
+                try:
+                    unemployment = await self._memory.get("unemployment")
+                except:
+                    unemployment = []
+                try:
+                    wages = await self._memory.get("wages")
+                except:
+                    wages = []
+                try:
+                    prices = await self._memory.get("prices")
+                except:
+                    prices = []
+                try:
+                    inventory = await self._memory.get("inventory")
+                except:
+                    inventory = 0
+                try:
+                    price = await self._memory.get("price")
+                except:
+                    price = 0
+                try:
+                    currency = await self._memory.get("currency")
+                except:
+                    currency = 0.0
+                try:
+                    interest_rate = await self._memory.get("interest_rate")
+                except:
+                    interest_rate = 0.0
+                try:
+                    bracket_cutoffs = await self._memory.get("bracket_cutoffs")
+                except:
+                    bracket_cutoffs = []
+                try:
+                    bracket_rates = await self._memory.get("bracket_rates")
+                except:
+                    bracket_rates = []
                 await self._economy_client.add_orgs(
                     {
                         "id": id,
                         "type": type,
-                        "currency": currency,
                         "nominal_gdp": nominal_gdp,
                         "real_gdp": real_gdp,
                         "unemployment": unemployment,
@@ -484,6 +447,7 @@ class InstitutionAgent(Agent):
                         "prices": prices,
                         "inventory": inventory,
                         "price": price,
+                        "currency": currency,
                         "interest_rate": interest_rate,
                         "bracket_cutoffs": bracket_cutoffs,
                         "bracket_rates": bracket_rates,
