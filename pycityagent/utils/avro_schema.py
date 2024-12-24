@@ -66,7 +66,7 @@ STATUS_SCHEMA = {
     ],
 }
 
-STATUS_SCHEMA = {
+SURVEY_SCHEMA = {
     "doc": "Agent问卷",
     "name": "AgentSurvey",
     "namespace": "com.socialcity",

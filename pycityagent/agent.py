@@ -16,7 +16,7 @@ from typing import Dict, List, Optional
 from pycityagent.environment.sim.person_service import PersonService
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
-from pycityagent.utils.survey_util import generate_survey_prompt
+from pycityagent.utils import process_survey_for_llm
 
 from pycityagent.message.messager import Messager
 
@@ -268,7 +268,7 @@ class Agent(ABC):
     async def handle_user_survey_message(self, payload: dict):
         """处理收到的消息，识别发送者"""
         # 从消息中解析发送者 ID 和消息内容
-        survey_prompt = generate_survey_prompt(payload)
+        survey_prompt = process_survey_for_llm(payload)
         asyncio.create_task(self.generate_user_survey_response(survey_prompt))
 
     async def _send_message(
