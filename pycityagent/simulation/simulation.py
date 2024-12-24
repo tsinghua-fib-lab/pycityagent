@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+from pathlib import Path
 import uuid
 from datetime import datetime
 import random
@@ -12,7 +13,7 @@ import pycityproto.city.economy.v2.economy_pb2 as economyv2
 from pycityagent.memory.memory import Memory
 from pycityagent.message.messager import Messager
 from pycityagent.survey import Survey
-from pycityagent.utils.avro_schema import PROFILE_SCHEMA
+from pycityagent.utils.avro_schema import PROFILE_SCHEMA, DIALOG_SCHEMA, STATUS_SCHEMA, SURVEY_SCHEMA
 
 from ..agent import Agent, InstitutionAgent
 from .agentgroup import AgentGroup
@@ -48,7 +49,7 @@ class AgentSimulation:
         self._agent_uuids: List[uuid.UUID] = []
         self._user_chat_topics: Dict[uuid.UUID, str] = {}
         self._user_survey_topics: Dict[uuid.UUID, str] = {}
-
+        self._user_interview_topics: Dict[uuid.UUID, str] = {}
         self._loop = asyncio.get_event_loop()
 
         self._messager = Messager(
@@ -60,7 +61,13 @@ class AgentSimulation:
         asyncio.create_task(self._messager.connect())
 
         self._enable_avro = config["storage"]["avro"]["enabled"]
-        self._avro_path = config["storage"]["avro"]["path"]
+        self._avro_path = Path(config["storage"]["avro"]["path"])
+        self._avro_file = {
+            "profile": self._avro_path / f"{self.exp_id}_profile.avro",
+            "dialog": self._avro_path / f"{self.exp_id}_dialog.avro",
+            "status": self._avro_path / f"{self.exp_id}_status.avro",
+            "survey": self._avro_path / f"{self.exp_id}_survey.avro",
+        }
 
         self._enable_pgsql = config["storage"]["pgsql"]["enabled"]
         self._pgsql_host = config["storage"]["pgsql"]["host"]
@@ -68,7 +75,6 @@ class AgentSimulation:
         self._pgsql_database = config["storage"]["pgsql"]["database"]
         self._pgsql_user = config["storage"]["pgsql"]["user"]
         self._pgsql_password = config["storage"]["pgsql"]["password"]
-        self._pgsql_table = config["storage"]["pgsql"]["table"]
 
     @property
     def agents(self):
@@ -147,6 +153,7 @@ class AgentSimulation:
                 agent = agent_class(
                     name=agent_name,
                     memory=memory,
+                    avro_file=self._avro_file,
                 )
 
                 self._agents[agent._uuid] = agent
@@ -166,7 +173,7 @@ class AgentSimulation:
                 # 获取当前组的agents
                 agents = list(self._agents.values())[start_idx:end_idx]
                 group_name = f"AgentType_{i}_Group_{k}"
-                group = AgentGroup.remote(agents, self.config, self.exp_id)
+                group = AgentGroup.remote(agents, self.config, self.exp_id, self._avro_file)
                 self._groups[group_name] = group
                 for agent in agents:
                     self._agent_uuid2group[agent._uuid] = group
@@ -183,15 +190,35 @@ class AgentSimulation:
 
         # save profile
         if self._enable_avro:
-            os.makedirs(os.path.dirname(self._avro_path), exist_ok=True)
-            filename = self._avro_path/f"{self.exp_id}_profile.avro"
+            self._avro_path.mkdir(parents=True, exist_ok=True)
+            # profile
+            filename = self._avro_file["profile"]
             with open(filename, "wb") as f:
                 profiles = []
                 for agent in self._agents.values():
-                    profile = await agent.memory.profile.export()
+                    profile = await agent.memory._profile.export()
+                    profile = profile[0]
                     profile['id'] = str(agent._uuid)
                     profiles.append(profile)
                 fastavro.writer(f, PROFILE_SCHEMA, profiles)
+
+            # dialog
+            filename = self._avro_file["dialog"]
+            with open(filename, "wb") as f:
+                dialogs = []
+                fastavro.writer(f, DIALOG_SCHEMA, dialogs)
+
+            # status
+            filename = self._avro_file["status"]
+            with open(filename, "wb") as f:
+                statuses = []
+                fastavro.writer(f, STATUS_SCHEMA, statuses)
+
+            # survey
+            filename = self._avro_file["survey"]
+            with open(filename, "wb") as f:
+                surveys = []
+                fastavro.writer(f, SURVEY_SCHEMA, surveys)
 
 
     async def gather(self, content: str):
@@ -256,6 +283,7 @@ class AgentSimulation:
         }
 
         PROFILE = {
+            "name": "unknown",
             "gender": random.choice(["male", "female"]),
             "education": random.choice(
                 ["Doctor", "Master", "Bachelor", "College", "High School"]
@@ -288,7 +316,7 @@ class AgentSimulation:
             "personality": random.choice(
                 ["outgoint", "introvert", "ambivert", "extrovert"]
             ),
-            "income": random.randint(1000, 10000),
+            "income": str(random.randint(1000, 10000)),
             "currency": random.randint(10000, 100000),
             "residence": random.choice(["city", "suburb", "rural"]),
             "race": random.choice(
@@ -323,12 +351,31 @@ class AgentSimulation:
 
         return EXTRA_ATTRIBUTES, PROFILE, BASE
     
-    async def send_survey(self, survey: Survey, agent_uuids: List[uuid.UUID]):
+    async def send_survey(self, survey: Survey, agent_uuids: Optional[List[uuid.UUID]] = None):
         """发送问卷"""
-        survey_json = survey.to_json()
+        survey = survey.to_dict()
+        if agent_uuids is None:
+            agent_uuids = self._agent_uuids
+        payload = {
+            "from": "none",
+            "survey_id": survey["id"],
+            "timestamp": int(datetime.now().timestamp() * 1000),
+            "data": survey,
+        }
         for uuid in agent_uuids:
             topic = self._user_survey_topics[uuid]
-            await self._messager.send_message(topic, survey_json)
+            await self._messager.send_message(topic, payload)
+
+    async def send_interview_message(self, content: str, agent_uuids: Union[uuid.UUID, List[uuid.UUID]]):
+        """发送面试消息"""
+        payload = {
+            "from": "none",
+            "content": content,
+            "timestamp": int(datetime.now().timestamp() * 1000),
+        }
+        for uuid in agent_uuids:
+            topic = self._user_chat_topics[uuid]
+            await self._messager.send_message(topic, payload)
 
     async def step(self):
         """运行一步, 即每个智能体执行一次forward"""

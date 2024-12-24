@@ -1,6 +1,7 @@
 from pycityproto.city.person.v2.motion_pb2 import Status
 
 PROFILE_ATTRIBUTES = {
+    "name": str(),
     "gender": str(),
     "age": float(),
     "education": str(),

@@ -1,23 +1,27 @@
 import asyncio
+from datetime import datetime
 import json
 import logging
 import uuid
+import fastavro
 import ray
 from uuid import UUID
-from pycityagent.agent import Agent
+from pycityagent.agent import Agent, CitizenAgent
 from pycityagent.economy.econ_client import EconomyClient
 from pycityagent.environment.simulator import Simulator
 from pycityagent.llm.llm import LLM
 from pycityagent.llm.llmconfig import LLMConfig
 from pycityagent.message import Messager
+from pycityagent.utils import STATUS_SCHEMA
 from typing import Any
 
 @ray.remote
 class AgentGroup:
-    def __init__(self, agents: list[Agent], config: dict, exp_id: str|UUID):
+    def __init__(self, agents: list[Agent], config: dict, exp_id: str|UUID, avro_file: dict):
         self.agents = agents
         self.config = config
         self.exp_id = exp_id
+        self.avro_file = avro_file
         self._uuid = uuid.uuid4()
         self.messager = Messager(
             hostname=config["simulator_request"]["mqtt"]["server"],
@@ -117,7 +121,7 @@ class AgentGroup:
                     elif topic_type == "gather":
                         await agent.handle_gather_message(payload)
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.5)
 
     async def step(self):
         if not self.initialized:
@@ -125,6 +129,40 @@ class AgentGroup:
 
         tasks = [agent.run() for agent in self.agents]
         await asyncio.gather(*tasks)
+        avros = []
+        for agent in self.agents:
+            if not issubclass(type(agent), CitizenAgent):
+                continue
+            position = await agent.memory.get("position")
+            lng = position["longlat_position"]["longitude"]
+            lat = position["longlat_position"]["latitude"]
+            if "aoi_position" in position:
+                parent_id = position["aoi_position"]["aoi_id"]
+            elif "lane_position" in position:
+                parent_id = position["lane_position"]["lane_id"]
+            else:
+                # BUG: 需要处理
+                parent_id = -1
+            needs = await agent.memory.get("needs")
+            action = await agent.memory.get("current_step")
+            action = action["intention"]
+            avro = {
+                "id": str(agent._uuid),  # uuid as string
+                "day": await self.simulator.get_simulator_day(),
+                "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                "lng": lng,
+                "lat": lat,
+                "parent_id": parent_id,
+                "action": action,
+                "hungry": needs["hungry"],
+                "tired": needs["tired"],
+                "safe": needs["safe"],
+                "social": needs["social"],
+                "created_at": int(datetime.now().timestamp() * 1000),
+            }
+            avros.append(avro)
+        with open(self.avro_file["status"], "a+b") as f:
+            fastavro.writer(f, STATUS_SCHEMA, avros, codec="snappy")
 
     async def run(self, day: int = 1):
         """运行模拟器

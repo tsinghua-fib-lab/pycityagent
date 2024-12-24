@@ -3574,6 +3574,25 @@ test = ["hypothesis (>=6.46.1)", "pytest (>=7.3.2)", "pytest-xdist (>=2.2.0)"]
 xml = ["lxml (>=4.9.2)"]
 
 [[package]]
+name = "pandavro"
+version = "1.8.0"
+description = "The interface between Avro and pandas DataFrame"
+optional = false
+python-versions = ">=3.7.0"
+files = [
+    {file = "pandavro-1.8.0-py3-none-any.whl", hash = "sha256:0e4e29520b63484ae1f1bc3021857929d446180b52f986500ee916a08b8e28a2"},
+    {file = "pandavro-1.8.0.tar.gz", hash = "sha256:d99102e93b45f9a2d52a284fb4c1055ad6c32ba1569cb21a71c02eceb8a7393b"},
+]
+
+[package.dependencies]
+fastavro = ">=1.5.1,<2.0.0"
+numpy = ">=1.15.4"
+pandas = ">=1.1"
+
+[package.extras]
+tests = ["pytest (==7.3.2)", "tox (==4.6.0)"]
+
+[[package]]
 name = "parso"
 version = "0.8.4"
 description = "A Python Parser"
@@ -6205,4 +6224,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "f23bf1aec7690511eac2ef5f32a3dfeccbdb711f97e8a4acba8d41e8a76046a3"
+content-hash = "c148ba668611805e35cbf1466935495253391d3798e0ea23cf9e7fb0be291134"

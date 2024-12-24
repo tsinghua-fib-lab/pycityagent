@@ -13,12 +13,15 @@ import random
 import uuid
 from typing import Dict, List, Optional
 
+import fastavro
+
 from pycityagent.environment.sim.person_service import PersonService
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pycityagent.utils import process_survey_for_llm
 
 from pycityagent.message.messager import Messager
+from pycityagent.utils import SURVEY_SCHEMA, DIALOG_SCHEMA
 
 from .economy import EconomyClient
 from .environment import Simulator
@@ -53,6 +56,7 @@ class Agent(ABC):
         messager: Optional[Messager] = None,
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
+        avro_file: Optional[Dict[str, str]] = None,
     ) -> None:
         """
         Initialize the Agent.
@@ -65,6 +69,7 @@ class Agent(ABC):
             messager (Messager, optional): The messager object. Defaults to None.
             simulator (Simulator, optional): The simulator object. Defaults to None.
             memory (Memory, optional): The memory of the agent. Defaults to None.
+            avro_file (Dict[str, str], optional): The avro file of the agent. Defaults to None.
         """
         self._name = name
         self._type = type
@@ -80,6 +85,7 @@ class Agent(ABC):
         self._blocked = False
         self._interview_history: List[Dict] = []  # 存储采访历史
         self._person_template = PersonService.default_dict_person()
+        self._avro_file = avro_file
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -169,17 +175,15 @@ class Agent(ABC):
             )
         return self._simulator
 
-    async def generate_user_survey_response(self, survey_prompt: str) -> str:
-        """生成回答
-        
+    async def generate_user_survey_response(self, survey: dict) -> str:
+        """生成回答 —— 可重写
         基于智能体的记忆和当前状态，生成对问卷调查的回答。
-
         Args:
-            question: 需要回答的问卷问题
-
+            survey: 需要回答的问卷 dict
         Returns:
             str: 智能体的回答
         """
+        survey_prompt = process_survey_for_llm(survey)
         dialog = []
 
         # 添加系统提示
@@ -207,12 +211,23 @@ class Agent(ABC):
         response = await self._llm_client.atext_request(dialog)  # type:ignore
 
         return response  # type:ignore
+    
+    async def _process_survey(self, survey: dict):
+        survey_response = await self.generate_user_survey_response(survey)
+        response_to_avro = [{
+            "id": str(self._uuid),
+            "day": await self._simulator.get_simulator_day(),
+            "t": await self._simulator.get_simulator_second_from_start_of_day(),
+            "survey_id": survey["id"],
+            "result": survey_response,
+            "created_at": int(datetime.now().timestamp() * 1000),
+        }]
+        with open(self._avro_file["survey"], "a+b") as f:
+            fastavro.writer(f, SURVEY_SCHEMA, response_to_avro, codec="snappy")
 
     async def generate_user_chat_response(self, question: str) -> str:
-        """生成回答
-
+        """生成回答 —— 可重写
         基于智能体的记忆和当前状态，生成对问题的回答。
-
         Args:
             question: 需要回答的问题
 
@@ -246,31 +261,71 @@ class Agent(ABC):
         response = await self._llm_client.atext_request(dialog)  # type:ignore
 
         return response  # type:ignore
+    
+    async def _process_interview(self, payload: dict):
+        auros = [{
+            "id": str(self._uuid),
+            "day": await self._simulator.get_simulator_day(),
+            "t": await self._simulator.get_simulator_second_from_start_of_day(),
+            "type": 2,
+            "speaker": "user",
+            "content": payload["content"],
+            "created_at": int(datetime.now().timestamp() * 1000),
+        }]
+        question = payload["content"]
+        response = await self.generate_user_chat_response(question)
+        auros.append({
+            "id": str(self._uuid),
+            "day": await self._simulator.get_simulator_day(),
+            "t": await self._simulator.get_simulator_second_from_start_of_day(),
+            "type": 2,
+            "speaker": "",
+            "content": response,
+            "created_at": int(datetime.now().timestamp() * 1000),
+        })
+        with open(self._avro_file["dialog"], "a+b") as f:
+            fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
 
-    def get_interview_history(self) -> List[Dict]:
-        """获取采访历史记录"""
-        return self._interview_history
+    async def process_agent_chat_response(self, payload: dict) -> str:
+        logging.info(f"Agent {self._uuid} received agent chat response: {payload}")
 
+    async def _process_agent_chat(self, payload: dict):
+        auros = [{
+            "id": str(self._uuid),
+            "day": payload["day"],
+            "t": payload["t"],
+            "type": 1,
+            "speaker": payload["from"],
+            "content": payload["content"],
+            "created_at": int(datetime.now().timestamp() * 1000),
+        }]
+        asyncio.create_task(self.process_agent_chat_response(payload))
+        with open(self._avro_file["dialog"], "a+b") as f:
+            fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+
+    # Callback functions for MQTT message
     async def handle_agent_chat_message(self, payload: dict):
         """处理收到的消息，识别发送者"""
         # 从消息中解析发送者 ID 和消息内容
-        print(
-            f"Agent {self._uuid} received agent chat message: '{payload['content']}' from Agent {payload['from']}"
-        )
+        logging.info(f"Agent {self._uuid} received agent chat message: {payload}")
+        asyncio.create_task(self._process_agent_chat(payload))
 
     async def handle_user_chat_message(self, payload: dict):
         """处理收到的消息，识别发送者"""
         # 从消息中解析发送者 ID 和消息内容
-        print(
-            f"Agent {self._uuid} received user chat message: '{payload['content']}' from User"
-        )
+        logging.info(f"Agent {self._uuid} received user chat message: {payload}")
+        asyncio.create_task(self._process_interview(payload))
 
     async def handle_user_survey_message(self, payload: dict):
         """处理收到的消息，识别发送者"""
         # 从消息中解析发送者 ID 和消息内容
-        survey_prompt = process_survey_for_llm(payload)
-        asyncio.create_task(self.generate_user_survey_response(survey_prompt))
+        logging.info(f"Agent {self._uuid} received user survey message: {payload}")
+        asyncio.create_task(self._process_survey(payload["data"]))
 
+    async def handle_gather_message(self, payload: str):
+        raise NotImplementedError
+
+    # MQTT send message
     async def _send_message(
         self, to_agent_uuid: UUID, payload: dict, sub_topic: str
     ):
@@ -281,7 +336,7 @@ class Agent(ABC):
         await self._messager.send_message(topic, payload)
 
     async def send_message_to_agent(
-        self, to_agent_uuid: UUID, content: dict
+        self, to_agent_uuid: UUID, content: str
     ):
         """通过 Messager 发送消息"""
         if self._messager is None:
@@ -289,28 +344,27 @@ class Agent(ABC):
         payload = {
             "from": self._uuid,
             "content": content,
-            "timestamp": int(time.time()),
+            "timestamp": int(datetime.now().timestamp() * 1000),
             "day": await self._simulator.get_simulator_day(),
             "t": await self._simulator.get_simulator_second_from_start_of_day(),
         }
         await self._send_message(to_agent_uuid, payload, "agent-chat")
+        auros = [{
+            "id": str(self._uuid),
+            "day": await self._simulator.get_simulator_day(),
+            "t": await self._simulator.get_simulator_second_from_start_of_day(),
+            "type": 1,
+            "speaker": str(self._uuid),
+            "content": content,
+            "created_at": int(datetime.now().timestamp() * 1000),
+        }]
+        with open(self._avro_file["dialog"], "a+b") as f:
+            fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
 
-    async def send_message_to_user(
-        self, content: dict
-    ):
-        pass
-
-    async def send_message_to_survey(
-        self, content: dict
-    ):
-        pass
-
+    # Agent logic
     @abstractmethod
     async def forward(self) -> None:
         """智能体行为逻辑"""
-        raise NotImplementedError
-    
-    async def handle_gather_message(self, payload: str):
         raise NotImplementedError
 
     async def run(self) -> None:
@@ -335,6 +389,7 @@ class CitizenAgent(Agent):
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
         messager: Optional[Messager] = None,
+        avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
             name,
@@ -344,6 +399,7 @@ class CitizenAgent(Agent):
             messager,
             simulator,
             memory,
+            avro_file,
         )
 
     async def bind_to_simulator(self):
@@ -447,6 +503,7 @@ class InstitutionAgent(Agent):
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
         messager: Optional[Messager] = None,
+        avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
             name,
@@ -456,6 +513,7 @@ class InstitutionAgent(Agent):
             messager,
             simulator,
             memory,
+            avro_file,
         )
         # 添加响应收集器
         self._gather_responses: Dict[str, asyncio.Future] = {}

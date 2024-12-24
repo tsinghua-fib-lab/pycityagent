@@ -8,6 +8,8 @@ import pycityproto.city.economy.v2.org_service_pb2 as org_service
 import pycityproto.city.economy.v2.org_service_pb2_grpc as org_grpc
 from google.protobuf import descriptor
 
+economyv2.ORG_TYPE_BANK
+
 __all__ = [
     "EconomyClient",
 ]
