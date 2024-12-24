@@ -42,6 +42,7 @@ gradio = "^5.7.1"
 mosstool = "1.0.24"
 ray = "^2.40.0"
 aiomqtt = "^2.3.0"
+fastavro = "^1.10.0"
 
 [build-system]
 requires = ["poetry-core"]

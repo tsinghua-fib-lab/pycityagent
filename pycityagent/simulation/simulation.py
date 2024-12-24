@@ -1,18 +1,20 @@
 import asyncio
 import json
 import logging
+import os
 import uuid
 from datetime import datetime
 import random
 from typing import Dict, List, Optional, Callable, Union,Any
+import fastavro
 from mosstool.map._map_util.const import AOI_START_ID
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
 from pycityagent.memory.memory import Memory
+from pycityagent.message.messager import Messager
+from pycityagent.survey import Survey
+from pycityagent.utils.avro_schema import PROFILE_SCHEMA
 
 from ..agent import Agent, InstitutionAgent
-from .interview import InterviewManager
-from .survey import QuestionType, SurveyManager
-from .ui import InterviewUI
 from .agentgroup import AgentGroup
 
 logger = logging.getLogger(__name__)
@@ -44,10 +46,29 @@ class AgentSimulation:
         self._groups: Dict[str, AgentGroup] = {}
         self._agent_uuid2group: Dict[uuid.UUID, AgentGroup] = {}
         self._agent_uuids: List[uuid.UUID] = []
+        self._user_chat_topics: Dict[uuid.UUID, str] = {}
+        self._user_survey_topics: Dict[uuid.UUID, str] = {}
 
         self._loop = asyncio.get_event_loop()
-        self._interview_manager = InterviewManager()
-        self._survey_manager = SurveyManager()
+
+        self._messager = Messager(
+            hostname=config["simulator_request"]["mqtt"]["server"],
+            port=config["simulator_request"]["mqtt"]["port"],
+            username=config["simulator_request"]["mqtt"].get("username", None),
+            password=config["simulator_request"]["mqtt"].get("password", None),
+        )
+        asyncio.create_task(self._messager.connect())
+
+        self._enable_avro = config["storage"]["avro"]["enabled"]
+        self._avro_path = config["storage"]["avro"]["path"]
+
+        self._enable_pgsql = config["storage"]["pgsql"]["enabled"]
+        self._pgsql_host = config["storage"]["pgsql"]["host"]
+        self._pgsql_port = config["storage"]["pgsql"]["port"]
+        self._pgsql_database = config["storage"]["pgsql"]["database"]
+        self._pgsql_user = config["storage"]["pgsql"]["user"]
+        self._pgsql_password = config["storage"]["pgsql"]["password"]
+        self._pgsql_table = config["storage"]["pgsql"]["table"]
 
     @property
     def agents(self):
@@ -156,6 +177,22 @@ class AgentSimulation:
         for group in self._groups.values():
             init_tasks.append(group.init_agents.remote())
         await asyncio.gather(*init_tasks)
+        for uuid, agent in self._agents.items():
+            self._user_chat_topics[uuid] = f"exps/{self.exp_id}/agents/{uuid}/user-chat"
+            self._user_survey_topics[uuid] = f"exps/{self.exp_id}/agents/{uuid}/user-survey"
+
+        # save profile
+        if self._enable_avro:
+            os.makedirs(os.path.dirname(self._avro_path), exist_ok=True)
+            filename = self._avro_path/f"{self.exp_id}_profile.avro"
+            with open(filename, "wb") as f:
+                profiles = []
+                for agent in self._agents.values():
+                    profile = await agent.memory.profile.export()
+                    profile['id'] = str(agent._uuid)
+                    profiles.append(profile)
+                fastavro.writer(f, PROFILE_SCHEMA, profiles)
+
 
     async def gather(self, content: str):
         """收集智能体的特定信息"""
@@ -285,6 +322,13 @@ class AgentSimulation:
         }
 
         return EXTRA_ATTRIBUTES, PROFILE, BASE
+    
+    async def send_survey(self, survey: Survey, agent_uuids: List[uuid.UUID]):
+        """发送问卷"""
+        survey_json = survey.to_json()
+        for uuid in agent_uuids:
+            topic = self._user_survey_topics[uuid]
+            await self._messager.send_message(topic, survey_json)
 
     async def step(self):
         """运行一步, 即每个智能体执行一次forward"""

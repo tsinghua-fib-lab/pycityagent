@@ -16,6 +16,7 @@ from typing import Dict, List, Optional
 from pycityagent.environment.sim.person_service import PersonService
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
+from pycityagent.utils.survey_util import generate_survey_prompt
 
 from pycityagent.message.messager import Messager
 
@@ -168,7 +169,46 @@ class Agent(ABC):
             )
         return self._simulator
 
-    async def generate_response(self, question: str) -> str:
+    async def generate_user_survey_response(self, survey_prompt: str) -> str:
+        """生成回答
+        
+        基于智能体的记忆和当前状态，生成对问卷调查的回答。
+
+        Args:
+            question: 需要回答的问卷问题
+
+        Returns:
+            str: 智能体的回答
+        """
+        dialog = []
+
+        # 添加系统提示
+        system_prompt = "Please answer the survey question in first person. Follow the format requirements strictly and provide clear and specific answers."
+        dialog.append({"role": "system", "content": system_prompt})
+
+        # 添加记忆上下文
+        if self._memory:
+            relevant_memories = await self._memory.search(survey_prompt)
+            if relevant_memories:
+                dialog.append(
+                    {
+                        "role": "system",
+                        "content": f"Answer based on these memories:\n{relevant_memories}",
+                    }
+                )
+
+        # 添加问卷问题
+        dialog.append({"role": "user", "content": survey_prompt})
+
+        # 使用LLM生成回答
+        if not self._llm_client:
+            return "Sorry, I cannot answer survey questions right now."
+
+        response = await self._llm_client.atext_request(dialog)  # type:ignore
+
+        return response  # type:ignore
+
+    async def generate_user_chat_response(self, question: str) -> str:
         """生成回答
 
         基于智能体的记忆和当前状态，生成对问题的回答。
@@ -182,7 +222,7 @@ class Agent(ABC):
         dialog = []
 
         # 添加系统提示
-        system_prompt = f"请以第一人称的方式回答问题,保持回答简洁明了。"
+        system_prompt = "Please answer the question in first person and keep the response concise and clear."
         dialog.append({"role": "system", "content": system_prompt})
 
         # 添加记忆上下文
@@ -192,7 +232,7 @@ class Agent(ABC):
                 dialog.append(
                     {
                         "role": "system",
-                        "content": f"基于以下记忆回答问题:\n{relevant_memories}",
+                        "content": f"Answer based on these memories:\n{relevant_memories}",
                     }
                 )
 
@@ -201,18 +241,9 @@ class Agent(ABC):
 
         # 使用LLM生成回答
         if not self._llm_client:
-            return "抱歉，我现在无法回答问题。"
+            return "Sorry, I cannot answer questions right now."
 
         response = await self._llm_client.atext_request(dialog)  # type:ignore
-
-        # 记录采访历史
-        self._interview_history.append(
-            {
-                "timestamp": datetime.now().isoformat(),
-                "question": question,
-                "response": response,
-            }
-        )
 
         return response  # type:ignore
 
@@ -237,9 +268,8 @@ class Agent(ABC):
     async def handle_user_survey_message(self, payload: dict):
         """处理收到的消息，识别发送者"""
         # 从消息中解析发送者 ID 和消息内容
-        print(
-            f"Agent {self._uuid} received user survey message: '{payload['content']}' from User"
-        )
+        survey_prompt = generate_survey_prompt(payload)
+        asyncio.create_task(self.generate_user_survey_response(survey_prompt))
 
     async def _send_message(
         self, to_agent_uuid: UUID, payload: dict, sub_topic: str
