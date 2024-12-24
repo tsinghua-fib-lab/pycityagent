@@ -20,6 +20,7 @@ from shapely.strtree import STRtree
 from .sim import CityClient, ControlSimEnv
 from .utils.const import *
 
+logger = logging.getLogger("pycityagent")
 
 class Simulator:
     """
@@ -72,7 +73,7 @@ class Simulator:
             else:
                 self._client = CityClient(config["simulator"]["server"], secure=False)
         else:
-            logging.warning(
+            logger.warning(
                 "No simulator config found, no simulator client will be used"
             )
         self.map = SimMap(
@@ -285,7 +286,7 @@ class Simulator:
             reset_position["aoi_position"] = {"aoi_id": aoi_id}
             if poi_id is not None:
                 reset_position["aoi_position"]["poi_id"] = poi_id
-            logging.debug(
+            logger.debug(
                 f"Setting person {person_id} pos to AoiPosition {reset_position}"
             )
             await self._client.person_service.ResetPersonPosition(
@@ -298,14 +299,14 @@ class Simulator:
             }
             if s is not None:
                 reset_position["lane_position"]["s"] = s
-            logging.debug(
+            logger.debug(
                 f"Setting person {person_id} pos to LanePosition {reset_position}"
             )
             await self._client.person_service.ResetPersonPosition(
                 {"person_id": person_id, "position": reset_position}
             )
         else:
-            logging.debug(
+            logger.debug(
                 f"Neither aoi or lane pos provided for person {person_id} position reset!!"
             )
 

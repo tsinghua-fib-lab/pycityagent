@@ -10,6 +10,8 @@ from typing import Any, Callable, Dict, Optional, Sequence, Union
 
 from .const import *
 
+logger = logging.getLogger("pycityagent")
+
 
 class MemoryUnit:
     def __init__(
@@ -57,7 +59,7 @@ class MemoryUnit:
                 orig_v = self._content[k]
                 orig_type, new_type = type(orig_v), type(v)
                 if not orig_type == new_type:
-                    logging.debug(
+                    logger.debug(
                         f"Type warning: The type of the value for key '{k}' is changing from `{orig_type.__name__}` to `{new_type.__name__}`!"
                     )
         self._content.update(content)
@@ -82,7 +84,7 @@ class MemoryUnit:
         await self._lock.acquire()
         values = self._content[key]
         if not isinstance(values, Sequence):
-            logging.warning(
+            logger.warning(
                 f"the value stored in key `{key}` is not `sequence`, return value `{values}` instead!"
             )
             return values
@@ -93,7 +95,7 @@ class MemoryUnit:
             )
             top_k = len(values) if top_k is None else top_k
             if len(_sorted_values_with_idx) < top_k:
-                logging.debug(
+                logger.debug(
                     f"Length of values {len(_sorted_values_with_idx)} is less than top_k {top_k}, returning all values."
                 )
             self._lock.release()
@@ -149,7 +151,7 @@ class MemoryBase(ABC):
         if recent_n is None:
             return _list_units
         if len(_memories) < recent_n:
-            logging.debug(
+            logger.debug(
                 f"Length of memory {len(_memories)} is less than recent_n {recent_n}, returning all available memories."
             )
         return _list_units[-recent_n:]

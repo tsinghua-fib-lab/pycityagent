@@ -13,6 +13,7 @@ from .profile import ProfileMemory
 from .self_define import DynamicMemory
 from .state import StateMemory
 
+logger = logging.getLogger("pycityagent")
 
 class Memory:
     """
@@ -83,7 +84,7 @@ class Memory:
                                 _type.extend(_value)
                                 _value = deepcopy(_type)
                             else:
-                                logging.warning(f"type `{_type}` is not supported!")
+                                logger.warning(f"type `{_type}` is not supported!")
                                 pass
                     except TypeError as e:
                         pass
@@ -99,7 +100,7 @@ class Memory:
                     or k in STATE_ATTRIBUTES
                     or k == TIME_STAMP_KEY
                 ):
-                    logging.warning(f"key `{k}` already declared in memory!")
+                    logger.warning(f"key `{k}` already declared in memory!")
                     continue
 
                 _dynamic_config[k] = deepcopy(_value)
@@ -112,19 +113,19 @@ class Memory:
         if profile is not None:
             for k, v in profile.items():
                 if k not in PROFILE_ATTRIBUTES:
-                    logging.warning(f"key `{k}` is not a correct `profile` field!")
+                    logger.warning(f"key `{k}` is not a correct `profile` field!")
                     continue
                 _profile_config[k] = v
         if motion is not None:
             for k, v in motion.items():
                 if k not in STATE_ATTRIBUTES:
-                    logging.warning(f"key `{k}` is not a correct `motion` field!")
+                    logger.warning(f"key `{k}` is not a correct `motion` field!")
                     continue
                 _state_config[k] = v
         if base is not None:
             for k, v in base.items():
                 if k not in STATE_ATTRIBUTES:
-                    logging.warning(f"key `{k}` is not a correct `base` field!")
+                    logger.warning(f"key `{k}` is not a correct `base` field!")
                     continue
                 _state_config[k] = v
         self._state = StateMemory(
@@ -182,7 +183,7 @@ class Memory:
         """更新记忆值并在必要时更新embedding"""
         if protect_llm_read_only_fields:
             if any(key in _attrs for _attrs in [STATE_ATTRIBUTES]):
-                logging.warning(f"Trying to write protected key `{key}`!")
+                logger.warning(f"Trying to write protected key `{key}`!")
                 return
         for _mem in [self._state, self._profile, self._dynamic]:
             try:
@@ -208,7 +209,7 @@ class Memory:
                     elif isinstance(original_value, deque):
                         original_value.extend(deque(value))
                     else:
-                        logging.debug(
+                        logger.debug(
                             f"Type of {type(original_value)} does not support mode `merge`, using `replace` instead!"
                         )
                         await _mem.update(key, value, store_snapshot)

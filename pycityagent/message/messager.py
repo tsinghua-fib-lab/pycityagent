@@ -5,6 +5,7 @@ import logging
 import math
 from aiomqtt import Client
 
+logger = logging.getLogger("pycityagent")
 
 class Messager:
     def __init__(
@@ -21,15 +22,15 @@ class Messager:
         try:
             await self.client.__aenter__()
             self.connected = True
-            logging.info("Connected to MQTT Broker")
+            logger.info("Connected to MQTT Broker")
         except Exception as e:
             self.connected = False
-            logging.error(f"Failed to connect to MQTT Broker: {e}")
+            logger.error(f"Failed to connect to MQTT Broker: {e}")
 
     async def disconnect(self):
         await self.client.__aexit__(None, None, None)
         self.connected = False
-        logging.info("Disconnected from MQTT Broker")
+        logger.info("Disconnected from MQTT Broker")
 
     def is_connected(self):
         """检查是否成功连接到 Broker"""
@@ -37,13 +38,13 @@ class Messager:
 
     async def subscribe(self, topic, agent):
         if not self.is_connected():
-            logging.error(
+            logger.error(
                 f"Cannot subscribe to {topic} because not connected to the Broker."
             )
             return
         await self.client.subscribe(topic)
         self.subscribers[topic] = agent
-        logging.info(f"Subscribed to {topic} for Agent {agent._uuid}")
+        logger.info(f"Subscribed to {topic} for Agent {agent._uuid}")
 
     async def receive_messages(self):
         """监听并将消息存入队列"""
@@ -61,11 +62,11 @@ class Messager:
         """通过 Messager 发送消息"""
         message = json.dumps(payload, default=str)
         await self.client.publish(topic, message)
-        logging.info(f"Message sent to {topic}: {message}")
+        logger.info(f"Message sent to {topic}: {message}")
 
     async def start_listening(self):
         """启动消息监听任务"""
         if self.is_connected():
             asyncio.create_task(self.receive_messages())
         else:
-            logging.error("Cannot start listening because not connected to the Broker.")
+            logger.error("Cannot start listening because not connected to the Broker.")

@@ -66,6 +66,31 @@ STATUS_SCHEMA = {
     ],
 }
 
+INSTITUTION_STATUS_SCHEMA = {
+    "doc": "Institution状态",
+    "name": "InstitutionStatus",
+    "namespace": "com.socialcity",
+    "type": "record",
+    "fields": [
+        {"name": "id", "type": "string"},  # uuid as string
+        {"name": "day", "type": "int"},
+        {"name": "t", "type": "float"},
+        {"name": "type", "type": "int"},
+        {"name": "nominal_gdp", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
+        {"name": "real_gdp", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
+        {"name": "unemployment", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
+        {"name": "wages", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
+        {"name": "prices", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
+        {"name": "inventory", "type": ["int", "null"]},
+        {"name": "price", "type": ["float", "null"]},
+        {"name": "interest_rate", "type": ["float", "null"]},
+        {"name": "bracket_cutoffs", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
+        {"name": "bracket_rates", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
+        {"name": "employees", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
+        {"name": "customers", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
+    ],
+}
+
 SURVEY_SCHEMA = {
     "doc": "Agent问卷",
     "name": "AgentSurvey",

@@ -4,21 +4,22 @@ import logging
 import os
 from pathlib import Path
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import random
 from typing import Dict, List, Optional, Callable, Union,Any
-import fastavro
 from mosstool.map._map_util.const import AOI_START_ID
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
+from pycityagent.environment.simulator import Simulator
 from pycityagent.memory.memory import Memory
 from pycityagent.message.messager import Messager
 from pycityagent.survey import Survey
-from pycityagent.utils.avro_schema import PROFILE_SCHEMA, DIALOG_SCHEMA, STATUS_SCHEMA, SURVEY_SCHEMA
+import yaml
+from concurrent.futures import ThreadPoolExecutor
 
 from ..agent import Agent, InstitutionAgent
 from .agentgroup import AgentGroup
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("pycityagent")
 
 
 class AgentSimulation:
@@ -29,19 +30,24 @@ class AgentSimulation:
         agent_class: Union[type[Agent], list[type[Agent]]],
         config: dict,
         agent_prefix: str = "agent_",
+        exp_name: str = "default_experiment",
+        logging_level: int = logging.WARNING
     ):
         """
         Args:
             agent_class: 智能体类
             config: 配置
             agent_prefix: 智能体名称前缀
+            exp_name: 实验名称
         """
-        self.exp_id = uuid.uuid4()
+        self.exp_id = str(uuid.uuid4())
         if isinstance(agent_class, list):
             self.agent_class = agent_class
         else:
             self.agent_class = [agent_class]
+        self.logging_level = logging_level
         self.config = config
+        self._simulator = Simulator(config["simulator_request"])
         self.agent_prefix = agent_prefix
         self._agents: Dict[uuid.UUID, Agent] = {}
         self._groups: Dict[str, AgentGroup] = {}
@@ -61,13 +67,10 @@ class AgentSimulation:
         asyncio.create_task(self._messager.connect())
 
         self._enable_avro = config["storage"]["avro"]["enabled"]
-        self._avro_path = Path(config["storage"]["avro"]["path"])
-        self._avro_file = {
-            "profile": self._avro_path / f"{self.exp_id}_profile.avro",
-            "dialog": self._avro_path / f"{self.exp_id}_dialog.avro",
-            "status": self._avro_path / f"{self.exp_id}_status.avro",
-            "survey": self._avro_path / f"{self.exp_id}_survey.avro",
-        }
+        if not self._enable_avro:
+            logger.warning("AVRO is not enabled, NO AVRO LOCAL STORAGE")
+        self._avro_path = Path(config["storage"]["avro"]["path"]) / f"{self.exp_id}"
+        self._avro_path.mkdir(parents=True, exist_ok=True)
 
         self._enable_pgsql = config["storage"]["pgsql"]["enabled"]
         self._pgsql_host = config["storage"]["pgsql"]["host"]
@@ -75,6 +78,24 @@ class AgentSimulation:
         self._pgsql_database = config["storage"]["pgsql"]["database"]
         self._pgsql_user = config["storage"]["pgsql"]["user"]
         self._pgsql_password = config["storage"]["pgsql"]["password"]
+
+        # 添加实验信息相关的属性
+        self._exp_info = {
+            "id": self.exp_id,
+            "name": exp_name,
+            "num_day": 0,  # 将在 run 方法中更新
+            "status": 0,
+            "cur_day": 0,
+            "cur_t": 0.0,
+            "config": json.dumps(config),
+            "error": "",
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # 创建异步任务保存实验信息
+        self._exp_info_file = self._avro_path / "experiment_info.yaml"
+        with open(self._exp_info_file, 'w') as f:
+            yaml.dump(self._exp_info, f)
 
     @property
     def agents(self):
@@ -91,6 +112,11 @@ class AgentSimulation:
     @property
     def agent_uuid2group(self):
         return self._agent_uuid2group
+    
+    def create_remote_group(self, group_name: str, agents: list[Agent], config: dict, exp_id: str, enable_avro: bool, avro_path: Path, logging_level: int = logging.WARNING):
+        """创建远程组"""
+        group = AgentGroup.remote(agents, config, exp_id, enable_avro, avro_path, logging_level)
+        return group_name, group, agents
 
     async def init_agents(
         self,
@@ -112,7 +138,7 @@ class AgentSimulation:
             raise ValueError("agent_class和agent_count的长度不一致")
 
         if memory_config_func is None:
-            logging.warning(
+            logger.warning(
                 "memory_config_func is None, using default memory config function"
             )
             memory_config_func = []
@@ -125,17 +151,21 @@ class AgentSimulation:
             memory_config_func = [memory_config_func]
 
         if len(memory_config_func) != len(agent_count):
-            logging.warning(
+            logger.warning(
                 "memory_config_func和agent_count的长度不一致，使用默认的memory_config"
             )
             memory_config_func = []
             for agent_class in self.agent_class:
-                if agent_class == InstitutionAgent:
+                if issubclass(agent_class, InstitutionAgent):
                     memory_config_func.append(self.default_memory_config_institution)
                 else:
                     memory_config_func.append(self.default_memory_config_citizen)
 
+        # 使用线程池并行创建 AgentGroup
+        group_creation_params = []
         class_init_index = 0
+        
+        # 首先收集所有需要创建的组的参数
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
             agent_count_i = agent_count[i]
@@ -153,7 +183,6 @@ class AgentSimulation:
                 agent = agent_class(
                     name=agent_name,
                     memory=memory,
-                    avro_file=self._avro_file,
                 )
 
                 self._agents[agent._uuid] = agent
@@ -161,65 +190,50 @@ class AgentSimulation:
 
             # 计算需要的组数,向上取整以处理不足一组的情况
             num_group = (agent_count_i + group_size - 1) // group_size
-
+            
             for k in range(num_group):
-                # 计算当前组的起始和结束索引
                 start_idx = class_init_index + k * group_size
                 end_idx = min(
-                    class_init_index + start_idx + group_size,
-                    class_init_index + agent_count_i,
+                    class_init_index + (k + 1) * group_size,  # 修正了索引计算
+                    class_init_index + agent_count_i
                 )
-
-                # 获取当前组的agents
+                
                 agents = list(self._agents.values())[start_idx:end_idx]
                 group_name = f"AgentType_{i}_Group_{k}"
-                group = AgentGroup.remote(agents, self.config, self.exp_id, self._avro_file)
-                self._groups[group_name] = group
-                for agent in agents:
-                    self._agent_uuid2group[agent._uuid] = group
+                
+                # 收集创建参数
+                group_creation_params.append((
+                    group_name, 
+                    agents
+                ))
+            
+            class_init_index += agent_count_i
 
-            class_init_index += agent_count_i  # 更新类初始索引
+        # 收集所有创建组的参数
+        creation_tasks = []
+        for group_name, agents in group_creation_params:
+            # 直接创建异步任务
+            group = AgentGroup.remote(agents, self.config, self.exp_id, 
+                                    self._enable_avro, self._avro_path, 
+                                    self.logging_level)
+            creation_tasks.append((group_name, group, agents))
+        
+        # 更新数据结构
+        for group_name, group, agents in creation_tasks:
+            self._groups[group_name] = group
+            for agent in agents:
+                self._agent_uuid2group[agent._uuid] = group
 
+        # 并行初始化所有组的agents
         init_tasks = []
         for group in self._groups.values():
             init_tasks.append(group.init_agents.remote())
         await asyncio.gather(*init_tasks)
+
+        # 设置用户主题
         for uuid, agent in self._agents.items():
             self._user_chat_topics[uuid] = f"exps/{self.exp_id}/agents/{uuid}/user-chat"
             self._user_survey_topics[uuid] = f"exps/{self.exp_id}/agents/{uuid}/user-survey"
-
-        # save profile
-        if self._enable_avro:
-            self._avro_path.mkdir(parents=True, exist_ok=True)
-            # profile
-            filename = self._avro_file["profile"]
-            with open(filename, "wb") as f:
-                profiles = []
-                for agent in self._agents.values():
-                    profile = await agent.memory._profile.export()
-                    profile = profile[0]
-                    profile['id'] = str(agent._uuid)
-                    profiles.append(profile)
-                fastavro.writer(f, PROFILE_SCHEMA, profiles)
-
-            # dialog
-            filename = self._avro_file["dialog"]
-            with open(filename, "wb") as f:
-                dialogs = []
-                fastavro.writer(f, DIALOG_SCHEMA, dialogs)
-
-            # status
-            filename = self._avro_file["status"]
-            with open(filename, "wb") as f:
-                statuses = []
-                fastavro.writer(f, STATUS_SCHEMA, statuses)
-
-            # survey
-            filename = self._avro_file["survey"]
-            with open(filename, "wb") as f:
-                surveys = []
-                fastavro.writer(f, SURVEY_SCHEMA, surveys)
-
 
     async def gather(self, content: str):
         """收集智能体的特定信息"""
@@ -228,10 +242,10 @@ class AgentSimulation:
             gather_tasks.append(group.gather.remote(content))
         return await asyncio.gather(*gather_tasks)
 
-    async def update(self, target_agent_id: str, target_key: str, content: Any):
+    async def update(self, target_agent_uuid: uuid.UUID, target_key: str, content: Any):
         """更新指定智能体的记忆"""
-        group = self._agent_uuid2group[target_agent_id]
-        await group.update.remote(target_agent_id, target_key, content)
+        group = self._agent_uuid2group[target_agent_uuid]
+        await group.update.remote(target_agent_uuid, target_key, content)
 
     def default_memory_config_institution(self):
         """默认的Memory配置函数"""
@@ -388,23 +402,88 @@ class AgentSimulation:
             logger.error(f"运行错误: {str(e)}")
             raise
 
+    async def _save_exp_info(self) -> None:
+        """异步保存实验信息到YAML文件"""
+        try:
+            with open(self._exp_info_file, 'w') as f:
+                yaml.dump(self._exp_info, f)
+        except Exception as e:
+            logger.error(f"保存实验信息失败: {str(e)}")
+
+    async def _update_exp_status(self, status: int, error: str = "") -> None:
+        """更新实验状态并保存"""
+        self._exp_info["status"] = status
+        self._exp_info["error"] = error
+        await self._save_exp_info()
+
+    async def _monitor_exp_status(self, stop_event: asyncio.Event):
+        """监控实验状态并更新
+        
+        Args:
+            stop_event: 用于通知监控任务停止的事件
+        """
+        try:
+            while not stop_event.is_set():  
+                # 更新实验状态
+                # 假设所有group的cur_day和cur_t是同步的，取第一个即可
+                self._exp_info["cur_day"] = await self._simulator.get_simulator_day()
+                self._exp_info["cur_t"] = await self._simulator.get_simulator_second_from_start_of_day()
+                await self._save_exp_info()
+                
+                await asyncio.sleep(1)  # 避免过于频繁的更新
+        except asyncio.CancelError:
+            # 正常取消，不需要特殊处理
+            pass
+        except Exception as e:
+            logger.error(f"监控实验状态时发生错误: {str(e)}")
+            raise
+
     async def run(
         self,
         day: int = 1,
     ):
-        """运行模拟器
-
-        Args:
-            day: 运行天数,默认为1天
-        """
+        """运行模拟器"""
         try:
-            # 获取开始时间
-            tasks = []
-            for group in self._groups.values():
-                tasks.append(group.run.remote(day))
+            self._exp_info["num_day"] += day
+            await self._update_exp_status(1)  # 更新状态为运行中
+            
+            # 创建停止事件
+            stop_event = asyncio.Event()
+            # 创建监控任务
+            monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
+            
+            try:
+                tasks = []
+                for group in self._groups.values():
+                    tasks.append(group.run.remote())
 
-            await asyncio.gather(*tasks)
+                # 等待所有group运行完成
+                await asyncio.gather(*tasks)
+                
+            finally:
+                # 设置停止事件
+                stop_event.set()
+                # 等待监控任务结束
+                await monitor_task
+            
+            # 运行成功后更新状态
+            await self._update_exp_status(2)
 
         except Exception as e:
-            logger.error(f"模拟器运行错误: {str(e)}")
-            raise
+            error_msg = f"模拟器运行错误: {str(e)}"
+            logger.error(error_msg)
+            await self._update_exp_status(3, error_msg)
+            raise e
+
+    async def __aenter__(self):
+        """异步上下文管理器入口"""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """异步上下文管理器出口"""
+        if exc_type is not None:
+            # 如果发生异常，更新状态为错误
+            await self._update_exp_status(3, str(exc_val))
+        elif self._exp_info["status"] != 3:
+            # 如果没有发生异常且状态不是错误，则更新为完成
+            await self._update_exp_status(2)

@@ -2,11 +2,9 @@
 
 from abc import ABC, abstractmethod
 import asyncio
-import json
 from uuid import UUID
 from copy import deepcopy
 from datetime import datetime
-import time
 from enum import Enum
 import logging
 import random
@@ -27,6 +25,8 @@ from .economy import EconomyClient
 from .environment import Simulator
 from .llm import LLM
 from .memory import Memory
+
+logger = logging.getLogger("pycityagent")
 
 
 class AgentType(Enum):
@@ -73,7 +73,7 @@ class Agent(ABC):
         """
         self._name = name
         self._type = type
-        self._uuid = uuid.uuid4()
+        self._uuid = str(uuid.uuid4())
         self._llm_client = llm_client
         self._economy_client = economy_client
         self._messager = messager
@@ -123,11 +123,17 @@ class Agent(ABC):
         """
         self._memory = memory
 
-    def set_exp_id(self, exp_id: str|UUID):
+    def set_exp_id(self, exp_id: str):
         """
         Set the exp_id of the agent.
         """
         self._exp_id = exp_id
+
+    def set_avro_file(self, avro_file: Dict[str, str]):
+        """
+        Set the avro file of the agent.
+        """
+        self._avro_file = avro_file
 
     @property
     def uuid(self):
@@ -214,8 +220,10 @@ class Agent(ABC):
     
     async def _process_survey(self, survey: dict):
         survey_response = await self.generate_user_survey_response(survey)
+        if self._avro_file is None:
+            return
         response_to_avro = [{
-            "id": str(self._uuid),
+            "id": self._uuid,
             "day": await self._simulator.get_simulator_day(),
             "t": await self._simulator.get_simulator_second_from_start_of_day(),
             "survey_id": survey["id"],
@@ -264,7 +272,7 @@ class Agent(ABC):
     
     async def _process_interview(self, payload: dict):
         auros = [{
-            "id": str(self._uuid),
+            "id": self._uuid,
             "day": await self._simulator.get_simulator_day(),
             "t": await self._simulator.get_simulator_second_from_start_of_day(),
             "type": 2,
@@ -275,7 +283,7 @@ class Agent(ABC):
         question = payload["content"]
         response = await self.generate_user_chat_response(question)
         auros.append({
-            "id": str(self._uuid),
+            "id": self._uuid,
             "day": await self._simulator.get_simulator_day(),
             "t": await self._simulator.get_simulator_second_from_start_of_day(),
             "type": 2,
@@ -283,15 +291,17 @@ class Agent(ABC):
             "content": response,
             "created_at": int(datetime.now().timestamp() * 1000),
         })
+        if self._avro_file is None:
+            return
         with open(self._avro_file["dialog"], "a+b") as f:
             fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
 
     async def process_agent_chat_response(self, payload: dict) -> str:
-        logging.info(f"Agent {self._uuid} received agent chat response: {payload}")
+        logger.info(f"Agent {self._uuid} received agent chat response: {payload}")
 
     async def _process_agent_chat(self, payload: dict):
         auros = [{
-            "id": str(self._uuid),
+            "id": self._uuid,
             "day": payload["day"],
             "t": payload["t"],
             "type": 1,
@@ -300,6 +310,8 @@ class Agent(ABC):
             "created_at": int(datetime.now().timestamp() * 1000),
         }]
         asyncio.create_task(self.process_agent_chat_response(payload))
+        if self._avro_file is None:
+            return
         with open(self._avro_file["dialog"], "a+b") as f:
             fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
 
@@ -307,19 +319,19 @@ class Agent(ABC):
     async def handle_agent_chat_message(self, payload: dict):
         """处理收到的消息，识别发送者"""
         # 从消息中解析发送者 ID 和消息内容
-        logging.info(f"Agent {self._uuid} received agent chat message: {payload}")
+        logger.info(f"Agent {self._uuid} received agent chat message: {payload}")
         asyncio.create_task(self._process_agent_chat(payload))
 
     async def handle_user_chat_message(self, payload: dict):
         """处理收到的消息，识别发送者"""
         # 从消息中解析发送者 ID 和消息内容
-        logging.info(f"Agent {self._uuid} received user chat message: {payload}")
+        logger.info(f"Agent {self._uuid} received user chat message: {payload}")
         asyncio.create_task(self._process_interview(payload))
 
     async def handle_user_survey_message(self, payload: dict):
         """处理收到的消息，识别发送者"""
         # 从消息中解析发送者 ID 和消息内容
-        logging.info(f"Agent {self._uuid} received user survey message: {payload}")
+        logger.info(f"Agent {self._uuid} received user survey message: {payload}")
         asyncio.create_task(self._process_survey(payload["data"]))
 
     async def handle_gather_message(self, payload: str):
@@ -327,7 +339,7 @@ class Agent(ABC):
 
     # MQTT send message
     async def _send_message(
-        self, to_agent_uuid: UUID, payload: dict, sub_topic: str
+        self, to_agent_uuid: str, payload: dict, sub_topic: str
     ):
         """通过 Messager 发送消息"""
         if self._messager is None:
@@ -336,7 +348,7 @@ class Agent(ABC):
         await self._messager.send_message(topic, payload)
 
     async def send_message_to_agent(
-        self, to_agent_uuid: UUID, content: str
+        self, to_agent_uuid: str, content: str
     ):
         """通过 Messager 发送消息"""
         if self._messager is None:
@@ -350,14 +362,16 @@ class Agent(ABC):
         }
         await self._send_message(to_agent_uuid, payload, "agent-chat")
         auros = [{
-            "id": str(self._uuid),
+            "id": self._uuid,
             "day": await self._simulator.get_simulator_day(),
             "t": await self._simulator.get_simulator_second_from_start_of_day(),
             "type": 1,
-            "speaker": str(self._uuid),
+            "speaker": self._uuid,
             "content": content,
             "created_at": int(datetime.now().timestamp() * 1000),
         }]
+        if self._avro_file is None:
+            return
         with open(self._avro_file["dialog"], "a+b") as f:
             fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
 
@@ -414,7 +428,7 @@ class CitizenAgent(Agent):
             person_template (dict, optional): The person template in dict format. Defaults to PersonService.default_dict_person().
         """
         if self._simulator is None:
-            logging.warning("Simulator is not set")
+            logger.warning("Simulator is not set")
             return
         if not self._has_bound_to_simulator:
             FROM_MEMORY_KEYS = {
@@ -432,7 +446,7 @@ class CitizenAgent(Agent):
             # ATTENTION:模拟器分配的id从0开始
             if person_id >= 0:
                 await simulator.get_person(person_id)
-                logging.debug(f"Binding to Person `{person_id}` already in Simulator")
+                logger.debug(f"Binding to Person `{person_id}` already in Simulator")
             else:
                 dict_person = deepcopy(self._person_template)
                 for _key in FROM_MEMORY_KEYS:
@@ -447,7 +461,7 @@ class CitizenAgent(Agent):
                 )
                 person_id = resp["person_id"]
                 await memory.update("id", person_id, protect_llm_read_only_fields=False)
-                logging.debug(
+                logger.debug(
                     f"Binding to Person `{person_id}` just added to Simulator"
                 )
                 # 防止模拟器还没有到prepare阶段导致get_person出错
@@ -456,7 +470,7 @@ class CitizenAgent(Agent):
 
     async def _bind_to_economy(self):
         if self._economy_client is None:
-            logging.warning("Economy client is not set")
+            logger.warning("Economy client is not set")
             return
         if not self._has_bound_to_economy:
             if self._has_bound_to_simulator:
@@ -473,7 +487,7 @@ class CitizenAgent(Agent):
                 )
                 self._has_bound_to_economy = True
             else:
-                logging.debug(
+                logger.debug(
                     f"Binding to Economy before binding to Simulator, skip binding to Economy Simulator"
                 )
 
@@ -523,7 +537,7 @@ class InstitutionAgent(Agent):
 
     async def _bind_to_economy(self):
         if self._economy_client is None:
-            logging.debug("Economy client is not set")
+            logger.debug("Economy client is not set")
             return
         if not self._has_bound_to_economy:
             # TODO: More general id generation
@@ -599,7 +613,7 @@ class InstitutionAgent(Agent):
                     }
                 )
             except Exception as e:
-                logging.error(f"Failed to bind to Economy: {e}")
+                logger.error(f"Failed to bind to Economy: {e}")
             self._has_bound_to_economy = True
 
     async def handle_gather_message(self, payload: dict):
@@ -615,11 +629,11 @@ class InstitutionAgent(Agent):
                 "content": content,
             })
 
-    async def gather_messages(self, agent_ids: list[UUID], target: str) -> List[dict]:
+    async def gather_messages(self, agent_uuids: list[str], target: str) -> List[dict]:
         """从多个智能体收集消息
         
         Args:
-            agent_ids: 目标智能体ID列表
+            agent_uuids: 目标智能体UUID列表
             target: 要收集的信息类型
             
         Returns:
@@ -627,18 +641,17 @@ class InstitutionAgent(Agent):
         """
         # 为每个agent创建Future
         futures = {}
-        for agent_id in agent_ids:
-            response_key = str(agent_id)
-            futures[response_key] = asyncio.Future()
-            self._gather_responses[response_key] = futures[response_key]
+        for agent_uuid in agent_uuids:
+            futures[agent_uuid] = asyncio.Future()
+            self._gather_responses[agent_uuid] = futures[agent_uuid]
             
         # 发送gather请求
         payload = {
             "from": self._uuid,
             "target": target,
         }
-        for agent_id in agent_ids:
-            await self._send_message(agent_id, payload, "gather")
+        for agent_uuid in agent_uuids:
+            await self._send_message(agent_uuid, payload, "gather")
             
         try:
             # 等待所有响应
