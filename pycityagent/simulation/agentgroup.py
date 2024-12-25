@@ -20,7 +20,7 @@ logger = logging.getLogger("pycityagent")
 
 @ray.remote
 class AgentGroup:
-    def __init__(self, agents: list[Agent], config: dict, exp_id: str|UUID, enable_avro: bool, avro_path: Path, logging_level: int = logging.WARNING):
+    def __init__(self, agents: list[Agent], config: dict, exp_id: str|UUID, enable_avro: bool, avro_path: Path, logging_level: int):
         logger.setLevel(logging_level)
         self._uuid = str(uuid.uuid4())
         self.agents = agents
@@ -64,20 +64,20 @@ class AgentGroup:
             self.economy_client = None
 
         for agent in self.agents:
-            agent.set_exp_id(self.exp_id)
+            agent.set_exp_id(self.exp_id) # type: ignore
             agent.set_llm_client(self.llm)
             agent.set_simulator(self.simulator)
             if self.economy_client is not None:
                 agent.set_economy_client(self.economy_client)
             agent.set_messager(self.messager)
             if self.enable_avro:
-                agent.set_avro_file(self.avro_file)
+                agent.set_avro_file(self.avro_file) # type: ignore
 
     async def init_agents(self):
         logger.debug(f"-----Initializing Agents in AgentGroup {self._uuid} ...")
         logger.debug(f"-----Binding Agents to Simulator in AgentGroup {self._uuid} ...")
         for agent in self.agents:
-            await agent.bind_to_simulator()
+            await agent.bind_to_simulator() # type: ignore
         self.id2agent = {agent._uuid: agent for agent in self.agents}
         logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
         await self.messager.connect()

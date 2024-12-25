@@ -139,7 +139,7 @@ class UpdateWithSimulator(Tool):
         if agent._simulator is None:
             return
         if not agent._has_bound_to_simulator:
-            await self._bind_to_simulator()
+            await agent._bind_to_simulator() # type: ignore
         simulator = agent.simulator
         memory = agent.memory
         person_id = await memory.get("id")

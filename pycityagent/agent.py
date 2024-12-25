@@ -9,7 +9,7 @@ from enum import Enum
 import logging
 import random
 import uuid
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional,Any
 
 import fastavro
 
@@ -80,6 +80,7 @@ class Agent(ABC):
         self._simulator = simulator
         self._memory = memory
         self._exp_id = -1
+        self._agent_id = -1
         self._has_bound_to_simulator = False
         self._has_bound_to_economy = False
         self._blocked = False
@@ -224,8 +225,8 @@ class Agent(ABC):
             return
         response_to_avro = [{
             "id": self._uuid,
-            "day": await self._simulator.get_simulator_day(),
-            "t": await self._simulator.get_simulator_second_from_start_of_day(),
+            "day": await self.simulator.get_simulator_day(),
+            "t": await self.simulator.get_simulator_second_from_start_of_day(),
             "survey_id": survey["id"],
             "result": survey_response,
             "created_at": int(datetime.now().timestamp() * 1000),
@@ -273,8 +274,8 @@ class Agent(ABC):
     async def _process_interview(self, payload: dict):
         auros = [{
             "id": self._uuid,
-            "day": await self._simulator.get_simulator_day(),
-            "t": await self._simulator.get_simulator_second_from_start_of_day(),
+            "day": await self.simulator.get_simulator_day(),
+            "t": await self.simulator.get_simulator_second_from_start_of_day(),
             "type": 2,
             "speaker": "user",
             "content": payload["content"],
@@ -284,8 +285,8 @@ class Agent(ABC):
         response = await self.generate_user_chat_response(question)
         auros.append({
             "id": self._uuid,
-            "day": await self._simulator.get_simulator_day(),
-            "t": await self._simulator.get_simulator_second_from_start_of_day(),
+            "day": await self.simulator.get_simulator_day(),
+            "t": await self.simulator.get_simulator_second_from_start_of_day(),
             "type": 2,
             "speaker": "",
             "content": response,
@@ -297,7 +298,9 @@ class Agent(ABC):
             fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
 
     async def process_agent_chat_response(self, payload: dict) -> str:
-        logger.info(f"Agent {self._uuid} received agent chat response: {payload}")
+        resp = f"Agent {self._uuid} received agent chat response: {payload}"
+        logger.info(resp)
+        return resp
 
     async def _process_agent_chat(self, payload: dict):
         auros = [{
@@ -334,7 +337,7 @@ class Agent(ABC):
         logger.info(f"Agent {self._uuid} received user survey message: {payload}")
         asyncio.create_task(self._process_survey(payload["data"]))
 
-    async def handle_gather_message(self, payload: str):
+    async def handle_gather_message(self, payload: Any):
         raise NotImplementedError
 
     # MQTT send message
@@ -357,14 +360,14 @@ class Agent(ABC):
             "from": self._uuid,
             "content": content,
             "timestamp": int(datetime.now().timestamp() * 1000),
-            "day": await self._simulator.get_simulator_day(),
-            "t": await self._simulator.get_simulator_second_from_start_of_day(),
+            "day": await self.simulator.get_simulator_day(),
+            "t": await self.simulator.get_simulator_second_from_start_of_day(),
         }
         await self._send_message(to_agent_uuid, payload, "agent-chat")
         auros = [{
             "id": self._uuid,
-            "day": await self._simulator.get_simulator_day(),
-            "t": await self._simulator.get_simulator_second_from_start_of_day(),
+            "day": await self.simulator.get_simulator_day(),
+            "t": await self.simulator.get_simulator_second_from_start_of_day(),
             "type": 1,
             "speaker": self._uuid,
             "content": content,
@@ -440,8 +443,8 @@ class CitizenAgent(Agent):
                 "pedestrian_attribute",
                 "bike_attribute",
             }
-            simulator = self._simulator
-            memory = self._memory
+            simulator = self.simulator
+            memory = self.memory
             person_id = await memory.get("id")
             # ATTENTION:模拟器分配的id从0开始
             if person_id >= 0:
@@ -478,11 +481,11 @@ class CitizenAgent(Agent):
                     await self._economy_client.remove_agents([self._agent_id])
                 except:
                     pass
-                person_id = await self._memory.get("id")
+                person_id = await self.memory.get("id")
                 await self._economy_client.add_agents(
                     {
                         "id": person_id,
-                        "currency": await self._memory.get("currency"),
+                        "currency": await self.memory.get("currency"),
                     }
                 )
                 self._has_bound_to_economy = True
@@ -543,62 +546,63 @@ class InstitutionAgent(Agent):
             # TODO: More general id generation
             _id = random.randint(100000, 999999)
             self._agent_id = _id
-            await self._memory.update("id", _id, protect_llm_read_only_fields=False)
+            await self.memory.update("id", _id, protect_llm_read_only_fields=False)
             try:
                 await self._economy_client.remove_orgs([self._agent_id])
             except:
                 pass
             try:
-                id = await self._memory.get("id")
-                type = await self._memory.get("type")
+                _memory = self.memory
+                _id = await _memory.get("id")
+                _type = await _memory.get("type")
                 try:
-                    nominal_gdp = await self._memory.get("nominal_gdp")
+                    nominal_gdp = await _memory.get("nominal_gdp")
                 except:
                     nominal_gdp = []
                 try:
-                    real_gdp = await self._memory.get("real_gdp")
+                    real_gdp = await _memory.get("real_gdp")
                 except:
                     real_gdp = []
                 try:
-                    unemployment = await self._memory.get("unemployment")
+                    unemployment = await _memory.get("unemployment")
                 except:
                     unemployment = []
                 try:
-                    wages = await self._memory.get("wages")
+                    wages = await _memory.get("wages")
                 except:
                     wages = []
                 try:
-                    prices = await self._memory.get("prices")
+                    prices = await _memory.get("prices")
                 except:
                     prices = []
                 try:
-                    inventory = await self._memory.get("inventory")
+                    inventory = await _memory.get("inventory")
                 except:
                     inventory = 0
                 try:
-                    price = await self._memory.get("price")
+                    price = await _memory.get("price")
                 except:
                     price = 0
                 try:
-                    currency = await self._memory.get("currency")
+                    currency = await _memory.get("currency")
                 except:
                     currency = 0.0
                 try:
-                    interest_rate = await self._memory.get("interest_rate")
+                    interest_rate = await _memory.get("interest_rate")
                 except:
                     interest_rate = 0.0
                 try:
-                    bracket_cutoffs = await self._memory.get("bracket_cutoffs")
+                    bracket_cutoffs = await _memory.get("bracket_cutoffs")
                 except:
                     bracket_cutoffs = []
                 try:
-                    bracket_rates = await self._memory.get("bracket_rates")
+                    bracket_rates = await _memory.get("bracket_rates")
                 except:
                     bracket_rates = []
                 await self._economy_client.add_orgs(
                     {
-                        "id": id,
-                        "type": type,
+                        "id": _id,
+                        "type": _type,
                         "nominal_gdp": nominal_gdp,
                         "real_gdp": real_gdp,
                         "unemployment": unemployment,

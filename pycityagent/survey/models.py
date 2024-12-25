@@ -1,9 +1,9 @@
+import json
+import uuid
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
 from datetime import datetime
 from enum import Enum
-import uuid
-import json
+from typing import Any
 
 
 class QuestionType(Enum):
@@ -20,19 +20,20 @@ class Question:
     name: str
     title: str
     type: QuestionType
-    choices: List[str] = field(default_factory=list)
-    columns: List[str] = field(default_factory=list)
-    rows: List[str] = field(default_factory=list)
+    choices: list[str] = field(default_factory=list)
+    columns: list[str] = field(default_factory=list)
+    rows: list[str] = field(default_factory=list)
+    required: bool = True
     min_rating: int = 1
     max_rating: int = 5
 
     def to_dict(self) -> dict:
-        base_dict = {
+        base_dict: dict[str, Any] = {
             "type": self.type.value,
             "name": self.name,
             "title": self.title,
         }
-        
+
         if self.type in [QuestionType.RADIO, QuestionType.CHECKBOX]:
             base_dict["choices"] = self.choices
         elif self.type == QuestionType.MATRIX:
@@ -41,20 +42,17 @@ class Question:
         elif self.type == QuestionType.RATING:
             base_dict["min_rating"] = self.min_rating
             base_dict["max_rating"] = self.max_rating
-            
+
         return base_dict
 
 
 @dataclass
 class Page:
     name: str
-    elements: List[Question]
+    elements: list[Question]
 
     def to_dict(self) -> dict:
-        return {
-            "name": self.name,
-            "elements": [q.to_dict() for q in self.elements]
-        }
+        return {"name": self.name, "elements": [q.to_dict() for q in self.elements]}
 
 
 @dataclass
@@ -62,8 +60,8 @@ class Survey:
     id: uuid.UUID
     title: str
     description: str
-    pages: List[Page]
-    responses: Dict[str, dict] = field(default_factory=dict)
+    pages: list[Page]
+    responses: dict[str, dict] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
 
     def to_dict(self) -> dict:
@@ -83,12 +81,12 @@ class Survey:
             "description": self.description,
             "pages": [p.to_dict() for p in self.pages],
             "responses": self.responses,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }
         return json.dumps(survey_dict)
 
     @classmethod
-    def from_json(cls, json_str: str) -> 'Survey':
+    def from_json(cls, json_str: str) -> "Survey":
         """Create a Survey instance from a JSON string"""
         data = json.loads(json_str)
         pages = [
@@ -104,17 +102,19 @@ class Survey:
                         columns=q.get("columns", []),
                         rows=q.get("rows", []),
                         min_rating=q.get("min_rating", 1),
-                        max_rating=q.get("max_rating", 5)
-                    ) for q in p["elements"]
-                ]
-            ) for p in data["pages"]
+                        max_rating=q.get("max_rating", 5),
+                    )
+                    for q in p["elements"]
+                ],
+            )
+            for p in data["pages"]
         ]
-        
+
         return cls(
             id=uuid.UUID(data["id"]),
             title=data["title"],
             description=data["description"],
             pages=pages,
             responses=data.get("responses", {}),
-            created_at=datetime.fromisoformat(data["created_at"])
+            created_at=datetime.fromisoformat(data["created_at"]),
         )
