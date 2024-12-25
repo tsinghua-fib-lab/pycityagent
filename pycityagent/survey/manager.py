@@ -1,17 +1,16 @@
-from typing import List, Dict, Optional
-from datetime import datetime
-import uuid
 import json
-from .models import Survey, Question, QuestionType, Page
+import uuid
+from datetime import datetime
+from typing import Optional
+
+from .models import Page, Question, QuestionType, Survey
 
 
 class SurveyManager:
     def __init__(self):
-        self._surveys: Dict[str, Survey] = {}
+        self._surveys: dict[str, Survey] = {}
 
-    def create_survey(
-        self, title: str, description: str, pages: List[dict]
-    ) -> Survey:
+    def create_survey(self, title: str, description: str, pages: list[dict]) -> Survey:
         """创建新问卷"""
         survey_id = uuid.uuid4()
 
@@ -32,11 +31,8 @@ class SurveyManager:
                     max_rating=q.get("max_rating", 5),
                 )
                 questions.append(question)
-            
-            page = Page(
-                name=page_data["name"],
-                elements=questions
-            )
+
+            page = Page(name=page_data["name"], elements=questions)
             survey_pages.append(page)
 
         survey = Survey(
@@ -53,6 +49,6 @@ class SurveyManager:
         """获取指定问卷"""
         return self._surveys.get(survey_id)
 
-    def get_all_surveys(self) -> List[Survey]:
+    def get_all_surveys(self) -> list[Survey]:
         """获取所有问卷"""
         return list(self._surveys.values())

@@ -44,6 +44,7 @@ ray = "^2.40.0"
 aiomqtt = "^2.3.0"
 fastavro = "^1.10.0"
 pandavro = "^1.8.0"
+langchain-core = "^0.3.28"
 
 [build-system]
 requires = ["poetry-core"]

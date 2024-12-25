@@ -2,19 +2,22 @@ import asyncio
 import json
 import logging
 import os
-from pathlib import Path
-import uuid
-from datetime import datetime, timezone
 import random
-from typing import Dict, List, Optional, Callable, Union,Any
-from mosstool.map._map_util.const import AOI_START_ID
+import uuid
+from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Union
+
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
+import yaml
+from mosstool.map._map_util.const import AOI_START_ID
+
 from pycityagent.environment.simulator import Simulator
 from pycityagent.memory.memory import Memory
 from pycityagent.message.messager import Messager
 from pycityagent.survey import Survey
-import yaml
-from concurrent.futures import ThreadPoolExecutor
 
 from ..agent import Agent, InstitutionAgent
 from .agentgroup import AgentGroup
@@ -31,7 +34,7 @@ class AgentSimulation:
         config: dict,
         agent_prefix: str = "agent_",
         exp_name: str = "default_experiment",
-        logging_level: int = logging.WARNING
+        logging_level: int = logging.WARNING,
     ):
         """
         Args:
@@ -50,8 +53,8 @@ class AgentSimulation:
         self._simulator = Simulator(config["simulator_request"])
         self.agent_prefix = agent_prefix
         self._agents: Dict[uuid.UUID, Agent] = {}
-        self._groups: Dict[str, AgentGroup] = {}
-        self._agent_uuid2group: Dict[uuid.UUID, AgentGroup] = {}
+        self._groups: Dict[str, AgentGroup] = {}  # type:ignore
+        self._agent_uuid2group: Dict[uuid.UUID, AgentGroup] = {}  # type:ignore
         self._agent_uuids: List[uuid.UUID] = []
         self._user_chat_topics: Dict[uuid.UUID, str] = {}
         self._user_survey_topics: Dict[uuid.UUID, str] = {}
@@ -89,33 +92,44 @@ class AgentSimulation:
             "cur_t": 0.0,
             "config": json.dumps(config),
             "error": "",
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
-        
+
         # 创建异步任务保存实验信息
         self._exp_info_file = self._avro_path / "experiment_info.yaml"
-        with open(self._exp_info_file, 'w') as f:
+        with open(self._exp_info_file, "w") as f:
             yaml.dump(self._exp_info, f)
 
     @property
     def agents(self):
         return self._agents
-    
+
     @property
     def groups(self):
         return self._groups
-    
+
     @property
     def agent_uuids(self):
         return self._agent_uuids
-    
+
     @property
     def agent_uuid2group(self):
         return self._agent_uuid2group
-    
-    def create_remote_group(self, group_name: str, agents: list[Agent], config: dict, exp_id: str, enable_avro: bool, avro_path: Path, logging_level: int = logging.WARNING):
+
+    def create_remote_group(
+        self,
+        group_name: str,
+        agents: list[Agent],
+        config: dict,
+        exp_id: str,
+        enable_avro: bool,
+        avro_path: Path,
+        logging_level: int = logging.WARNING,
+    ):
         """创建远程组"""
-        group = AgentGroup.remote(agents, config, exp_id, enable_avro, avro_path, logging_level)
+        group = AgentGroup.remote(
+            agents, config, exp_id, enable_avro, avro_path, logging_level
+        )
         return group_name, group, agents
 
     async def init_agents(
@@ -164,7 +178,7 @@ class AgentSimulation:
         # 使用线程池并行创建 AgentGroup
         group_creation_params = []
         class_init_index = 0
-        
+
         # 首先收集所有需要创建的组的参数
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
@@ -175,9 +189,7 @@ class AgentSimulation:
 
                 # 获取Memory配置
                 extra_attributes, profile, base = memory_config_func_i()
-                memory = Memory(
-                    config=extra_attributes, profile=profile, base=base
-                )
+                memory = Memory(config=extra_attributes, profile=profile, base=base)
 
                 # 创建智能体时传入Memory配置
                 agent = agent_class(
@@ -190,34 +202,36 @@ class AgentSimulation:
 
             # 计算需要的组数,向上取整以处理不足一组的情况
             num_group = (agent_count_i + group_size - 1) // group_size
-            
+
             for k in range(num_group):
                 start_idx = class_init_index + k * group_size
                 end_idx = min(
                     class_init_index + (k + 1) * group_size,  # 修正了索引计算
-                    class_init_index + agent_count_i
+                    class_init_index + agent_count_i,
                 )
-                
+
                 agents = list(self._agents.values())[start_idx:end_idx]
                 group_name = f"AgentType_{i}_Group_{k}"
-                
+
                 # 收集创建参数
-                group_creation_params.append((
-                    group_name, 
-                    agents
-                ))
-            
+                group_creation_params.append((group_name, agents))
+
             class_init_index += agent_count_i
 
         # 收集所有创建组的参数
         creation_tasks = []
         for group_name, agents in group_creation_params:
             # 直接创建异步任务
-            group = AgentGroup.remote(agents, self.config, self.exp_id, 
-                                    self._enable_avro, self._avro_path, 
-                                    self.logging_level)
+            group = AgentGroup.remote(
+                agents,
+                self.config,
+                self.exp_id,
+                self._enable_avro,
+                self._avro_path,
+                self.logging_level,
+            )
             creation_tasks.append((group_name, group, agents))
-        
+
         # 更新数据结构
         for group_name, group, agents in creation_tasks:
             self._groups[group_name] = group
@@ -233,7 +247,9 @@ class AgentSimulation:
         # 设置用户主题
         for uuid, agent in self._agents.items():
             self._user_chat_topics[uuid] = f"exps/{self.exp_id}/agents/{uuid}/user-chat"
-            self._user_survey_topics[uuid] = f"exps/{self.exp_id}/agents/{uuid}/user-survey"
+            self._user_survey_topics[uuid] = (
+                f"exps/{self.exp_id}/agents/{uuid}/user-survey"
+            )
 
     async def gather(self, content: str):
         """收集智能体的特定信息"""
@@ -250,7 +266,18 @@ class AgentSimulation:
     def default_memory_config_institution(self):
         """默认的Memory配置函数"""
         EXTRA_ATTRIBUTES = {
-            "type": (int, random.choice([economyv2.ORG_TYPE_BANK, economyv2.ORG_TYPE_GOVERNMENT, economyv2.ORG_TYPE_FIRM, economyv2.ORG_TYPE_NBS, economyv2.ORG_TYPE_UNSPECIFIED])),
+            "type": (
+                int,
+                random.choice(
+                    [
+                        economyv2.ORG_TYPE_BANK,
+                        economyv2.ORG_TYPE_GOVERNMENT,
+                        economyv2.ORG_TYPE_FIRM,
+                        economyv2.ORG_TYPE_NBS,
+                        economyv2.ORG_TYPE_UNSPECIFIED,
+                    ]
+                ),
+            ),
             "nominal_gdp": (list, [], True),
             "real_gdp": (list, [], True),
             "unemployment": (list, [], True),
@@ -364,29 +391,35 @@ class AgentSimulation:
         }
 
         return EXTRA_ATTRIBUTES, PROFILE, BASE
-    
-    async def send_survey(self, survey: Survey, agent_uuids: Optional[List[uuid.UUID]] = None):
+
+    async def send_survey(
+        self, survey: Survey, agent_uuids: Optional[List[uuid.UUID]] = None
+    ):
         """发送问卷"""
-        survey = survey.to_dict()
+        survey_dict = survey.to_dict()
         if agent_uuids is None:
             agent_uuids = self._agent_uuids
         payload = {
             "from": "none",
-            "survey_id": survey["id"],
+            "survey_id": survey_dict["id"],
             "timestamp": int(datetime.now().timestamp() * 1000),
-            "data": survey,
+            "data": survey_dict,
         }
         for uuid in agent_uuids:
             topic = self._user_survey_topics[uuid]
             await self._messager.send_message(topic, payload)
 
-    async def send_interview_message(self, content: str, agent_uuids: Union[uuid.UUID, List[uuid.UUID]]):
+    async def send_interview_message(
+        self, content: str, agent_uuids: Union[uuid.UUID, List[uuid.UUID]]
+    ):
         """发送面试消息"""
         payload = {
             "from": "none",
             "content": content,
             "timestamp": int(datetime.now().timestamp() * 1000),
         }
+        if not isinstance(agent_uuids, Sequence):
+            agent_uuids = [agent_uuids]
         for uuid in agent_uuids:
             topic = self._user_chat_topics[uuid]
             await self._messager.send_message(topic, payload)
@@ -405,7 +438,7 @@ class AgentSimulation:
     async def _save_exp_info(self) -> None:
         """异步保存实验信息到YAML文件"""
         try:
-            with open(self._exp_info_file, 'w') as f:
+            with open(self._exp_info_file, "w") as f:
                 yaml.dump(self._exp_info, f)
         except Exception as e:
             logger.error(f"保存实验信息失败: {str(e)}")
@@ -418,20 +451,22 @@ class AgentSimulation:
 
     async def _monitor_exp_status(self, stop_event: asyncio.Event):
         """监控实验状态并更新
-        
+
         Args:
             stop_event: 用于通知监控任务停止的事件
         """
         try:
-            while not stop_event.is_set():  
+            while not stop_event.is_set():
                 # 更新实验状态
                 # 假设所有group的cur_day和cur_t是同步的，取第一个即可
                 self._exp_info["cur_day"] = await self._simulator.get_simulator_day()
-                self._exp_info["cur_t"] = await self._simulator.get_simulator_second_from_start_of_day()
+                self._exp_info["cur_t"] = (
+                    await self._simulator.get_simulator_second_from_start_of_day()
+                )
                 await self._save_exp_info()
-                
+
                 await asyncio.sleep(1)  # 避免过于频繁的更新
-        except asyncio.CancelError:
+        except asyncio.CancelledError:
             # 正常取消，不需要特殊处理
             pass
         except Exception as e:
@@ -446,12 +481,12 @@ class AgentSimulation:
         try:
             self._exp_info["num_day"] += day
             await self._update_exp_status(1)  # 更新状态为运行中
-            
+
             # 创建停止事件
             stop_event = asyncio.Event()
             # 创建监控任务
             monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
-            
+
             try:
                 tasks = []
                 for group in self._groups.values():
@@ -459,13 +494,13 @@ class AgentSimulation:
 
                 # 等待所有group运行完成
                 await asyncio.gather(*tasks)
-                
+
             finally:
                 # 设置停止事件
                 stop_event.set()
                 # 等待监控任务结束
                 await monitor_task
-            
+
             # 运行成功后更新状态
             await self._update_exp_status(2)
 
