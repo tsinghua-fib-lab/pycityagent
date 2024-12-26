@@ -488,12 +488,13 @@ class AgentSimulation:
             monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
 
             try:
-                tasks = []
-                for group in self._groups.values():
-                    tasks.append(group.run.remote())
+                for _ in range(day):
+                    tasks = []
+                    for group in self._groups.values():
+                        tasks.append(group.run.remote())
 
-                # 等待所有group运行完成
-                await asyncio.gather(*tasks)
+                    # 等待所有group运行完成
+                    await asyncio.gather(*tasks)
 
             finally:
                 # 设置停止事件
