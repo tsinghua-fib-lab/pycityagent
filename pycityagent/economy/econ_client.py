@@ -307,3 +307,12 @@ class EconomyClient:
         )
         # current agent ids and org ids
         return (list(response.agent_ids), list(response.org_ids))
+
+    async def get_org_entity_ids(self, org_type: economyv2.OrgType)->list[int]:
+        request = org_service.GetOrgEntityIdsRequest(
+            type=org_type,
+        )
+        response: org_service.GetOrgEntityIdsResponse = (
+            await self._aio_stub.GetOrgEntityIds(request)
+        )
+        return list(response.org_ids)
