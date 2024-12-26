@@ -46,6 +46,7 @@ fastavro = "^1.10.0"
 pandavro = "^1.8.0"
 langchain-core = "^0.3.28"
 mlflow = "^2.19.0"
+psycopg = {extras = ["binary"], version = "^3.2.3"}
 
 [build-system]
 requires = ["poetry-core"]
