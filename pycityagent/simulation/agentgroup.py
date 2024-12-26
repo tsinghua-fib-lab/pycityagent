@@ -36,6 +36,7 @@ class AgentGroup:
         avro_path: Path,
         enable_pgsql: bool,
         pgsql_copy_writer: ray.ObjectRef,
+        mlflow_run_id: str,
         logging_level: int,
     ):
         logger.setLevel(logging_level)
@@ -88,6 +89,7 @@ class AgentGroup:
                 config=_mlflow_config,
                 mlflow_run_name=f"EXP_{exp_name}_{1000*int(time.time())}",
                 experiment_name=exp_name,
+                run_id=mlflow_run_id,
             )
         else:
             self.mlflow_client = None

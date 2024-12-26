@@ -316,3 +316,40 @@ class EconomyClient:
             await self._aio_stub.GetOrgEntityIds(request)
         )
         return list(response.org_ids)
+
+    async def add_delta_value(
+        self,
+        id: int,
+        key: str,
+        value: Any,
+    ) -> Any:
+        """
+        Add key-value pair
+
+        Args:
+        - id (int): the id of `Org` or `Agent`.
+        - key (str): the attribute to update. Can only be `inventory`, `price`, `interest_rate` and `currency`
+
+
+        Returns:
+        - Any
+        """
+        pascal_key = _snake_to_pascal(key)
+        _request_type = getattr(org_service, f"Add{pascal_key}Request")
+        _request_func = getattr(self._aio_stub, f"Add{pascal_key}")
+        _available_keys = {
+            "inventory",
+            "price",
+            "interest_rate",
+            "currency",
+        }
+        if key not in _available_keys:
+            raise ValueError(f"Invalid key `{key}`, can only be {_available_keys}!")
+        return await _request_func(
+            _request_type(
+                **{
+                    "org_id": id,
+                    f"delta_{key}": value,
+                }
+            )
+        )

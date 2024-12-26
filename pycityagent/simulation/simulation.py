@@ -1,9 +1,9 @@
 import asyncio
 import json
 import logging
-import ray
 import os
 import random
+import time
 import uuid
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Optional, Union
 
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
+import ray
 import yaml
 from mosstool.map._map_util.const import AOI_START_ID
 
@@ -19,6 +20,7 @@ from ..agent import Agent, InstitutionAgent
 from ..environment.simulator import Simulator
 from ..memory.memory import Memory
 from ..message.messager import Messager
+from ..metrics import init_mlflow_connection
 from ..survey import Survey
 from .agentgroup import AgentGroup
 
@@ -167,6 +169,7 @@ class AgentSimulation:
         avro_path: Path,
         enable_pgsql: bool,
         pgsql_copy_writer: ray.ObjectRef,
+        mlflow_run_id: str = None,  # type: ignore
         logging_level: int = logging.WARNING,
     ):
         """创建远程组"""
@@ -179,6 +182,7 @@ class AgentSimulation:
             avro_path,
             enable_pgsql,
             pgsql_copy_writer,
+            mlflow_run_id,
             logging_level,
         )
         return group_name, group, agents
@@ -268,6 +272,16 @@ class AgentSimulation:
 
             class_init_index += agent_count_i
 
+        # 初始化mlflow连接
+        _mlflow_config = self.config.get("metric_request", {}).get("mlflow")
+        if _mlflow_config:
+            mlflow_run_id, _ = init_mlflow_connection(
+                config=_mlflow_config,
+                mlflow_run_name=f"EXP_{self.exp_name}_{1000*int(time.time())}",
+                experiment_name=self.exp_name,
+            )
+        else:
+            mlflow_run_id = None
         # 收集所有创建组的参数
         creation_tasks = []
         for group_name, agents in group_creation_params:
@@ -281,7 +295,9 @@ class AgentSimulation:
                 self.avro_path,
                 self.enable_pgsql,
                 # TODO:
-                self._pgsql_copy_writer, # type:ignore
+                # self._pgsql_copy_writer, # type:ignore
+                None,
+                mlflow_run_id,
                 self.logging_level,
             )
             creation_tasks.append((group_name, group, agents))
