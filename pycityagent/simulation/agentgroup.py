@@ -1,34 +1,51 @@
 import asyncio
-from datetime import datetime
 import json
 import logging
-from pathlib import Path
+import time
 import uuid
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+from uuid import UUID
+
 import fastavro
 import ray
-from uuid import UUID
-from pycityagent.agent import Agent, CitizenAgent, InstitutionAgent
-from pycityagent.economy.econ_client import EconomyClient
-from pycityagent.environment.simulator import Simulator
-from pycityagent.llm.llm import LLM
-from pycityagent.llm.llmconfig import LLMConfig
-from pycityagent.message import Messager
-from pycityagent.utils import STATUS_SCHEMA, PROFILE_SCHEMA, DIALOG_SCHEMA, SURVEY_SCHEMA, INSTITUTION_STATUS_SCHEMA
-from typing import Any
+
+from ..agent import Agent, CitizenAgent, InstitutionAgent
+from ..economy.econ_client import EconomyClient
+from ..environment.simulator import Simulator
+from ..llm.llm import LLM
+from ..llm.llmconfig import LLMConfig
+from ..message import Messager
+from ..metrics import MlflowClient
+from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
+                     STATUS_SCHEMA, SURVEY_SCHEMA)
 
 logger = logging.getLogger("pycityagent")
 
+
 @ray.remote
 class AgentGroup:
-    def __init__(self, agents: list[Agent], config: dict, exp_id: str|UUID, enable_avro: bool, avro_path: Path, logging_level: int):
+    def __init__(
+        self,
+        agents: list[Agent],
+        config: dict,
+        exp_id: str | UUID,
+        exp_name: str,
+        enable_avro: bool,
+        avro_path: Path,
+        enable_pgsql: bool,
+        pgsql_args: tuple[str, str, str, str, str],
+        logging_level: int,
+    ):
         logger.setLevel(logging_level)
         self._uuid = str(uuid.uuid4())
         self.agents = agents
         self.config = config
         self.exp_id = exp_id
         self.enable_avro = enable_avro
-        self.avro_path = avro_path / f"{self._uuid}"
         if enable_avro:
+            self.avro_path = avro_path / f"{self._uuid}"
             self.avro_path.mkdir(parents=True, exist_ok=True)
             self.avro_file = {
                 "profile": self.avro_path / f"profile.avro",
@@ -36,7 +53,7 @@ class AgentGroup:
                 "status": self.avro_path / f"status.avro",
                 "survey": self.avro_path / f"survey.avro",
             }
-            
+
         self.messager = Messager(
             hostname=config["simulator_request"]["mqtt"]["server"],
             port=config["simulator_request"]["mqtt"]["port"],
@@ -63,21 +80,35 @@ class AgentGroup:
         else:
             self.economy_client = None
 
+        # Mlflow
+        _mlflow_config = config.get("metric_request", {}).get("mlflow")
+        if _mlflow_config:
+            logger.info(f"-----Creating Mlflow client in AgentGroup {self._uuid} ...")
+            self.mlflow_client = MlflowClient(
+                config=_mlflow_config,
+                mlflow_run_name=f"EXP_{exp_name}_{1000*int(time.time())}",
+                experiment_name=exp_name,
+            )
+        else:
+            self.mlflow_client = None
+
         for agent in self.agents:
-            agent.set_exp_id(self.exp_id) # type: ignore
+            agent.set_exp_id(self.exp_id)  # type: ignore
             agent.set_llm_client(self.llm)
             agent.set_simulator(self.simulator)
             if self.economy_client is not None:
                 agent.set_economy_client(self.economy_client)
+            if self.mlflow_client is not None:
+                agent.set_mlflow_client(self.mlflow_client)
             agent.set_messager(self.messager)
             if self.enable_avro:
-                agent.set_avro_file(self.avro_file) # type: ignore
+                agent.set_avro_file(self.avro_file)  # type: ignore
 
     async def init_agents(self):
         logger.debug(f"-----Initializing Agents in AgentGroup {self._uuid} ...")
         logger.debug(f"-----Binding Agents to Simulator in AgentGroup {self._uuid} ...")
         for agent in self.agents:
-            await agent.bind_to_simulator() # type: ignore
+            await agent.bind_to_simulator()  # type: ignore
         self.id2agent = {agent._uuid: agent for agent in self.agents}
         logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
         await self.messager.connect()
@@ -104,7 +135,7 @@ class AgentGroup:
                     for agent in self.agents:
                         profile = await agent.memory._profile.export()
                         profile = profile[0]
-                        profile['id'] = agent._uuid
+                        profile["id"] = agent._uuid
                         profiles.append(profile)
                     fastavro.writer(f, PROFILE_SCHEMA, profiles)
 
@@ -139,7 +170,9 @@ class AgentGroup:
         return results
 
     async def update(self, target_agent_uuid: str, target_key: str, content: Any):
-        logger.debug(f"-----Updating {target_key} for agent {target_agent_uuid} in group {self._uuid}")
+        logger.debug(
+            f"-----Updating {target_key} for agent {target_agent_uuid} in group {self._uuid}"
+        )
         agent = self.id2agent[target_agent_uuid]
         await agent.memory.update(target_key, content)
 
@@ -147,7 +180,9 @@ class AgentGroup:
         logger.debug(f"-----Starting message dispatch for group {self._uuid}")
         while True:
             if not self.messager.is_connected():
-                logger.warning("Messager is not connected. Skipping message processing.")
+                logger.warning(
+                    "Messager is not connected. Skipping message processing."
+                )
 
             # Step 1: 获取消息
             messages = await self.messager.fetch_messages()
@@ -165,7 +200,7 @@ class AgentGroup:
 
                 # 提取 agent_id（主题格式为 "exps/{exp_id}/agents/{agent_uuid}/{topic_type}"）
                 _, _, _, agent_uuid, topic_type = topic.strip("/").split("/")
-                    
+
                 if agent_uuid in self.id2agent:
                     agent = self.id2agent[agent_uuid]
                     # topic_type: agent-chat, user-chat, user-survey, gather

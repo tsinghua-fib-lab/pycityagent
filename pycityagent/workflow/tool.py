@@ -1,7 +1,11 @@
+import time
 from typing import Any, Callable, Dict, List, Optional, Union
 
+from mlflow.entities import Metric
+
 from ..agent import Agent
-from ..environment import LEVEL_ONE_PRE, POI_TYPE_DICT, AoiService, PersonService
+from ..environment import (LEVEL_ONE_PRE, POI_TYPE_DICT, AoiService,
+                           PersonService)
 from ..workflow import Block
 
 
@@ -139,7 +143,7 @@ class UpdateWithSimulator(Tool):
         if agent._simulator is None:
             return
         if not agent._has_bound_to_simulator:
-            await agent._bind_to_simulator() # type: ignore
+            await agent._bind_to_simulator()  # type: ignore
         simulator = agent.simulator
         memory = agent.memory
         person_id = await memory.get("id")
@@ -181,3 +185,48 @@ class ResetAgentPosition(Tool):
             lane_id=lane_id,
             s=s,
         )
+
+
+class ExportMlflowMetrics(Tool):
+    def __init__(self, log_batch_size: int = 100) -> None:
+        self._log_batch_size = log_batch_size
+        # TODO:support other log types
+        self.metric_log_cache: list[Metric] = []
+
+    async def __call__(
+        self,
+        metric: Union[Metric, dict],
+        clear_cache: bool = False,
+    ):
+        agent = self.agent
+        batch_size = self._log_batch_size
+        if len(self.metric_log_cache) > batch_size:
+            client = agent.mlflow_client
+            await client.log_batch(
+                metrics=self.metric_log_cache[:batch_size],
+            )
+            self.metric_log_cache = self.metric_log_cache[batch_size:]
+        else:
+            if isinstance(metric, Metric):
+                self.metric_log_cache.append(metric)
+            else:
+                _metric = Metric(
+                    key=metric["key"],
+                    value=metric["value"],
+                    timestamp=metric.get("timestamp", int(1000 * time.time())),
+                    step=metric["step"],
+                )
+                self.metric_log_cache.append(_metric)
+        if clear_cache:
+            await self._clear_cache()
+
+    async def _clear_cache(
+        self,
+    ):
+        agent = self.agent
+        client = agent.mlflow_client
+        if len(self.metric_log_cache) > 0:
+            await client.log_batch(
+                metrics=self.metric_log_cache,
+            )
+            self.metric_log_cache = []

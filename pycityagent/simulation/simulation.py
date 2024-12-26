@@ -4,22 +4,21 @@ import logging
 import os
 import random
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Optional, Union
 
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
 import yaml
 from mosstool.map._map_util.const import AOI_START_ID
 
-from pycityagent.environment.simulator import Simulator
-from pycityagent.memory.memory import Memory
-from pycityagent.message.messager import Messager
-from pycityagent.survey import Survey
-
 from ..agent import Agent, InstitutionAgent
+from ..environment.simulator import Simulator
+from ..memory.memory import Memory
+from ..message.messager import Messager
+from ..survey import Survey
 from .agentgroup import AgentGroup
 
 logger = logging.getLogger("pycityagent")
@@ -50,15 +49,16 @@ class AgentSimulation:
             self.agent_class = [agent_class]
         self.logging_level = logging_level
         self.config = config
+        self.exp_name = exp_name
         self._simulator = Simulator(config["simulator_request"])
         self.agent_prefix = agent_prefix
-        self._agents: Dict[uuid.UUID, Agent] = {}
-        self._groups: Dict[str, AgentGroup] = {}  # type:ignore
-        self._agent_uuid2group: Dict[uuid.UUID, AgentGroup] = {}  # type:ignore
-        self._agent_uuids: List[uuid.UUID] = []
-        self._user_chat_topics: Dict[uuid.UUID, str] = {}
-        self._user_survey_topics: Dict[uuid.UUID, str] = {}
-        self._user_interview_topics: Dict[uuid.UUID, str] = {}
+        self._agents: dict[uuid.UUID, Agent] = {}
+        self._groups: dict[str, AgentGroup] = {}  # type:ignore
+        self._agent_uuid2group: dict[uuid.UUID, AgentGroup] = {}  # type:ignore
+        self._agent_uuids: list[uuid.UUID] = []
+        self._user_chat_topics: dict[uuid.UUID, str] = {}
+        self._user_survey_topics: dict[uuid.UUID, str] = {}
+        self._user_interview_topics: dict[uuid.UUID, str] = {}
         self._loop = asyncio.get_event_loop()
 
         self._messager = Messager(
@@ -69,18 +69,37 @@ class AgentSimulation:
         )
         asyncio.create_task(self._messager.connect())
 
-        self._enable_avro = config["storage"]["avro"]["enabled"]
+        # storage
+        _storage_config: dict[str, Any] = config.get("storage", {})
+        # avro
+        _avro_config: dict[str, Any] = _storage_config.get("avro", {})
+        self._enable_avro = _avro_config.get("enabled", False)
         if not self._enable_avro:
+            self._avro_path = None
             logger.warning("AVRO is not enabled, NO AVRO LOCAL STORAGE")
-        self._avro_path = Path(config["storage"]["avro"]["path"]) / f"{self.exp_id}"
-        self._avro_path.mkdir(parents=True, exist_ok=True)
+        else:
+            self._avro_path = Path(_avro_config["path"]) / f"{self.exp_id}"
+            self._avro_path.mkdir(parents=True, exist_ok=True)
 
-        self._enable_pgsql = config["storage"]["pgsql"]["enabled"]
-        self._pgsql_host = config["storage"]["pgsql"]["host"]
-        self._pgsql_port = config["storage"]["pgsql"]["port"]
-        self._pgsql_database = config["storage"]["pgsql"]["database"]
-        self._pgsql_user = config["storage"]["pgsql"]["user"]
-        self._pgsql_password = config["storage"]["pgsql"]["password"]
+        # pg
+        _pgsql_config: dict[str, Any] = _storage_config.get("pgsql", {})
+        self._enable_pgsql = _pgsql_config.get("enabled", False)
+        if not self._enable_pgsql:
+            logger.warning("PostgreSQL is not enabled, NO POSTGRESQL DATABASE STORAGE")
+            self._pgsql_args = ("", "", "", "", "")
+        else:
+            self._pgsql_host = _pgsql_config["host"]
+            self._pgsql_port = _pgsql_config["port"]
+            self._pgsql_database = _pgsql_config["database"]
+            self._pgsql_user = _pgsql_config.get("user", None)
+            self._pgsql_password = _pgsql_config.get("password", None)
+            self._pgsql_args: tuple[str, str, str, str, str] = (
+                self._pgsql_host,
+                self._pgsql_port,
+                self._pgsql_database,
+                self._pgsql_user,
+                self._pgsql_password,
+            )
 
         # 添加实验信息相关的属性
         self._exp_info = {
@@ -96,13 +115,33 @@ class AgentSimulation:
         }
 
         # 创建异步任务保存实验信息
-        self._exp_info_file = self._avro_path / "experiment_info.yaml"
-        with open(self._exp_info_file, "w") as f:
-            yaml.dump(self._exp_info, f)
+        if self._enable_avro:
+            assert self._avro_path is not None
+            self._exp_info_file = self._avro_path / "experiment_info.yaml"
+            with open(self._exp_info_file, "w") as f:
+                yaml.dump(self._exp_info, f)
 
     @property
-    def agents(self):
+    def enable_avro(
+        self,
+    ) -> bool:
+        return self._enable_avro
+
+    @property
+    def enable_pgsql(
+        self,
+    ) -> bool:
+        return self._enable_pgsql
+
+    @property
+    def agents(self) -> dict[uuid.UUID, Agent]:
         return self._agents
+
+    @property
+    def avro_path(
+        self,
+    ) -> Path:
+        return self._avro_path  # type:ignore
 
     @property
     def groups(self):
@@ -122,13 +161,24 @@ class AgentSimulation:
         agents: list[Agent],
         config: dict,
         exp_id: str,
+        exp_name: str,
         enable_avro: bool,
         avro_path: Path,
+        enable_pgsql: bool,
+        pgsql_args: tuple[str, str, str, str, str],
         logging_level: int = logging.WARNING,
     ):
         """创建远程组"""
         group = AgentGroup.remote(
-            agents, config, exp_id, enable_avro, avro_path, logging_level
+            agents,
+            config,
+            exp_id,
+            exp_name,
+            enable_avro,
+            avro_path,
+            enable_pgsql,
+            pgsql_args,
+            logging_level,
         )
         return group_name, group, agents
 
@@ -174,7 +224,6 @@ class AgentSimulation:
                     memory_config_func.append(self.default_memory_config_institution)
                 else:
                     memory_config_func.append(self.default_memory_config_citizen)
-
         # 使用线程池并行创建 AgentGroup
         group_creation_params = []
         class_init_index = 0
@@ -226,8 +275,11 @@ class AgentSimulation:
                 agents,
                 self.config,
                 self.exp_id,
-                self._enable_avro,
-                self._avro_path,
+                self.exp_name,
+                self.enable_avro,
+                self.avro_path,
+                self.enable_pgsql,
+                self._pgsql_args,
                 self.logging_level,
             )
             creation_tasks.append((group_name, group, agents))
@@ -393,7 +445,7 @@ class AgentSimulation:
         return EXTRA_ATTRIBUTES, PROFILE, BASE
 
     async def send_survey(
-        self, survey: Survey, agent_uuids: Optional[List[uuid.UUID]] = None
+        self, survey: Survey, agent_uuids: Optional[list[uuid.UUID]] = None
     ):
         """发送问卷"""
         survey_dict = survey.to_dict()
@@ -410,7 +462,7 @@ class AgentSimulation:
             await self._messager.send_message(topic, payload)
 
     async def send_interview_message(
-        self, content: str, agent_uuids: Union[uuid.UUID, List[uuid.UUID]]
+        self, content: str, agent_uuids: Union[uuid.UUID, list[uuid.UUID]]
     ):
         """发送面试消息"""
         payload = {
@@ -438,10 +490,17 @@ class AgentSimulation:
     async def _save_exp_info(self) -> None:
         """异步保存实验信息到YAML文件"""
         try:
-            with open(self._exp_info_file, "w") as f:
-                yaml.dump(self._exp_info, f)
+            if self.enable_avro:
+                with open(self._exp_info_file, "w") as f:
+                    yaml.dump(self._exp_info, f)
         except Exception as e:
-            logger.error(f"保存实验信息失败: {str(e)}")
+            logger.error(f"Avro保存实验信息失败: {str(e)}")
+        try:
+            if self.enable_pgsql:
+                #   TODO
+                pass
+        except Exception as e:
+            logger.error(f"PostgreSQL保存实验信息失败: {str(e)}")
 
     async def _update_exp_status(self, status: int, error: str = "") -> None:
         """更新实验状态并保存"""
@@ -492,7 +551,6 @@ class AgentSimulation:
                     tasks = []
                     for group in self._groups.values():
                         tasks.append(group.run.remote())
-
                     # 等待所有group运行完成
                     await asyncio.gather(*tasks)
 

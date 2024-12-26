@@ -5,7 +5,7 @@ import logging
 import os
 from collections.abc import Sequence
 from datetime import datetime, timedelta
-from typing import Any, Optional, Tuple, Union, cast
+from typing import Any, Optional, Union, cast
 
 from mosstool.type import TripMode
 from mosstool.util.format_converter import coll2pb
@@ -28,7 +28,7 @@ class Simulator:
     - Simulator Class
     """
 
-    def __init__(self, config, secure: bool = False) -> None:
+    def __init__(self, config:dict, secure: bool = False) -> None:
         self.config = config
         """
         - 模拟器配置

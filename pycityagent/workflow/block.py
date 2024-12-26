@@ -3,12 +3,11 @@ import functools
 import inspect
 from typing import Any, Callable, Coroutine, Optional, Union
 
-from pycityagent.environment.simulator import Simulator
-from pycityagent.workflow.trigger import EventTrigger
-
+from ..environment.simulator import Simulator
 from ..llm import LLM
 from ..memory import Memory
 from ..utils.decorators import record_call_aio
+from ..workflow.trigger import EventTrigger
 
 TRIGGER_INTERVAL = 1
 
