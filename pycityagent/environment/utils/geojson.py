@@ -1,9 +1,7 @@
-from typing import List
-
 __all__ = ["wrap_feature_collection"]
 
 
-def wrap_feature_collection(features: List[dict], name: str):
+def wrap_feature_collection(features: list[dict], name: str):
     """
     将 GeoJSON Feature 集合包装为 FeatureCollection
     Wrap GeoJSON Feature collection as FeatureCollection

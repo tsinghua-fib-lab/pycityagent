@@ -1,7 +1,6 @@
 """简单的基于内存的embedding实现"""
 
 import numpy as np
-from typing import List, Dict, Optional
 import hashlib
 import json
 
@@ -22,34 +21,34 @@ class SimpleEmbedding:
         """
         self.vector_dim = vector_dim
         self.cache_size = cache_size
-        self._cache: Dict[str, np.ndarray] = {}
-        self._vocab: Dict[str, int] = {}  # 词汇表
-        self._idf: Dict[str, float] = {}  # 逆文档频率
+        self._cache: dict[str, np.ndarray] = {}
+        self._vocab: dict[str, int] = {}  # 词汇表
+        self._idf: dict[str, float] = {}  # 逆文档频率
         self._doc_count = 0  # 文档总数
 
     def _text_to_hash(self, text: str) -> str:
         """将文本转换为hash值"""
         return hashlib.md5(text.encode()).hexdigest()
 
-    def _tokenize(self, text: str) -> List[str]:
+    def _tokenize(self, text: str) -> list[str]:
         """简单的分词"""
         # 这里使用简单的空格分词，实际应用中可以使用更复杂的分词方法
         return text.lower().split()
 
-    def _update_vocab(self, tokens: List[str]):
+    def _update_vocab(self, tokens: list[str]):
         """更新词汇表"""
         for token in set(tokens):  # 使用set去重
             if token not in self._vocab:
                 self._vocab[token] = len(self._vocab)
 
-    def _update_idf(self, tokens: List[str]):
+    def _update_idf(self, tokens: list[str]):
         """更新IDF值"""
         self._doc_count += 1
         unique_tokens = set(tokens)
         for token in unique_tokens:
             self._idf[token] = self._idf.get(token, 0) + 1
 
-    def _calculate_tf(self, tokens: List[str]) -> Dict[str, float]:
+    def _calculate_tf(self, tokens: list[str]) -> dict[str, float]:
         """计算词频(TF)"""
         tf = {}
         total_tokens = len(tokens)
@@ -60,7 +59,7 @@ class SimpleEmbedding:
             tf[token] /= total_tokens
         return tf
 
-    def _calculate_tfidf(self, tokens: List[str]) -> np.ndarray:
+    def _calculate_tfidf(self, tokens: list[str]) -> np.ndarray:
         """计算TF-IDF向量"""
         vector = np.zeros(self.vector_dim)
         tf = self._calculate_tf(tokens)

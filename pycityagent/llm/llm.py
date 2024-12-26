@@ -14,7 +14,7 @@ import requests
 from dashscope import ImageSynthesis
 from PIL import Image
 from io import BytesIO
-from typing import Any, Optional, Union, List, Dict
+from typing import Any, Optional, Union
 from .llmconfig import *
 from .utils import *
 
@@ -117,8 +117,8 @@ Token Usage:
         presence_penalty: Optional[float] = None,
         timeout: int = 300,
         retries=3,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        tool_choice: Optional[Dict[str, Any]] = None,
+        tools: Optional[list[dict[str, Any]]] = None,
+        tool_choice: Optional[dict[str, Any]] = None,
     ):
         """
         异步版文本请求
@@ -227,9 +227,9 @@ Token Usage:
                     self.prompt_tokens_used += result_response.usage.prompt_tokens  # type: ignore
                     self.completion_tokens_used += result_response.usage.completion_tokens  # type: ignore
                     self.request_number += 1
-                    if tools and result_response.choices[0].message.tool_calls:
+                    if tools and result_response.choices[0].message.tool_calls:  # type: ignore
                         return json.loads(
-                            result_response.choices[0]
+                            result_response.choices[0]  # type: ignore
                             .message.tool_calls[0]
                             .function.arguments
                         )

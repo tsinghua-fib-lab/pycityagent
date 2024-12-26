@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import ray
 import os
 import random
 import uuid
@@ -165,7 +166,7 @@ class AgentSimulation:
         enable_avro: bool,
         avro_path: Path,
         enable_pgsql: bool,
-        pgsql_args: tuple[str, str, str, str, str],
+        pgsql_copy_writer: ray.ObjectRef,
         logging_level: int = logging.WARNING,
     ):
         """创建远程组"""
@@ -177,7 +178,7 @@ class AgentSimulation:
             enable_avro,
             avro_path,
             enable_pgsql,
-            pgsql_args,
+            pgsql_copy_writer,
             logging_level,
         )
         return group_name, group, agents
@@ -279,7 +280,8 @@ class AgentSimulation:
                 self.enable_avro,
                 self.avro_path,
                 self.enable_pgsql,
-                self._pgsql_args,
+                # TODO:
+                self._pgsql_copy_writer, # type:ignore
                 self.logging_level,
             )
             creation_tasks.append((group_name, group, agents))

@@ -1,6 +1,6 @@
 import time
-from typing import Any, Callable, Dict, List, Optional, Union
-
+from typing import Any, Optional, Union
+from collections.abc import Callable
 from mlflow.entities import Metric
 
 from ..agent import Agent
@@ -76,7 +76,7 @@ class SencePOI(Tool):
     Attributes:
         radius (int): The radius within which to search for POIs.
         category_prefix (str): The prefix for the categories of POIs to consider.
-        variables (List[str]): A list of variables relevant to the tool's operation.
+        variables (list[str]): A list of variables relevant to the tool's operation.
 
     Args:
         radius (int, optional): The circular search radius. Defaults to 100.

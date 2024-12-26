@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Optional, Union
 import re
 
 
@@ -10,7 +10,7 @@ class FormatPrompt:
     Attributes:
         template (str): The template string containing placeholders.
         system_prompt (Optional[str]): An optional system prompt to add to the dialog.
-        variables (List[str]): A list of variable names extracted from the template.
+        variables (list[str]): A list of variable names extracted from the template.
         formatted_string (str): The formatted string derived from the template and provided variables.
     """
 
@@ -27,12 +27,12 @@ class FormatPrompt:
         self.variables = self._extract_variables()
         self.formatted_string = ""  # To store the formatted string
 
-    def _extract_variables(self) -> List[str]:
+    def _extract_variables(self) -> list[str]:
         """
         Extracts variable names from the template string.
 
         Returns:
-            List[str]: A list of variable names found within the template.
+            list[str]: A list of variable names found within the template.
         """
         return re.findall(r"\{(\w+)\}", self.template)
 
@@ -51,12 +51,12 @@ class FormatPrompt:
         )  # Store the formatted string
         return self.formatted_string
 
-    def to_dialog(self) -> List[Dict[str, str]]:
+    def to_dialog(self) -> list[dict[str, str]]:
         """
         Converts the formatted prompt and optional system prompt into a dialog format.
 
         Returns:
-            List[Dict[str, str]]: A list representing the dialog with roles and content.
+            list[dict[str, str]]: A list representing the dialog with roles and content.
         """
         dialog = []
         if self.system_prompt:

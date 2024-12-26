@@ -35,7 +35,7 @@ class AgentGroup:
         enable_avro: bool,
         avro_path: Path,
         enable_pgsql: bool,
-        pgsql_args: tuple[str, str, str, str, str],
+        pgsql_copy_writer: ray.ObjectRef,
         logging_level: int,
     ):
         logger.setLevel(logging_level)

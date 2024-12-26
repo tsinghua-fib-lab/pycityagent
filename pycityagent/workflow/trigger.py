@@ -1,5 +1,5 @@
 import asyncio
-from typing import Any, Callable, Dict, List, Optional, Union, Type
+from typing import Optional
 import socket
 from ..memory import Memory
 from ..environment import Simulator
@@ -11,7 +11,7 @@ class EventTrigger:
     """Base class for event triggers that wait for specific conditions to be met."""
 
     # 定义该trigger需要的组件类型
-    required_components: List[Type] = []
+    required_components: list[type] = []
 
     def __init__(self, block=None):
         self.block = block

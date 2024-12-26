@@ -4,7 +4,7 @@ Base class of parser
 
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Union
 
 
 class ParserBase(ABC):

@@ -2,7 +2,8 @@ import asyncio
 import logging
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
+from typing import Any, Literal, Optional,  Union
+from collections.abc import Sequence,Callable
 
 import numpy as np
 from pyparsing import deque
@@ -27,10 +28,10 @@ class Memory:
 
     def __init__(
         self,
-        config: Optional[Dict[Any, Any]] = None,
-        profile: Optional[Dict[Any, Any]] = None,
-        base: Optional[Dict[Any, Any]] = None,
-        motion: Optional[Dict[Any, Any]] = None,
+        config: Optional[dict[Any, Any]] = None,
+        profile: Optional[dict[Any, Any]] = None,
+        base: Optional[dict[Any, Any]] = None,
+        motion: Optional[dict[Any, Any]] = None,
         activate_timestamp: bool = False,
         embedding_model: Any = None,
     ) -> None:
@@ -38,7 +39,7 @@ class Memory:
         Initializes the Memory with optional configuration.
 
         Args:
-            config (Optional[Dict[Any, Any]], optional):
+            config (Optional[dict[Any, Any]], optional):
                 A configuration dictionary for dynamic memory. The dictionary format is:
                 - Key: The name of the dynamic memory field.
                 - Value: Can be one of two formats:
@@ -46,24 +47,24 @@ class Memory:
                     2. A callable that returns the default value when invoked (useful for complex default values).
                 Note: If a key in `config` overlaps with predefined attributes in `PROFILE_ATTRIBUTES` or `STATE_ATTRIBUTES`, a warning will be logged, and the key will be ignored.
                 Defaults to None.
-            profile (Optional[Dict[Any, Any]], optional): profile attribute dict.
-            base (Optional[Dict[Any, Any]], optional): base attribute dict from City Simulator.
-            motion (Optional[Dict[Any, Any]], optional): motion attribute dict from City Simulator.
+            profile (Optional[dict[Any, Any]], optional): profile attribute dict.
+            base (Optional[dict[Any, Any]], optional): base attribute dict from City Simulator.
+            motion (Optional[dict[Any, Any]], optional): motion attribute dict from City Simulator.
             activate_timestamp (bool): Whether activate timestamp storage in MemoryUnit
             embedding_model (Any): The embedding model for memory search.
         """
-        self.watchers: Dict[str, List[Callable]] = {}
+        self.watchers: dict[str, list[Callable]] = {}
         self._lock = asyncio.Lock()
         self.embedding_model = embedding_model
 
         # 初始化embedding存储
         self._embeddings = {"state": {}, "profile": {}, "dynamic": {}}
 
-        _dynamic_config: Dict[Any, Any] = {}
-        _state_config: Dict[Any, Any] = {}
-        _profile_config: Dict[Any, Any] = {}
+        _dynamic_config: dict[Any, Any] = {}
+        _state_config: dict[Any, Any] = {}
+        _profile_config: dict[Any, Any] = {}
         # 记录哪些字段需要embedding
-        self._embedding_fields: Dict[str, bool] = {}
+        self._embedding_fields: dict[str, bool] = {}
 
         if config is not None:
             for k, v in config.items():
@@ -303,7 +304,7 @@ class Memory:
 
     async def update_batch(
         self,
-        content: Union[Dict, Sequence[Tuple[Any, Any]]],
+        content: Union[dict, Sequence[tuple[Any, Any]]],
         mode: Union[Literal["replace"], Literal["merge"]] = "replace",
         store_snapshot: bool = False,
         protect_llm_read_only_fields: bool = True,
@@ -312,7 +313,7 @@ class Memory:
         Updates multiple values in the memory at once.
 
         Args:
-            content (Union[Dict, Sequence[Tuple[Any, Any]]]): A dictionary or sequence of tuples containing the keys and values to update.
+            content (Union[dict, Sequence[tuple[Any, Any]]]): A dictionary or sequence of tuples containing the keys and values to update.
             mode (Union[Literal["replace"], Literal["merge"]], optional): Update mode. Defaults to "replace".
             store_snapshot (bool): Whether to store a snapshot of the memory after the update.
             protect_llm_read_only_fields (bool): Whether to protect non-self define fields from being updated.
@@ -321,9 +322,9 @@ class Memory:
             TypeError: If the content type is neither a dictionary nor a sequence of tuples.
         """
         if isinstance(content, dict):
-            _list_content: List[Tuple[Any, Any]] = [(k, v) for k, v in content.items()]
+            _list_content: list[tuple[Any, Any]] = [(k, v) for k, v in content.items()]
         elif isinstance(content, Sequence):
-            _list_content: List[Tuple[Any, Any]] = [(k, v) for k, v in content]
+            _list_content: list[tuple[Any, Any]] = [(k, v) for k, v in content]
         else:
             raise TypeError(f"Invalid content type `{type(content)}`!")
         for k, v in _list_content[:1]:
@@ -353,12 +354,12 @@ class Memory:
     @lock_decorator
     async def export(
         self,
-    ) -> Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]]:
+    ) -> tuple[Sequence[dict], Sequence[dict], Sequence[dict]]:
         """
         Exports the current state of all memory sections.
 
         Returns:
-            Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]]: A tuple containing the exported data of profile, state, and dynamic memory sections.
+            tuple[Sequence[dict], Sequence[dict], Sequence[dict]]: A tuple containing the exported data of profile, state, and dynamic memory sections.
         """
         return (
             await self._profile.export(),
@@ -369,14 +370,14 @@ class Memory:
     @lock_decorator
     async def load(
         self,
-        snapshots: Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]],
+        snapshots: tuple[Sequence[dict], Sequence[dict], Sequence[dict]],
         reset_memory: bool = True,
     ) -> None:
         """
         Import the snapshot memories of all sections.
 
         Args:
-            snapshots (Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]]): The exported snapshots.
+            snapshots (tuple[Sequence[dict], Sequence[dict], Sequence[dict]]): The exported snapshots.
             reset_memory (bool): Whether to reset previous memory.
         """
         _profile_snapshot, _state_snapshot, _dynamic_snapshot = snapshots

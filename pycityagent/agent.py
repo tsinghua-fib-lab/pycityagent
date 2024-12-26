@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from uuid import UUID
 
 import fastavro
@@ -55,7 +55,7 @@ class Agent(ABC):
         simulator: Optional[Simulator] = None,
         mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
-        avro_file: Optional[Dict[str, str]] = None,
+        avro_file: Optional[dict[str, str]] = None,
     ) -> None:
         """
         Initialize the Agent.
@@ -69,7 +69,7 @@ class Agent(ABC):
             simulator (Simulator, optional): The simulator object. Defaults to None.
             mlflow_client (MlflowClient, optional): The Mlflow object. Defaults to None.
             memory (Memory, optional): The memory of the agent. Defaults to None.
-            avro_file (Dict[str, str], optional): The avro file of the agent. Defaults to None.
+            avro_file (dict[str, str], optional): The avro file of the agent. Defaults to None.
         """
         self._name = name
         self._type = type
@@ -85,7 +85,7 @@ class Agent(ABC):
         self._has_bound_to_simulator = False
         self._has_bound_to_economy = False
         self._blocked = False
-        self._interview_history: List[Dict] = []  # 存储采访历史
+        self._interview_history: list[dict] = []  # 存储采访历史
         self._person_template = PersonService.default_dict_person()
         self._avro_file = avro_file
 
@@ -137,7 +137,7 @@ class Agent(ABC):
         """
         self._exp_id = exp_id
 
-    def set_avro_file(self, avro_file: Dict[str, str]):
+    def set_avro_file(self, avro_file: dict[str, str]):
         """
         Set the avro file of the agent.
         """
@@ -557,7 +557,7 @@ class InstitutionAgent(Agent):
             avro_file=avro_file,
         )
         # 添加响应收集器
-        self._gather_responses: Dict[str, asyncio.Future] = {}
+        self._gather_responses: dict[str, asyncio.Future] = {}
 
     async def bind_to_simulator(self):
         await self._bind_to_economy()
@@ -659,7 +659,7 @@ class InstitutionAgent(Agent):
                 }
             )
 
-    async def gather_messages(self, agent_uuids: list[str], target: str) -> List[dict]:
+    async def gather_messages(self, agent_uuids: list[str], target: str) -> list[dict]:
         """从多个智能体收集消息
 
         Args:
@@ -667,7 +667,7 @@ class InstitutionAgent(Agent):
             target: 要收集的信息类型
 
         Returns:
-            List[dict]: 收集到的所有响应
+            list[dict]: 收集到的所有响应
         """
         # 为每个agent创建Future
         futures = {}

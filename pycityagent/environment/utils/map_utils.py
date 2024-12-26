@@ -1,5 +1,5 @@
 import math
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Literal,  Union
 
 import numpy as np
 
@@ -14,12 +14,12 @@ def point_on_line_given_distance(start_node, end_node, distance):
     return the coordinates of the point reached after traveling s units along the line, starting from start_point.
 
     Args:
-        start_point (tuple): Tuple of (x, y) representing the starting point on the line.
-        end_point (tuple): Tuple of (x, y) representing the ending point on the line.
+        start_point (tuple): tuple of (x, y) representing the starting point on the line.
+        end_point (tuple): tuple of (x, y) representing the ending point on the line.
         distance (float): Distance to travel along the line, starting from start_point.
 
     Returns:
-        tuple: Tuple of (x, y) representing the new point reached after traveling s units along the line.
+        tuple: tuple of (x, y) representing the new point reached after traveling s units along the line.
     """
 
     x1, y1 = start_node["x"], start_node["y"]
@@ -49,7 +49,7 @@ def point_on_line_given_distance(start_node, end_node, distance):
 
 
 def get_key_index_in_lane(
-    nodes: List[Dict[str, float]],
+    nodes: list[dict[str, float]],
     distance: float,
     direction: Union[Literal["front"], Literal["back"]],
 ) -> int:
@@ -61,10 +61,10 @@ def get_key_index_in_lane(
         _index_offset, _index_factor = len(_nodes) - 1, -1
     else:
         raise ValueError(f"Invalid direction type {direction}!")
-    _lane_points: List[Tuple[float, float, float]] = [
+    _lane_points: list[tuple[float, float, float]] = [
         (n["x"], n["y"], n.get("z", 0)) for n in _nodes
     ]
-    _line_lengths: List[float] = [0.0 for _ in range(len(_nodes))]
+    _line_lengths: list[float] = [0.0 for _ in range(len(_nodes))]
     _s = 0.0
     for i, (cur_p, next_p) in enumerate(zip(_lane_points[:-1], _lane_points[1:])):
         _s += math.hypot(next_p[0] - cur_p[0], next_p[1] - cur_p[1])
@@ -82,20 +82,20 @@ def get_key_index_in_lane(
 
 
 def get_xy_in_lane(
-    nodes: List[Dict[str, float]],
+    nodes: list[dict[str, float]],
     distance: float,
     direction: Union[Literal["front"], Literal["back"]],
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     if direction == "front":
         _nodes = [n for n in nodes]
     elif direction == "back":
         _nodes = [n for n in nodes[::-1]]
     else:
         raise ValueError(f"Invalid direction type {direction}!")
-    _lane_points: List[Tuple[float, float, float]] = [
+    _lane_points: list[tuple[float, float, float]] = [
         (n["x"], n["y"], n.get("z", 0)) for n in _nodes
     ]
-    _line_lengths: List[float] = [0.0 for _ in range(len(_nodes))]
+    _line_lengths: list[float] = [0.0 for _ in range(len(_nodes))]
     _s = 0.0
     for i, (cur_p, next_p) in enumerate(zip(_lane_points[:-1], _lane_points[1:])):
         _s += math.hypot(next_p[0] - cur_p[0], next_p[1] - cur_p[1])
@@ -122,7 +122,7 @@ def get_xy_in_lane(
 
 
 def get_direction_by_s(
-    nodes: List[Dict[str, float]],
+    nodes: list[dict[str, float]],
     distance: float,
     direction: Union[Literal["front"], Literal["back"]],
 ) -> float:
@@ -132,11 +132,11 @@ def get_direction_by_s(
         _nodes = [n for n in nodes[::-1]]
     else:
         raise ValueError(f"Invalid direction type {direction}!")
-    _lane_points: List[Tuple[float, float, float]] = [
+    _lane_points: list[tuple[float, float, float]] = [
         (n["x"], n["y"], n.get("z", 0)) for n in _nodes
     ]
-    _line_lengths: List[float] = [0.0 for _ in range(len(_nodes))]
-    _line_directions: List[Tuple[float, float]] = []
+    _line_lengths: list[float] = [0.0 for _ in range(len(_nodes))]
+    _line_directions: list[tuple[float, float]] = []
     _s = 0.0
     for i, (cur_p, next_p) in enumerate(zip(_lane_points[:-1], _lane_points[1:])):
         _s += math.hypot(next_p[0] - cur_p[0], next_p[1] - cur_p[1])
