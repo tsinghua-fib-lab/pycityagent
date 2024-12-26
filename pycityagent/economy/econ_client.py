@@ -308,7 +308,7 @@ class EconomyClient:
         # current agent ids and org ids
         return (list(response.agent_ids), list(response.org_ids))
 
-    async def get_org_entity_ids(self, org_type: economyv2.OrgType)->list[int]:
+    async def get_org_entity_ids(self, org_type: economyv2.OrgType) -> list[int]:
         request = org_service.GetOrgEntityIdsRequest(
             type=org_type,
         )

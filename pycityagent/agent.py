@@ -1,30 +1,28 @@
 """智能体模板类及其定义"""
 
-from abc import ABC, abstractmethod
 import asyncio
-from uuid import UUID
-from copy import deepcopy
-from datetime import datetime
-from enum import Enum
 import logging
 import random
 import uuid
-from typing import Dict, List, Optional,Any
+from abc import ABC, abstractmethod
+from copy import deepcopy
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 import fastavro
-
-from pycityagent.environment.sim.person_service import PersonService
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
-from pycityagent.utils import process_survey_for_llm
-
-from pycityagent.message.messager import Messager
-from pycityagent.utils import SURVEY_SCHEMA, DIALOG_SCHEMA
 
 from .economy import EconomyClient
 from .environment import Simulator
+from .environment.sim.person_service import PersonService
 from .llm import LLM
 from .memory import Memory
+from .message.messager import Messager
+from .metrics import MlflowClient
+from .utils import DIALOG_SCHEMA, SURVEY_SCHEMA, process_survey_for_llm
 
 logger = logging.getLogger("pycityagent")
 
@@ -55,6 +53,7 @@ class Agent(ABC):
         economy_client: Optional[EconomyClient] = None,
         messager: Optional[Messager] = None,
         simulator: Optional[Simulator] = None,
+        mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
         avro_file: Optional[Dict[str, str]] = None,
     ) -> None:
@@ -68,6 +67,7 @@ class Agent(ABC):
             economy_client (EconomyClient): The `EconomySim` client. Defaults to None.
             messager (Messager, optional): The messager object. Defaults to None.
             simulator (Simulator, optional): The simulator object. Defaults to None.
+            mlflow_client (MlflowClient, optional): The Mlflow object. Defaults to None.
             memory (Memory, optional): The memory of the agent. Defaults to None.
             avro_file (Dict[str, str], optional): The avro file of the agent. Defaults to None.
         """
@@ -78,6 +78,7 @@ class Agent(ABC):
         self._economy_client = economy_client
         self._messager = messager
         self._simulator = simulator
+        self._mlflow_client = mlflow_client
         self._memory = memory
         self._exp_id = -1
         self._agent_id = -1
@@ -111,6 +112,12 @@ class Agent(ABC):
         Set the simulator of the agent.
         """
         self._simulator = simulator
+
+    def set_mlflow_client(self, mlflow_client: MlflowClient):
+        """
+        Set the mlflow_client of the agent.
+        """
+        self._mlflow_client = mlflow_client
 
     def set_economy_client(self, economy_client: EconomyClient):
         """
@@ -163,6 +170,15 @@ class Agent(ABC):
                 f"EconomyClient access before assignment, please `set_economy_client` first!"
             )
         return self._economy_client
+
+    @property
+    def mlflow_client(self):
+        """The Agent's MlflowClient"""
+        if self._mlflow_client is None:
+            raise RuntimeError(
+                f"MlflowClient access before assignment, please `set_mlflow_client` first!"
+            )
+        return self._mlflow_client
 
     @property
     def memory(self):
@@ -218,19 +234,21 @@ class Agent(ABC):
         response = await self._llm_client.atext_request(dialog)  # type:ignore
 
         return response  # type:ignore
-    
+
     async def _process_survey(self, survey: dict):
         survey_response = await self.generate_user_survey_response(survey)
         if self._avro_file is None:
             return
-        response_to_avro = [{
-            "id": self._uuid,
-            "day": await self.simulator.get_simulator_day(),
-            "t": await self.simulator.get_simulator_second_from_start_of_day(),
-            "survey_id": survey["id"],
-            "result": survey_response,
-            "created_at": int(datetime.now().timestamp() * 1000),
-        }]
+        response_to_avro = [
+            {
+                "id": self._uuid,
+                "day": await self.simulator.get_simulator_day(),
+                "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                "survey_id": survey["id"],
+                "result": survey_response,
+                "created_at": int(datetime.now().timestamp() * 1000),
+            }
+        ]
         with open(self._avro_file["survey"], "a+b") as f:
             fastavro.writer(f, SURVEY_SCHEMA, response_to_avro, codec="snappy")
 
@@ -270,28 +288,32 @@ class Agent(ABC):
         response = await self._llm_client.atext_request(dialog)  # type:ignore
 
         return response  # type:ignore
-    
+
     async def _process_interview(self, payload: dict):
-        auros = [{
-            "id": self._uuid,
-            "day": await self.simulator.get_simulator_day(),
-            "t": await self.simulator.get_simulator_second_from_start_of_day(),
-            "type": 2,
-            "speaker": "user",
-            "content": payload["content"],
-            "created_at": int(datetime.now().timestamp() * 1000),
-        }]
+        auros = [
+            {
+                "id": self._uuid,
+                "day": await self.simulator.get_simulator_day(),
+                "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                "type": 2,
+                "speaker": "user",
+                "content": payload["content"],
+                "created_at": int(datetime.now().timestamp() * 1000),
+            }
+        ]
         question = payload["content"]
         response = await self.generate_user_chat_response(question)
-        auros.append({
-            "id": self._uuid,
-            "day": await self.simulator.get_simulator_day(),
-            "t": await self.simulator.get_simulator_second_from_start_of_day(),
-            "type": 2,
-            "speaker": "",
-            "content": response,
-            "created_at": int(datetime.now().timestamp() * 1000),
-        })
+        auros.append(
+            {
+                "id": self._uuid,
+                "day": await self.simulator.get_simulator_day(),
+                "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                "type": 2,
+                "speaker": "",
+                "content": response,
+                "created_at": int(datetime.now().timestamp() * 1000),
+            }
+        )
         if self._avro_file is None:
             return
         with open(self._avro_file["dialog"], "a+b") as f:
@@ -303,15 +325,17 @@ class Agent(ABC):
         return resp
 
     async def _process_agent_chat(self, payload: dict):
-        auros = [{
-            "id": self._uuid,
-            "day": payload["day"],
-            "t": payload["t"],
-            "type": 1,
-            "speaker": payload["from"],
-            "content": payload["content"],
-            "created_at": int(datetime.now().timestamp() * 1000),
-        }]
+        auros = [
+            {
+                "id": self._uuid,
+                "day": payload["day"],
+                "t": payload["t"],
+                "type": 1,
+                "speaker": payload["from"],
+                "content": payload["content"],
+                "created_at": int(datetime.now().timestamp() * 1000),
+            }
+        ]
         asyncio.create_task(self.process_agent_chat_response(payload))
         if self._avro_file is None:
             return
@@ -341,18 +365,14 @@ class Agent(ABC):
         raise NotImplementedError
 
     # MQTT send message
-    async def _send_message(
-        self, to_agent_uuid: str, payload: dict, sub_topic: str
-    ):
+    async def _send_message(self, to_agent_uuid: str, payload: dict, sub_topic: str):
         """通过 Messager 发送消息"""
         if self._messager is None:
             raise RuntimeError("Messager is not set")
         topic = f"exps/{self._exp_id}/agents/{to_agent_uuid}/{sub_topic}"
         await self._messager.send_message(topic, payload)
 
-    async def send_message_to_agent(
-        self, to_agent_uuid: str, content: str
-    ):
+    async def send_message_to_agent(self, to_agent_uuid: str, content: str):
         """通过 Messager 发送消息"""
         if self._messager is None:
             raise RuntimeError("Messager is not set")
@@ -364,15 +384,17 @@ class Agent(ABC):
             "t": await self.simulator.get_simulator_second_from_start_of_day(),
         }
         await self._send_message(to_agent_uuid, payload, "agent-chat")
-        auros = [{
-            "id": self._uuid,
-            "day": await self.simulator.get_simulator_day(),
-            "t": await self.simulator.get_simulator_second_from_start_of_day(),
-            "type": 1,
-            "speaker": self._uuid,
-            "content": content,
-            "created_at": int(datetime.now().timestamp() * 1000),
-        }]
+        auros = [
+            {
+                "id": self._uuid,
+                "day": await self.simulator.get_simulator_day(),
+                "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                "type": 1,
+                "speaker": self._uuid,
+                "content": content,
+                "created_at": int(datetime.now().timestamp() * 1000),
+            }
+        ]
         if self._avro_file is None:
             return
         with open(self._avro_file["dialog"], "a+b") as f:
@@ -403,20 +425,22 @@ class CitizenAgent(Agent):
         name: str,
         llm_client: Optional[LLM] = None,
         simulator: Optional[Simulator] = None,
+        mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
         messager: Optional[Messager] = None,
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
-            name,
-            AgentType.Citizen,
-            llm_client,
-            economy_client,
-            messager,
-            simulator,
-            memory,
-            avro_file,
+            name=name,
+            type=AgentType.Citizen,
+            llm_client=llm_client,
+            economy_client=economy_client,
+            messager=messager,
+            simulator=simulator,
+            mlflow_client=mlflow_client,
+            memory=memory,
+            avro_file=avro_file,
         )
 
     async def bind_to_simulator(self):
@@ -464,9 +488,7 @@ class CitizenAgent(Agent):
                 )
                 person_id = resp["person_id"]
                 await memory.update("id", person_id, protect_llm_read_only_fields=False)
-                logger.debug(
-                    f"Binding to Person `{person_id}` just added to Simulator"
-                )
+                logger.debug(f"Binding to Person `{person_id}` just added to Simulator")
                 # 防止模拟器还没有到prepare阶段导致get_person出错
             self._has_bound_to_simulator = True
             self._agent_id = person_id
@@ -517,24 +539,26 @@ class InstitutionAgent(Agent):
         name: str,
         llm_client: Optional[LLM] = None,
         simulator: Optional[Simulator] = None,
+        mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
         messager: Optional[Messager] = None,
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
-            name,
-            AgentType.Institution,
-            llm_client,
-            economy_client,
-            messager,
-            simulator,
-            memory,
-            avro_file,
+            name=name,
+            type=AgentType.Institution,
+            llm_client=llm_client,
+            economy_client=economy_client,
+            mlflow_client=mlflow_client,
+            messager=messager,
+            simulator=simulator,
+            memory=memory,
+            avro_file=avro_file,
         )
         # 添加响应收集器
         self._gather_responses: Dict[str, asyncio.Future] = {}
-        
+
     async def bind_to_simulator(self):
         await self._bind_to_economy()
 
@@ -624,22 +648,24 @@ class InstitutionAgent(Agent):
         """处理收到的消息，识别发送者"""
         content = payload["content"]
         sender_id = payload["from"]
-        
+
         # 将响应存储到对应的Future中
         response_key = str(sender_id)
         if response_key in self._gather_responses:
-            self._gather_responses[response_key].set_result({
-                "from": sender_id,
-                "content": content,
-            })
+            self._gather_responses[response_key].set_result(
+                {
+                    "from": sender_id,
+                    "content": content,
+                }
+            )
 
     async def gather_messages(self, agent_uuids: list[str], target: str) -> List[dict]:
         """从多个智能体收集消息
-        
+
         Args:
             agent_uuids: 目标智能体UUID列表
             target: 要收集的信息类型
-            
+
         Returns:
             List[dict]: 收集到的所有响应
         """
@@ -648,7 +674,7 @@ class InstitutionAgent(Agent):
         for agent_uuid in agent_uuids:
             futures[agent_uuid] = asyncio.Future()
             self._gather_responses[agent_uuid] = futures[agent_uuid]
-            
+
         # 发送gather请求
         payload = {
             "from": self._uuid,
@@ -656,7 +682,7 @@ class InstitutionAgent(Agent):
         }
         for agent_uuid in agent_uuids:
             await self._send_message(agent_uuid, payload, "gather")
-            
+
         try:
             # 等待所有响应
             responses = await asyncio.gather(*futures.values())
