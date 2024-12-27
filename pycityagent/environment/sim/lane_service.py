@@ -1,4 +1,5 @@
-from typing import Any, Awaitable, Coroutine, cast, Union, Dict
+from typing import Any,cast, Union
+from collections.abc import Awaitable, Coroutine
 
 import grpc
 from google.protobuf.json_format import ParseDict
@@ -21,7 +22,7 @@ class LaneService:
 
     def GetLane(
         self, req: Union[lane_service.GetLaneRequest, dict], dict_return: bool = True
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], lane_service.GetLaneResponse]]:
+    ) -> Coroutine[Any, Any, Union[dict[str, Any], lane_service.GetLaneResponse]]:
         """
         获取Lane的信息
         Get Lane's information
@@ -41,7 +42,7 @@ class LaneService:
         self,
         req: Union[lane_service.SetLaneMaxVRequest, dict],
         dict_return: bool = True,
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], lane_service.SetLaneMaxVResponse]]:
+    ) -> Coroutine[Any, Any, Union[dict[str, Any], lane_service.SetLaneMaxVResponse]]:
         """
         设置Lane的最大速度（限速）
         Set the maximum speed of Lane (speed limit)
@@ -64,7 +65,7 @@ class LaneService:
         req: Union[lane_service.SetLaneRestrictionRequest, dict],
         dict_return: bool = True,
     ) -> Coroutine[
-        Any, Any, Union[Dict[str, Any], lane_service.SetLaneRestrictionResponse]
+        Any, Any, Union[dict[str, Any], lane_service.SetLaneRestrictionResponse]
     ]:
         """
         设置Lane的限制
@@ -89,7 +90,7 @@ class LaneService:
         req: Union[lane_service.GetLaneByLongLatBBoxRequest, dict],
         dict_return: bool = True,
     ) -> Coroutine[
-        Any, Any, Union[Dict[str, Any], lane_service.GetLaneByLongLatBBoxResponse]
+        Any, Any, Union[dict[str, Any], lane_service.GetLaneByLongLatBBoxResponse]
     ]:
         """
         获取特定区域内的Lane的信息

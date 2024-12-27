@@ -2,8 +2,9 @@
 Agent Profile
 """
 
+from collections.abc import Callable, Sequence
 from copy import deepcopy
-from typing import Any, Callable, Dict, Optional, Sequence, Union, cast
+from typing import Any, Optional, Union, cast
 
 from ..utils.decorators import lock_decorator
 from .const import *
@@ -14,7 +15,7 @@ from .utils import convert_msg_to_sequence
 class ProfileMemoryUnit(MemoryUnit):
     def __init__(
         self,
-        content: Optional[Dict] = None,
+        content: Optional[dict] = None,
         activate_timestamp: bool = False,
     ) -> None:
         super().__init__(
@@ -28,7 +29,7 @@ class ProfileMemory(MemoryBase):
     def __init__(
         self,
         msg: Optional[
-            Union[ProfileMemoryUnit, Sequence[ProfileMemoryUnit], Dict, Sequence[Dict]]
+            Union[ProfileMemoryUnit, Sequence[ProfileMemoryUnit], dict, Sequence[dict]]
         ] = None,
         activate_timestamp: bool = False,
     ) -> None:
@@ -74,7 +75,7 @@ class ProfileMemory(MemoryBase):
     @lock_decorator
     async def load(
         self,
-        snapshots: Union[Dict, Sequence[Dict]],
+        snapshots: Union[dict, Sequence[dict]],
         reset_memory: bool = False,
     ) -> None:
         if reset_memory:
@@ -91,7 +92,7 @@ class ProfileMemory(MemoryBase):
     @lock_decorator
     async def export(
         self,
-    ) -> Sequence[Dict]:
+    ) -> Sequence[dict]:
         _res = []
         for m in self._memories.keys():
             m = cast(ProfileMemoryUnit, m)
@@ -145,7 +146,7 @@ class ProfileMemory(MemoryBase):
                     self._memories[unit] = {}
 
     @lock_decorator
-    async def update_dict(self, to_update_dict: Dict, store_snapshot: bool = False):
+    async def update_dict(self, to_update_dict: dict, store_snapshot: bool = False):
         _latest_memories = self._fetch_recent_memory()
         _latest_memory: ProfileMemoryUnit = _latest_memories[-1]
         if not store_snapshot:

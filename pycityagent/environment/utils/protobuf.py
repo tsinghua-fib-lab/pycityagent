@@ -1,13 +1,15 @@
-from typing import Any, Awaitable, TypeVar, Union, Dict
-from google.protobuf.message import Message
+from collections.abc import Awaitable
+from typing import Any, TypeVar, Union
+
 from google.protobuf.json_format import MessageToDict
+from google.protobuf.message import Message
 
 __all__ = ["parse", "async_parse"]
 
 T = TypeVar("T", bound=Message)
 
 
-def parse(res: T, dict_return: bool) -> Union[Dict[str, Any], T]:
+def parse(res: T, dict_return: bool) -> Union[dict[str, Any], T]:
     """
     将Protobuf返回值转换为dict或者原始值
     Convert Protobuf return value to dict or original value
@@ -23,7 +25,7 @@ def parse(res: T, dict_return: bool) -> Union[Dict[str, Any], T]:
         return res
 
 
-async def async_parse(res: Awaitable[T], dict_return: bool) -> Union[Dict[str, Any], T]:
+async def async_parse(res: Awaitable[T], dict_return: bool) -> Union[dict[str, Any], T]:
     """
     将Protobuf await返回值转换为dict或者原始值
     Convert Protobuf await return value to dict or original value

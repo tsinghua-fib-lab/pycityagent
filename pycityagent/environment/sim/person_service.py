@@ -1,5 +1,6 @@
 import warnings
-from typing import Any, Awaitable, Coroutine, Dict, Union, cast
+from collections.abc import Awaitable, Coroutine
+from typing import Any, Union, cast
 
 import grpc
 from google.protobuf.json_format import ParseDict
@@ -51,7 +52,7 @@ class PersonService:
         self,
         req: Union[person_service.GetPersonRequest, dict],
         dict_return: bool = True,
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], person_service.GetPersonResponse]]:
+    ) -> Coroutine[Any, Any, Union[dict[str, Any], person_service.GetPersonResponse]]:
         """
         获取person信息
         Get person information
@@ -73,7 +74,7 @@ class PersonService:
         self,
         req: Union[person_service.AddPersonRequest, dict],
         dict_return: bool = True,
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], person_service.AddPersonResponse]]:
+    ) -> Coroutine[Any, Any, Union[dict[str, Any], person_service.AddPersonResponse]]:
         """
         新增person
         Add a new person
@@ -95,7 +96,7 @@ class PersonService:
         self,
         req: Union[person_service.SetScheduleRequest, dict],
         dict_return: bool = True,
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], person_service.SetScheduleResponse]]:
+    ) -> Coroutine[Any, Any, Union[dict[str, Any], person_service.SetScheduleResponse]]:
         """
         修改person的schedule
         set person's schedule
@@ -118,7 +119,7 @@ class PersonService:
         self,
         req: Union[person_service.GetPersonsRequest, dict],
         dict_return: bool = True,
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], person_service.GetPersonsResponse]]:
+    ) -> Coroutine[Any, Any, Union[dict[str, Any], person_service.GetPersonsResponse]]:
         """
         获取多个person信息
         Get information of multiple persons
@@ -142,7 +143,7 @@ class PersonService:
         req: Union[person_service.GetPersonByLongLatBBoxRequest, dict],
         dict_return: bool = True,
     ) -> Coroutine[
-        Any, Any, Union[Dict[str, Any], person_service.GetPersonByLongLatBBoxResponse]
+        Any, Any, Union[dict[str, Any], person_service.GetPersonByLongLatBBoxResponse]
     ]:
         """
         获取特定区域内的person
@@ -167,7 +168,7 @@ class PersonService:
         req: Union[person_service.GetAllVehiclesRequest, dict],
         dict_return: bool = True,
     ) -> Coroutine[
-        Any, Any, Union[Dict[str, Any], person_service.GetAllVehiclesResponse]
+        Any, Any, Union[dict[str, Any], person_service.GetAllVehiclesResponse]
     ]:
         """
         获取所有车辆
@@ -192,7 +193,7 @@ class PersonService:
         req: Union[person_service.ResetPersonPositionRequest, dict],
         dict_return: bool = True,
     ) -> Coroutine[
-        Any, Any, Union[Dict[str, Any], person_service.ResetPersonPositionResponse]
+        Any, Any, Union[dict[str, Any], person_service.ResetPersonPositionResponse]
     ]:
         """
         重置人的位置（将停止当前正在进行的出行，转为sleep状态）
@@ -219,7 +220,7 @@ class PersonService:
         req: Union[person_service.SetControlledVehicleIDsRequest, dict],
         dict_return: bool = True,
     ) -> Coroutine[
-        Any, Any, Union[Dict[str, Any], person_service.SetControlledVehicleIDsResponse]
+        Any, Any, Union[dict[str, Any], person_service.SetControlledVehicleIDsResponse]
     ]:
         """
         设置由外部控制行为的vehicle
@@ -246,7 +247,7 @@ class PersonService:
     ) -> Coroutine[
         Any,
         Any,
-        Union[Dict[str, Any], person_service.FetchControlledVehicleEnvsResponse],
+        Union[dict[str, Any], person_service.FetchControlledVehicleEnvsResponse],
     ]:
         """
         获取由外部控制行为的vehicle的环境信息
@@ -273,7 +274,7 @@ class PersonService:
     ) -> Coroutine[
         Any,
         Any,
-        Union[Dict[str, Any], person_service.SetControlledVehicleActionsResponse],
+        Union[dict[str, Any], person_service.SetControlledVehicleActionsResponse],
     ]:
         """
         设置由外部控制行为的vehicle的行为

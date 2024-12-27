@@ -6,7 +6,8 @@ import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, Sequence, Union
+from collections.abc import Callable, Sequence
+from typing import Any, Optional, Union
 
 from .const import *
 
@@ -16,8 +17,8 @@ logger = logging.getLogger("pycityagent")
 class MemoryUnit:
     def __init__(
         self,
-        content: Optional[Dict] = None,
-        required_attributes: Optional[Dict] = None,
+        content: Optional[dict] = None,
+        required_attributes: Optional[dict] = None,
         activate_timestamp: bool = False,
     ) -> None:
         self._content = {}
@@ -52,7 +53,7 @@ class MemoryUnit:
         else:
             setattr(self, f"{SELF_DEFINE_PREFIX}{property_name}", property_value)
 
-    async def update(self, content: Dict) -> None:
+    async def update(self, content: dict) -> None:
         await self._lock.acquire()
         for k, v in content.items():
             if k in self._content:
@@ -111,14 +112,14 @@ class MemoryUnit:
 
     async def dict_values(
         self,
-    ) -> Dict[Any, Any]:
+    ) -> dict[Any, Any]:
         return self._content
 
 
 class MemoryBase(ABC):
 
     def __init__(self) -> None:
-        self._memories: Dict[Any, Dict] = {}
+        self._memories: dict[Any, dict] = {}
         self._lock = asyncio.Lock()
 
     @abstractmethod

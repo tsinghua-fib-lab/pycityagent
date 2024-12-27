@@ -1,4 +1,5 @@
-from typing import Any, Awaitable, Coroutine, cast, Union, Dict
+from collections.abc import Awaitable, Coroutine
+from typing import Any, Dict, Union, cast
 
 import grpc
 from google.protobuf.json_format import ParseDict

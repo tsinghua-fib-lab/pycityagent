@@ -1,7 +1,8 @@
 import asyncio
 import functools
 import inspect
-from typing import Any, Callable, Coroutine, Optional, Union
+from collections.abc import Awaitable, Callable, Coroutine
+from typing import Any, Optional, Union
 
 from ..environment.simulator import Simulator
 from ..llm import LLM

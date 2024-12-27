@@ -1,5 +1,4 @@
 import json
-from typing import Dict, List
 from pycityagent.workflow import Block
 from pycityagent.llm import LLM
 from pycityagent.memory import Memory
@@ -154,7 +153,7 @@ class PlanBlock(Block):
         self.guidance_prompt = FormatPrompt(template=GUIDANCE_SELECTION_PROMPT)
         self.detail_prompt = FormatPrompt(template=DETAILED_PLAN_PROMPT)
 
-    async def select_guidance(self, current_need: str) -> Dict:
+    async def select_guidance(self, current_need: str) -> dict:
         """选择指导方案"""
         options = GUIDANCE_OPTIONS.get(current_need, [])
         if not options:
@@ -182,7 +181,7 @@ class PlanBlock(Block):
 
     async def generate_detailed_plan(
         self, current_need: str, selected_option: str
-    ) -> Dict:
+    ) -> dict:
         """生成具体执行计划"""
         current_location = await self.memory.get("nowPlace")
         home_location = await self.memory.get("home")

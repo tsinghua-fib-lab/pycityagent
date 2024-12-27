@@ -1,4 +1,5 @@
-from typing import Any, Awaitable, Coroutine, cast, Union, Dict
+from collections.abc import Awaitable, Coroutine
+from typing import Any, Union, cast
 
 import grpc
 from google.protobuf.json_format import ParseDict
@@ -21,7 +22,7 @@ class RoadService:
 
     def GetRoad(
         self, req: Union[road_service.GetRoadRequest, dict], dict_return: bool = True
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], road_service.GetRoadResponse]]:
+    ) -> Coroutine[Any, Any, Union[dict[str, Any], road_service.GetRoadResponse]]:
         """
         查询道路信息
         Query road information

@@ -1,4 +1,5 @@
-from typing import Any, Awaitable, Coroutine, cast, Union, Dict
+from collections.abc import Awaitable, Coroutine
+from typing import Any, Union, cast
 
 import grpc
 from google.protobuf.json_format import ParseDict
@@ -21,7 +22,7 @@ class SocialService:
 
     def Send(
         self, req: Union[social_service.SendRequest, dict], dict_return: bool = True
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], social_service.SendResponse]]:
+    ) -> Coroutine[Any, Any, Union[dict[str, Any], social_service.SendResponse]]:
         """
         发送消息
         Send message
@@ -39,7 +40,7 @@ class SocialService:
 
     def Receive(
         self, req: Union[social_service.ReceiveRequest, dict], dict_return: bool = True
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], social_service.ReceiveResponse]]:
+    ) -> Coroutine[Any, Any, Union[dict[str, Any], social_service.ReceiveResponse]]:
         """
         接收消息
         Receive message

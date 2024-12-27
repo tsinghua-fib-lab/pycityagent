@@ -1,9 +1,11 @@
-from typing import Any, Awaitable, Coroutine, cast, Union, Dict
+from collections.abc import Awaitable, Coroutine
+from typing import Any, Union, cast
 
 import grpc
 from google.protobuf.json_format import ParseDict
 from pycityproto.city.map.v2 import traffic_light_service_pb2 as light_service
-from pycityproto.city.map.v2 import traffic_light_service_pb2_grpc as light_grpc
+from pycityproto.city.map.v2 import \
+    traffic_light_service_pb2_grpc as light_grpc
 
 from ..utils.protobuf import async_parse
 
@@ -21,10 +23,10 @@ class LightService:
 
     def GetTrafficLight(
         self,
-        req: Union[light_service.GetTrafficLightRequest, Dict[str, Any]],
+        req: Union[light_service.GetTrafficLightRequest, dict[str, Any]],
         dict_return: bool = True,
     ) -> Coroutine[
-        Any, Any, Union[Dict[str, Any], light_service.GetTrafficLightResponse]
+        Any, Any, Union[dict[str, Any], light_service.GetTrafficLightResponse]
     ]:
         """
         获取路口的红绿灯信息
@@ -46,10 +48,10 @@ class LightService:
 
     def SetTrafficLight(
         self,
-        req: Union[light_service.SetTrafficLightRequest, Dict[str, Any]],
+        req: Union[light_service.SetTrafficLightRequest, dict[str, Any]],
         dict_return: bool = True,
     ) -> Coroutine[
-        Any, Any, Union[Dict[str, Any], light_service.SetTrafficLightResponse]
+        Any, Any, Union[dict[str, Any], light_service.SetTrafficLightResponse]
     ]:
         """
         设置路口的红绿灯信息
@@ -74,7 +76,7 @@ class LightService:
         req: Union[light_service.SetTrafficLightPhaseRequest, dict],
         dict_return: bool = True,
     ) -> Coroutine[
-        Any, Any, Union[Dict[str, Any], light_service.SetTrafficLightPhaseResponse]
+        Any, Any, Union[dict[str, Any], light_service.SetTrafficLightPhaseResponse]
     ]:
         """
         设置路口的红绿灯相位
@@ -99,7 +101,7 @@ class LightService:
         req: Union[light_service.SetTrafficLightStatusRequest, dict],
         dict_return: bool = True,
     ) -> Coroutine[
-        Any, Any, Union[Dict[str, Any], light_service.SetTrafficLightStatusResponse]
+        Any, Any, Union[dict[str, Any], light_service.SetTrafficLightStatusResponse]
     ]:
         """
         设置路口的红绿灯状态

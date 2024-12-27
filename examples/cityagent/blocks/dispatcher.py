@@ -1,4 +1,3 @@
-from typing import Dict, List
 from pycityagent.llm.llm import LLM
 from pycityagent.workflow.block import Block
 from pycityagent.workflow.prompt import FormatPrompt
@@ -15,10 +14,10 @@ Step information:
 class BlockDispatcher:
     def __init__(self, llm: LLM):
         self.llm = llm
-        self.blocks: Dict[str, Block] = {}
+        self.blocks: dict[str, Block] = {}
         self.prompt = FormatPrompt(DISPATCHER_PROMPT)
 
-    def register_blocks(self, blocks: List[Block]) -> None:
+    def register_blocks(self, blocks: list[Block]) -> None:
         """Register multiple blocks at once"""
         for block in blocks:
             block_name = block.__class__.__name__.lower()

@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from .parser_base import ParserBase
 
@@ -67,14 +67,14 @@ class JsonDictParser(JsonObjectParser):
         """Initialize the JsonDictParser with default tags."""
         super().__init__()
 
-    def parse(self, response: str) -> Dict:
+    def parse(self, response: str) -> dict:
         """Parse the response string to extract and return a JSON object as a dictionary.
 
         Parameters:
             response (str): The response string containing the JSON object.
 
         Returns:
-            Dict: The parsed JSON object as a dictionary.
+            dict: The parsed JSON object as a dictionary.
         """
         parsed_json = super().parse(response)
         if not isinstance(parsed_json, dict):
