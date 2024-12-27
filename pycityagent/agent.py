@@ -1,17 +1,19 @@
 """智能体模板类及其定义"""
 
 import asyncio
+import json
 import logging
 import random
 import uuid
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 from uuid import UUID
 
 import fastavro
+import ray
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
@@ -56,6 +58,7 @@ class Agent(ABC):
         mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
         avro_file: Optional[dict[str, str]] = None,
+        copy_writer: Optional[ray.ObjectRef] = None,
     ) -> None:
         """
         Initialize the Agent.
@@ -70,6 +73,7 @@ class Agent(ABC):
             mlflow_client (MlflowClient, optional): The Mlflow object. Defaults to None.
             memory (Memory, optional): The memory of the agent. Defaults to None.
             avro_file (dict[str, str], optional): The avro file of the agent. Defaults to None.
+            copy_writer (ray.ObjectRef): The copy_writer of the agent. Defaults to None.
         """
         self._name = name
         self._type = type
@@ -88,6 +92,8 @@ class Agent(ABC):
         self._interview_history: list[dict] = []  # 存储采访历史
         self._person_template = PersonService.default_dict_person()
         self._avro_file = avro_file
+        self._pgsql_writer = copy_writer
+        self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -142,6 +148,12 @@ class Agent(ABC):
         Set the avro file of the agent.
         """
         self._avro_file = avro_file
+
+    def set_pgsql_writer(self, pgsql_writer: ray.ObjectRef):
+        """
+        Set the PostgreSQL copy writer of the agent.
+        """
+        self._pgsql_writer = pgsql_writer
 
     @property
     def uuid(self):
@@ -198,6 +210,15 @@ class Agent(ABC):
             )
         return self._simulator
 
+    @property
+    def copy_writer(self):
+        """Pg Copy Writer"""
+        if self._pgsql_writer is None:
+            raise RuntimeError(
+                f"Copy Writer access before assignment, please `set_pgsql_writer` first!"
+            )
+        return self._pgsql_writer
+
     async def generate_user_survey_response(self, survey: dict) -> str:
         """生成回答 —— 可重写
         基于智能体的记忆和当前状态，生成对问卷调查的回答。
@@ -237,8 +258,8 @@ class Agent(ABC):
 
     async def _process_survey(self, survey: dict):
         survey_response = await self.generate_user_survey_response(survey)
-        if self._avro_file is None:
-            return
+        _date_time = datetime.now(timezone.utc)
+        # Avro
         response_to_avro = [
             {
                 "id": self._uuid,
@@ -246,11 +267,41 @@ class Agent(ABC):
                 "t": await self.simulator.get_simulator_second_from_start_of_day(),
                 "survey_id": survey["id"],
                 "result": survey_response,
-                "created_at": int(datetime.now().timestamp() * 1000),
+                "created_at": int(_date_time.timestamp() * 1000),
             }
         ]
-        with open(self._avro_file["survey"], "a+b") as f:
-            fastavro.writer(f, SURVEY_SCHEMA, response_to_avro, codec="snappy")
+        if self._avro_file is not None:
+            with open(self._avro_file["survey"], "a+b") as f:
+                fastavro.writer(f, SURVEY_SCHEMA, response_to_avro, codec="snappy")
+        # Pg
+        if self._pgsql_writer is not None:
+            if self._last_asyncio_pg_task is not None:
+                await self._last_asyncio_pg_task
+            _keys = [
+                "id",
+                "day",
+                "t",
+                "survey_id",
+                "result",
+            ]
+            _data_tuples: list[tuple] = []
+            # str to json
+            for _dict in response_to_avro:
+                res = _dict["result"]
+                _dict["result"] = json.dumps(
+                    {
+                        "result": res,
+                    }
+                )
+                _data_list = [_dict[k] for k in _keys]
+                # created_at
+                _data_list.append(_date_time)
+                _data_tuples.append(tuple(_data_list))
+            self._last_asyncio_pg_task = (
+                self._pgsql_writer.async_write_survey.remote(  # type:ignore
+                    _data_tuples
+                )
+            )
 
     async def generate_user_chat_response(self, question: str) -> str:
         """生成回答 —— 可重写
@@ -290,34 +341,52 @@ class Agent(ABC):
         return response  # type:ignore
 
     async def _process_interview(self, payload: dict):
-        auros = [
-            {
-                "id": self._uuid,
-                "day": await self.simulator.get_simulator_day(),
-                "t": await self.simulator.get_simulator_second_from_start_of_day(),
-                "type": 2,
-                "speaker": "user",
-                "content": payload["content"],
-                "created_at": int(datetime.now().timestamp() * 1000),
-            }
-        ]
+        pg_list: list[tuple[dict, datetime]] = []
+        auros: list[dict] = []
+        _date_time = datetime.now(timezone.utc)
+        _interview_dict = {
+            "id": self._uuid,
+            "day": await self.simulator.get_simulator_day(),
+            "t": await self.simulator.get_simulator_second_from_start_of_day(),
+            "type": 2,
+            "speaker": "user",
+            "content": payload["content"],
+            "created_at": int(_date_time.timestamp() * 1000),
+        }
+        auros.append(_interview_dict)
+        pg_list.append((_interview_dict, _date_time))
         question = payload["content"]
         response = await self.generate_user_chat_response(question)
-        auros.append(
-            {
-                "id": self._uuid,
-                "day": await self.simulator.get_simulator_day(),
-                "t": await self.simulator.get_simulator_second_from_start_of_day(),
-                "type": 2,
-                "speaker": "",
-                "content": response,
-                "created_at": int(datetime.now().timestamp() * 1000),
-            }
-        )
-        if self._avro_file is None:
-            return
-        with open(self._avro_file["dialog"], "a+b") as f:
-            fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+        _date_time = datetime.now(timezone.utc)
+        _interview_dict = {
+            "id": self._uuid,
+            "day": await self.simulator.get_simulator_day(),
+            "t": await self.simulator.get_simulator_second_from_start_of_day(),
+            "type": 2,
+            "speaker": "",
+            "content": response,
+            "created_at": int(_date_time.timestamp() * 1000),
+        }
+        auros.append(_interview_dict)
+        pg_list.append((_interview_dict, _date_time))
+        # Avro
+        if self._avro_file is not None:
+            with open(self._avro_file["dialog"], "a+b") as f:
+                fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+        # Pg
+        if self._pgsql_writer is not None:
+            if self._last_asyncio_pg_task is not None:
+                await self._last_asyncio_pg_task
+            _keys = ["id", "day", "t", "type", "speaker", "content", "created_at"]
+            _data = [
+                tuple([_dict[k] if k != "created_at" else _date_time for k in _keys])
+                for _dict, _date_time in pg_list
+            ]
+            self._last_asyncio_pg_task = (
+                self._pgsql_writer.async_write_dialog.remote(  # type:ignore
+                    _data
+                )
+            )
 
     async def process_agent_chat_response(self, payload: dict) -> str:
         resp = f"Agent {self._uuid} received agent chat response: {payload}"
@@ -325,22 +394,39 @@ class Agent(ABC):
         return resp
 
     async def _process_agent_chat(self, payload: dict):
-        auros = [
-            {
-                "id": self._uuid,
-                "day": payload["day"],
-                "t": payload["t"],
-                "type": 1,
-                "speaker": payload["from"],
-                "content": payload["content"],
-                "created_at": int(datetime.now().timestamp() * 1000),
-            }
-        ]
+        pg_list: list[tuple[dict, datetime]] = []
+        auros: list[dict] = []
+        _date_time = datetime.now(timezone.utc)
+        _chat_dict = {
+            "id": self._uuid,
+            "day": payload["day"],
+            "t": payload["t"],
+            "type": 1,
+            "speaker": payload["from"],
+            "content": payload["content"],
+            "created_at": int(_date_time.timestamp() * 1000),
+        }
+        auros.append(_chat_dict)
+        pg_list.append((_chat_dict, _date_time))
         asyncio.create_task(self.process_agent_chat_response(payload))
-        if self._avro_file is None:
-            return
-        with open(self._avro_file["dialog"], "a+b") as f:
-            fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+        # Avro
+        if self._avro_file is not None:
+            with open(self._avro_file["dialog"], "a+b") as f:
+                fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+        # Pg
+        if self._pgsql_writer is not None:
+            if self._last_asyncio_pg_task is not None:
+                await self._last_asyncio_pg_task
+            _keys = ["id", "day", "t", "type", "speaker", "content", "created_at"]
+            _data = [
+                tuple([_dict[k] if k != "created_at" else _date_time for k in _keys])
+                for _dict, _date_time in pg_list
+            ]
+            self._last_asyncio_pg_task = (
+                self._pgsql_writer.async_write_dialog.remote(  # type:ignore
+                    _data
+                )
+            )
 
     # Callback functions for MQTT message
     async def handle_agent_chat_message(self, payload: dict):
@@ -384,21 +470,38 @@ class Agent(ABC):
             "t": await self.simulator.get_simulator_second_from_start_of_day(),
         }
         await self._send_message(to_agent_uuid, payload, "agent-chat")
-        auros = [
-            {
-                "id": self._uuid,
-                "day": await self.simulator.get_simulator_day(),
-                "t": await self.simulator.get_simulator_second_from_start_of_day(),
-                "type": 1,
-                "speaker": self._uuid,
-                "content": content,
-                "created_at": int(datetime.now().timestamp() * 1000),
-            }
-        ]
-        if self._avro_file is None:
-            return
-        with open(self._avro_file["dialog"], "a+b") as f:
-            fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+        pg_list: list[tuple[dict, datetime]] = []
+        auros: list[dict] = []
+        _date_time = datetime.now(timezone.utc)
+        _message_dict = {
+            "id": self._uuid,
+            "day": await self.simulator.get_simulator_day(),
+            "t": await self.simulator.get_simulator_second_from_start_of_day(),
+            "type": 1,
+            "speaker": self._uuid,
+            "content": content,
+            "created_at": int(datetime.now().timestamp() * 1000),
+        }
+        auros.append(_message_dict)
+        pg_list.append((_message_dict, _date_time))
+        # Avro
+        if self._avro_file is not None:
+            with open(self._avro_file["dialog"], "a+b") as f:
+                fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+        # Pg
+        if self._pgsql_writer is not None:
+            if self._last_asyncio_pg_task is not None:
+                await self._last_asyncio_pg_task
+            _keys = ["id", "day", "t", "type", "speaker", "content", "created_at"]
+            _data = [
+                tuple([_dict[k] if k != "created_at" else _date_time for k in _keys])
+                for _dict, _date_time in pg_list
+            ]
+            self._last_asyncio_pg_task = (
+                self._pgsql_writer.async_write_dialog.remote(  # type:ignore
+                    _data
+                )
+            )
 
     # Agent logic
     @abstractmethod
