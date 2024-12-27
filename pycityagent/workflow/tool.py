@@ -1,6 +1,8 @@
 import time
+from collections import defaultdict
+from collections.abc import Callable, Sequence
 from typing import Any, Optional, Union
-from collections.abc import Callable
+
 from mlflow.entities import Metric
 
 from ..agent import Agent
@@ -190,33 +192,38 @@ class ResetAgentPosition(Tool):
 class ExportMlflowMetrics(Tool):
     def __init__(self, log_batch_size: int = 100) -> None:
         self._log_batch_size = log_batch_size
-        # TODO:support other log types
-        self.metric_log_cache: list[Metric] = []
+        # TODO: support other log types
+        self.metric_log_cache: dict[str, list[Metric]] = defaultdict(list)
 
     async def __call__(
         self,
-        metric: Union[Metric, dict],
+        metric: Union[Sequence[Union[Metric, dict]], Union[Metric, dict]],
         clear_cache: bool = False,
     ):
         agent = self.agent
         batch_size = self._log_batch_size
-        if len(self.metric_log_cache) > batch_size:
-            client = agent.mlflow_client
-            await client.log_batch(
-                metrics=self.metric_log_cache[:batch_size],
-            )
-            self.metric_log_cache = self.metric_log_cache[batch_size:]
-        else:
-            if isinstance(metric, Metric):
-                self.metric_log_cache.append(metric)
+        if not isinstance(metric, Sequence):
+            metric = [metric]
+        for _metric in metric:
+            if isinstance(_metric, Metric):
+                item = _metric
+                metric_key = item.key
             else:
-                _metric = Metric(
-                    key=metric["key"],
-                    value=metric["value"],
-                    timestamp=metric.get("timestamp", int(1000 * time.time())),
-                    step=metric["step"],
+                item = Metric(
+                    key=_metric["key"],
+                    value=_metric["value"],
+                    timestamp=_metric.get("timestamp", int(1000 * time.time())),
+                    step=_metric["step"],
                 )
-                self.metric_log_cache.append(_metric)
+                metric_key = _metric["key"]
+            self.metric_log_cache[metric_key].append(item)
+        for metric_key, _cache in self.metric_log_cache.items():
+            if len(_cache) > batch_size:
+                client = agent.mlflow_client
+                await client.log_batch(
+                    metrics=_cache[:batch_size],
+                )
+                _cache = _cache[batch_size:]
         if clear_cache:
             await self._clear_cache()
 
@@ -225,8 +232,9 @@ class ExportMlflowMetrics(Tool):
     ):
         agent = self.agent
         client = agent.mlflow_client
-        if len(self.metric_log_cache) > 0:
-            await client.log_batch(
-                metrics=self.metric_log_cache,
-            )
-            self.metric_log_cache = []
+        for metric_key, _cache in self.metric_log_cache.items():
+            if len(_cache) > 0:
+                await client.log_batch(
+                    metrics=_cache,
+                )
+                _cache = []

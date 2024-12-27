@@ -23,6 +23,7 @@ from ..message.messager import Messager
 from ..metrics import init_mlflow_connection
 from ..survey import Survey
 from .agentgroup import AgentGroup
+from .storage.pg import PgWriter, create_pg_tables
 
 logger = logging.getLogger("pycityagent")
 
@@ -63,6 +64,7 @@ class AgentSimulation:
         self._user_survey_topics: dict[uuid.UUID, str] = {}
         self._user_interview_topics: dict[uuid.UUID, str] = {}
         self._loop = asyncio.get_event_loop()
+        # self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
 
         self._messager = Messager(
             hostname=config["simulator_request"]["mqtt"]["server"],
@@ -89,22 +91,13 @@ class AgentSimulation:
         self._enable_pgsql = _pgsql_config.get("enabled", False)
         if not self._enable_pgsql:
             logger.warning("PostgreSQL is not enabled, NO POSTGRESQL DATABASE STORAGE")
-            self._pgsql_args = ("", "", "", "", "")
+            self._pgsql_dsn = ""
         else:
-            self._pgsql_host = _pgsql_config["host"]
-            self._pgsql_port = _pgsql_config["port"]
-            self._pgsql_database = _pgsql_config["database"]
-            self._pgsql_user = _pgsql_config.get("user", None)
-            self._pgsql_password = _pgsql_config.get("password", None)
-            self._pgsql_args: tuple[str, str, str, str, str] = (
-                self._pgsql_host,
-                self._pgsql_port,
-                self._pgsql_database,
-                self._pgsql_user,
-                self._pgsql_password,
-            )
+            self._pgsql_dsn = _pgsql_config["data_source_name"]
 
         # 添加实验信息相关的属性
+        self._exp_created_time = datetime.now(timezone.utc)
+        self._exp_updated_time = datetime.now(timezone.utc)
         self._exp_info = {
             "id": self.exp_id,
             "name": exp_name,
@@ -114,7 +107,8 @@ class AgentSimulation:
             "cur_t": 0.0,
             "config": json.dumps(config),
             "error": "",
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": self._exp_created_time.isoformat(),
+            "updated_at": self._exp_updated_time.isoformat(),
         }
 
         # 创建异步任务保存实验信息
@@ -168,7 +162,7 @@ class AgentSimulation:
         enable_avro: bool,
         avro_path: Path,
         enable_pgsql: bool,
-        pgsql_copy_writer: ray.ObjectRef,
+        pgsql_writer: ray.ObjectRef,
         mlflow_run_id: str = None,  # type: ignore
         logging_level: int = logging.WARNING,
     ):
@@ -181,7 +175,7 @@ class AgentSimulation:
             enable_avro,
             avro_path,
             enable_pgsql,
-            pgsql_copy_writer,
+            pgsql_writer,
             mlflow_run_id,
             logging_level,
         )
@@ -191,6 +185,7 @@ class AgentSimulation:
         self,
         agent_count: Union[int, list[int]],
         group_size: int = 1000,
+        pg_sql_writers: int = 32,
         memory_config_func: Optional[Union[Callable, list[Callable]]] = None,
     ) -> None:
         """初始化智能体
@@ -251,8 +246,8 @@ class AgentSimulation:
                     memory=memory,
                 )
 
-                self._agents[agent._uuid] = agent
-                self._agent_uuids.append(agent._uuid)
+                self._agents[agent._uuid] = agent  # type:ignore
+                self._agent_uuids.append(agent._uuid)  # type:ignore
 
             # 计算需要的组数,向上取整以处理不足一组的情况
             num_group = (agent_count_i + group_size - 1) // group_size
@@ -282,9 +277,23 @@ class AgentSimulation:
             )
         else:
             mlflow_run_id = None
+        # 建表
+        if self.enable_pgsql:
+            _num_workers = min(1, pg_sql_writers)
+            create_pg_tables(
+                exp_id=self.exp_id,
+                dsn=self._pgsql_dsn,
+            )
+            self._pgsql_writers = _workers = [
+                PgWriter.remote(self.exp_id, self._pgsql_dsn)
+                for _ in range(_num_workers)
+            ]
+        else:
+            _num_workers = 1
+            self._pgsql_writers = _workers = [None for _ in range(_num_workers)]
         # 收集所有创建组的参数
         creation_tasks = []
-        for group_name, agents in group_creation_params:
+        for i, (group_name, agents) in enumerate(group_creation_params):
             # 直接创建异步任务
             group = AgentGroup.remote(
                 agents,
@@ -294,10 +303,8 @@ class AgentSimulation:
                 self.enable_avro,
                 self.avro_path,
                 self.enable_pgsql,
-                # TODO:
-                # self._pgsql_copy_writer, # type:ignore
-                None,
-                mlflow_run_id,
+                _workers[i % _num_workers],  # type:ignore
+                mlflow_run_id,  # type:ignore
                 self.logging_level,
             )
             creation_tasks.append((group_name, group, agents))
@@ -469,11 +476,13 @@ class AgentSimulation:
         survey_dict = survey.to_dict()
         if agent_uuids is None:
             agent_uuids = self._agent_uuids
+        _date_time = datetime.now(timezone.utc)
         payload = {
             "from": "none",
             "survey_id": survey_dict["id"],
-            "timestamp": int(datetime.now().timestamp() * 1000),
+            "timestamp": int(_date_time.timestamp() * 1000),
             "data": survey_dict,
+            "_date_time": _date_time,
         }
         for uuid in agent_uuids:
             topic = self._user_survey_topics[uuid]
@@ -483,10 +492,12 @@ class AgentSimulation:
         self, content: str, agent_uuids: Union[uuid.UUID, list[uuid.UUID]]
     ):
         """发送面试消息"""
+        _date_time = datetime.now(timezone.utc)
         payload = {
             "from": "none",
             "content": content,
-            "timestamp": int(datetime.now().timestamp() * 1000),
+            "timestamp": int(_date_time.timestamp() * 1000),
+            "_date_time": _date_time,
         }
         if not isinstance(agent_uuids, Sequence):
             agent_uuids = [agent_uuids]
@@ -515,15 +526,29 @@ class AgentSimulation:
             logger.error(f"Avro保存实验信息失败: {str(e)}")
         try:
             if self.enable_pgsql:
-                #   TODO
-                pass
+                worker: ray.ObjectRef = self._pgsql_writers[0]  # type:ignore
+                # if self._last_asyncio_pg_task is not None:
+                #     await self._last_asyncio_pg_task
+                # self._last_asyncio_pg_task = (
+                #     worker.async_update_exp_info.remote(  # type:ignore
+                #         pg_exp_info
+                #     )
+                # )
+                pg_exp_info = {k: v for k, v in self._exp_info.items()}
+                pg_exp_info["created_at"] = self._exp_created_time
+                pg_exp_info["updated_at"] = self._exp_updated_time
+                await worker.async_update_exp_info.remote(  # type:ignore
+                    pg_exp_info
+                )
         except Exception as e:
             logger.error(f"PostgreSQL保存实验信息失败: {str(e)}")
 
     async def _update_exp_status(self, status: int, error: str = "") -> None:
+        self._exp_updated_time = datetime.now(timezone.utc)
         """更新实验状态并保存"""
         self._exp_info["status"] = status
         self._exp_info["error"] = error
+        self._exp_info["updated_at"] = self._exp_updated_time.isoformat()
         await self._save_exp_info()
 
     async def _monitor_exp_status(self, stop_event: asyncio.Event):

@@ -3,7 +3,7 @@ import json
 import logging
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -35,7 +35,7 @@ class AgentGroup:
         enable_avro: bool,
         avro_path: Path,
         enable_pgsql: bool,
-        pgsql_copy_writer: ray.ObjectRef,
+        pgsql_writer: ray.ObjectRef,
         mlflow_run_id: str,
         logging_level: int,
     ):
@@ -45,6 +45,7 @@ class AgentGroup:
         self.config = config
         self.exp_id = exp_id
         self.enable_avro = enable_avro
+        self.enable_pgsql = enable_pgsql
         if enable_avro:
             self.avro_path = avro_path / f"{self._uuid}"
             self.avro_path.mkdir(parents=True, exist_ok=True)
@@ -54,6 +55,8 @@ class AgentGroup:
                 "status": self.avro_path / f"status.avro",
                 "survey": self.avro_path / f"survey.avro",
             }
+        if self.enable_pgsql:
+            pass
 
         self.messager = Messager(
             hostname=config["simulator_request"]["mqtt"]["server"],
@@ -61,6 +64,8 @@ class AgentGroup:
             username=config["simulator_request"]["mqtt"].get("username", None),
             password=config["simulator_request"]["mqtt"].get("password", None),
         )
+        self._pgsql_writer = pgsql_writer
+        self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
         self.initialized = False
         self.id2agent = {}
         # Step:1 prepare LLM client
@@ -105,6 +110,8 @@ class AgentGroup:
             agent.set_messager(self.messager)
             if self.enable_avro:
                 agent.set_avro_file(self.avro_file)  # type: ignore
+            if self.enable_pgsql:
+                agent.set_pgsql_writer(self._pgsql_writer)
 
     async def init_agents(self):
         logger.debug(f"-----Initializing Agents in AgentGroup {self._uuid} ...")
@@ -161,6 +168,20 @@ class AgentGroup:
             with open(filename, "wb") as f:
                 surveys = []
                 fastavro.writer(f, SURVEY_SCHEMA, surveys)
+
+        if self.enable_pgsql:
+            if not issubclass(type(self.agents[0]), InstitutionAgent):
+                profiles: list[Any] = []
+                for agent in self.agents:
+                    profile = await agent.memory._profile.export()
+                    profile = profile[0]
+                    profile["id"] = agent._uuid
+                    profiles.append(
+                        (agent._uuid, profile.get("name", ""), json.dumps(profile))
+                    )
+                await self._pgsql_writer.async_write_profile.remote(  # type:ignore
+                    profiles
+                )
         self.initialized = True
         logger.debug(f"-----AgentGroup {self._uuid} initialized")
 
@@ -218,11 +239,13 @@ class AgentGroup:
             await asyncio.sleep(0.5)
 
     async def save_status(self):
+        _statuses_time_list: list[tuple[dict, datetime]] = []
         if self.enable_avro:
             logger.debug(f"-----Saving status for group {self._uuid}")
             avros = []
             if not issubclass(type(self.agents[0]), InstitutionAgent):
                 for agent in self.agents:
+                    _date_time = datetime.now(timezone.utc)
                     position = await agent.memory.get("position")
                     lng = position["longlat_position"]["longitude"]
                     lat = position["longlat_position"]["latitude"]
@@ -248,13 +271,15 @@ class AgentGroup:
                         "tired": needs["tired"],
                         "safe": needs["safe"],
                         "social": needs["social"],
-                        "created_at": int(datetime.now().timestamp() * 1000),
+                        "created_at": int(_date_time.timestamp() * 1000),
                     }
                     avros.append(avro)
+                    _statuses_time_list.append((avro, _date_time))
                 with open(self.avro_file["status"], "a+b") as f:
                     fastavro.writer(f, STATUS_SCHEMA, avros, codec="snappy")
             else:
                 for agent in self.agents:
+                    _date_time = datetime.now(timezone.utc)
                     avro = {
                         "id": agent._uuid,
                         "day": await self.simulator.get_simulator_day(),
@@ -274,8 +299,109 @@ class AgentGroup:
                         "customers": await agent.memory.get("customers"),
                     }
                     avros.append(avro)
+                    _statuses_time_list.append((avro, _date_time))
                 with open(self.avro_file["status"], "a+b") as f:
                     fastavro.writer(f, INSTITUTION_STATUS_SCHEMA, avros, codec="snappy")
+        if self.enable_pgsql:
+            # data already acquired from Avro part
+            if len(_statuses_time_list) > 0:
+                for _status_dict, _date_time in _statuses_time_list:
+                    for key in ["lng", "lat", "parent_id"]:
+                        if key not in _status_dict:
+                            _status_dict[key] = -1
+                    for key in [
+                        "action",
+                    ]:
+                        if key not in _status_dict:
+                            _status_dict[key] = ""
+                    _status_dict["created_at"] = _date_time
+            else:
+                if not issubclass(type(self.agents[0]), InstitutionAgent):
+                    for agent in self.agents:
+                        _date_time = datetime.now(timezone.utc)
+                        position = await agent.memory.get("position")
+                        lng = position["longlat_position"]["longitude"]
+                        lat = position["longlat_position"]["latitude"]
+                        if "aoi_position" in position:
+                            parent_id = position["aoi_position"]["aoi_id"]
+                        elif "lane_position" in position:
+                            parent_id = position["lane_position"]["lane_id"]
+                        else:
+                            # BUG: 需要处理
+                            parent_id = -1
+                        needs = await agent.memory.get("needs")
+                        action = await agent.memory.get("current_step")
+                        action = action["intention"]
+                        _status_dict = {
+                            "id": agent._uuid,
+                            "day": await self.simulator.get_simulator_day(),
+                            "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                            "lng": lng,
+                            "lat": lat,
+                            "parent_id": parent_id,
+                            "action": action,
+                            "hungry": needs["hungry"],
+                            "tired": needs["tired"],
+                            "safe": needs["safe"],
+                            "social": needs["social"],
+                            "created_at": _date_time,
+                        }
+                        _statuses_time_list.append((_status_dict, _date_time))
+                else:
+                    for agent in self.agents:
+                        _date_time = datetime.now(timezone.utc)
+                        _status_dict = {
+                            "id": agent._uuid,
+                            "day": await self.simulator.get_simulator_day(),
+                            "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                            "lng": -1,
+                            "lat": -1,
+                            "parent_id": -1,
+                            "action": "",
+                            "type": await agent.memory.get("type"),
+                            "nominal_gdp": await agent.memory.get("nominal_gdp"),
+                            "real_gdp": await agent.memory.get("real_gdp"),
+                            "unemployment": await agent.memory.get("unemployment"),
+                            "wages": await agent.memory.get("wages"),
+                            "prices": await agent.memory.get("prices"),
+                            "inventory": await agent.memory.get("inventory"),
+                            "price": await agent.memory.get("price"),
+                            "interest_rate": await agent.memory.get("interest_rate"),
+                            "bracket_cutoffs": await agent.memory.get(
+                                "bracket_cutoffs"
+                            ),
+                            "bracket_rates": await agent.memory.get("bracket_rates"),
+                            "employees": await agent.memory.get("employees"),
+                            "customers": await agent.memory.get("customers"),
+                            "created_at": _date_time,
+                        }
+                        _statuses_time_list.append((_status_dict, _date_time))
+        to_update_statues: list[tuple] = []
+        for _status_dict, _ in _statuses_time_list:
+            BASIC_KEYS = [
+                "id",
+                "day",
+                "t",
+                "lng",
+                "lat",
+                "parent_id",
+                "action",
+                "created_at",
+            ]
+            _data = [_status_dict[k] for k in BASIC_KEYS if k != "created_at"]
+            _other_dict = json.dumps(
+                {k: v for k, v in _status_dict.items() if k not in BASIC_KEYS}
+            )
+            _data.append(_other_dict)
+            _data.append(_status_dict["created_at"])
+            to_update_statues.append(tuple(_data))
+        if self._last_asyncio_pg_task is not None:
+            await self._last_asyncio_pg_task
+        self._last_asyncio_pg_task = (
+            self._pgsql_writer.async_write_status.remote(  # type:ignore
+                to_update_statues
+            )
+        )
 
     async def step(self):
         if not self.initialized:
