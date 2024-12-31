@@ -19,6 +19,7 @@ from mosstool.map._map_util.const import AOI_START_ID
 
 from ..agent import Agent, InstitutionAgent
 from ..environment.simulator import Simulator
+from ..llm import SimpleEmbedding
 from ..memory import FaissQuery, Memory
 from ..message.messager import Messager
 from ..metrics import init_mlflow_connection
@@ -191,8 +192,8 @@ class AgentSimulation:
         agent_count: Union[int, list[int]],
         group_size: int = 1000,
         pg_sql_writers: int = 32,
+        embedding_model: Embeddings = SimpleEmbedding(),
         memory_config_func: Optional[Union[Callable, list[Callable]]] = None,
-        embedding_model: Optional[Embeddings] = None,
     ) -> None:
         """初始化智能体
 
