@@ -14,11 +14,12 @@ from typing import Any, Optional, Union
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
 import ray
 import yaml
+from langchain_core.embeddings import Embeddings
 from mosstool.map._map_util.const import AOI_START_ID
 
 from ..agent import Agent, InstitutionAgent
 from ..environment.simulator import Simulator
-from ..memory.memory import Memory
+from ..memory import FaissQuery, Memory
 from ..message.messager import Messager
 from ..metrics import init_mlflow_connection
 from ..survey import Survey
@@ -76,6 +77,8 @@ class AgentSimulation:
 
         # storage
         _storage_config: dict[str, Any] = config.get("storage", {})
+        if _storage_config is None:
+            _storage_config = {}
         # avro
         _avro_config: dict[str, Any] = _storage_config.get("avro", {})
         self._enable_avro = _avro_config.get("enabled", False)
@@ -164,6 +167,7 @@ class AgentSimulation:
         enable_pgsql: bool,
         pgsql_writer: ray.ObjectRef,
         mlflow_run_id: str = None,  # type: ignore
+        embedding_model: Embeddings = None,  # type: ignore
         logging_level: int = logging.WARNING,
     ):
         """创建远程组"""
@@ -177,6 +181,7 @@ class AgentSimulation:
             enable_pgsql,
             pgsql_writer,
             mlflow_run_id,
+            embedding_model,
             logging_level,
         )
         return group_name, group, agents
@@ -187,6 +192,7 @@ class AgentSimulation:
         group_size: int = 1000,
         pg_sql_writers: int = 32,
         memory_config_func: Optional[Union[Callable, list[Callable]]] = None,
+        embedding_model: Optional[Embeddings] = None,
     ) -> None:
         """初始化智能体
 
@@ -305,6 +311,7 @@ class AgentSimulation:
                 self.enable_pgsql,
                 _workers[i % _num_workers],  # type:ignore
                 mlflow_run_id,  # type:ignore
+                embedding_model,
                 self.logging_level,
             )
             creation_tasks.append((group_name, group, agents))

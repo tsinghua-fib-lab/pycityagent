@@ -236,7 +236,15 @@ class Agent(ABC):
 
         # 添加记忆上下文
         if self._memory:
-            relevant_memories = await self._memory.search(survey_prompt)
+            relevant_memories = await self.memory.search(survey_prompt)
+
+            formatted_results = []
+            # for result in top_results:
+            #     formatted_results.append(
+            #         f"- [{result['type']}] {result['content']} "
+            #         f"(相关度: {result['similarity']:.2f})"
+            #     )
+
             if relevant_memories:
                 dialog.append(
                     {
@@ -458,7 +466,9 @@ class Agent(ABC):
         topic = f"exps/{self._exp_id}/agents/{to_agent_uuid}/{sub_topic}"
         await self._messager.send_message(topic, payload)
 
-    async def send_message_to_agent(self, to_agent_uuid: str, content: str, type: str = "social"):
+    async def send_message_to_agent(
+        self, to_agent_uuid: str, content: str, type: str = "social"
+    ):
         """通过 Messager 发送消息"""
         if self._messager is None:
             raise RuntimeError("Messager is not set")
@@ -598,6 +608,7 @@ class CitizenAgent(Agent):
                 # 防止模拟器还没有到prepare阶段导致get_person出错
             self._has_bound_to_simulator = True
             self._agent_id = person_id
+            self.memory.set_agent_id(person_id)
 
     async def _bind_to_economy(self):
         if self._economy_client is None:

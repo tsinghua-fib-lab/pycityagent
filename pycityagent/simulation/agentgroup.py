@@ -10,12 +10,14 @@ from uuid import UUID
 
 import fastavro
 import ray
+from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, CitizenAgent, InstitutionAgent
 from ..economy.econ_client import EconomyClient
 from ..environment.simulator import Simulator
 from ..llm.llm import LLM
 from ..llm.llmconfig import LLMConfig
+from ..memory import FaissQuery
 from ..message import Messager
 from ..metrics import MlflowClient
 from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
@@ -37,6 +39,7 @@ class AgentGroup:
         enable_pgsql: bool,
         pgsql_writer: ray.ObjectRef,
         mlflow_run_id: str,
+        embedding_model: Embeddings,
         logging_level: int,
     ):
         logger.setLevel(logging_level)
@@ -46,6 +49,7 @@ class AgentGroup:
         self.exp_id = exp_id
         self.enable_avro = enable_avro
         self.enable_pgsql = enable_pgsql
+        self.embedding_model = embedding_model
         if enable_avro:
             self.avro_path = avro_path / f"{self._uuid}"
             self.avro_path.mkdir(parents=True, exist_ok=True)
@@ -99,6 +103,13 @@ class AgentGroup:
         else:
             self.mlflow_client = None
 
+        # set FaissQuery
+        if self.embedding_model is not None:
+            self.faiss_query = FaissQuery(
+                embeddings=self.embedding_model,
+            )
+        else:
+            self.faiss_query = None
         for agent in self.agents:
             agent.set_exp_id(self.exp_id)  # type: ignore
             agent.set_llm_client(self.llm)
@@ -112,6 +123,12 @@ class AgentGroup:
                 agent.set_avro_file(self.avro_file)  # type: ignore
             if self.enable_pgsql:
                 agent.set_pgsql_writer(self._pgsql_writer)
+            # set memory.faiss_query
+            if self.faiss_query is not None:
+                agent.memory.set_faiss_query(self.faiss_query)
+            # set memory.embedding model
+            if self.embedding_model is not None:
+                agent.memory.set_embedding_model(self.embedding_model)
 
     async def init_agents(self):
         logger.debug(f"-----Initializing Agents in AgentGroup {self._uuid} ...")
@@ -376,32 +393,32 @@ class AgentGroup:
                             "created_at": _date_time,
                         }
                         _statuses_time_list.append((_status_dict, _date_time))
-        to_update_statues: list[tuple] = []
-        for _status_dict, _ in _statuses_time_list:
-            BASIC_KEYS = [
-                "id",
-                "day",
-                "t",
-                "lng",
-                "lat",
-                "parent_id",
-                "action",
-                "created_at",
-            ]
-            _data = [_status_dict[k] for k in BASIC_KEYS if k != "created_at"]
-            _other_dict = json.dumps(
-                {k: v for k, v in _status_dict.items() if k not in BASIC_KEYS}
+            to_update_statues: list[tuple] = []
+            for _status_dict, _ in _statuses_time_list:
+                BASIC_KEYS = [
+                    "id",
+                    "day",
+                    "t",
+                    "lng",
+                    "lat",
+                    "parent_id",
+                    "action",
+                    "created_at",
+                ]
+                _data = [_status_dict[k] for k in BASIC_KEYS if k != "created_at"]
+                _other_dict = json.dumps(
+                    {k: v for k, v in _status_dict.items() if k not in BASIC_KEYS}
+                )
+                _data.append(_other_dict)
+                _data.append(_status_dict["created_at"])
+                to_update_statues.append(tuple(_data))
+            if self._last_asyncio_pg_task is not None:
+                await self._last_asyncio_pg_task
+            self._last_asyncio_pg_task = (
+                self._pgsql_writer.async_write_status.remote(  # type:ignore
+                    to_update_statues
+                )
             )
-            _data.append(_other_dict)
-            _data.append(_status_dict["created_at"])
-            to_update_statues.append(tuple(_data))
-        if self._last_asyncio_pg_task is not None:
-            await self._last_asyncio_pg_task
-        self._last_asyncio_pg_task = (
-            self._pgsql_writer.async_write_status.remote(  # type:ignore
-                to_update_statues
-            )
-        )
 
     async def step(self):
         if not self.initialized:
