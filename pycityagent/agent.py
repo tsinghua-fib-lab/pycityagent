@@ -458,13 +458,16 @@ class Agent(ABC):
         topic = f"exps/{self._exp_id}/agents/{to_agent_uuid}/{sub_topic}"
         await self._messager.send_message(topic, payload)
 
-    async def send_message_to_agent(self, to_agent_uuid: str, content: str):
+    async def send_message_to_agent(self, to_agent_uuid: str, content: str, type: str = "social"):
         """通过 Messager 发送消息"""
         if self._messager is None:
             raise RuntimeError("Messager is not set")
+        if type not in ["social", "economy"]:
+            logger.warning(f"Invalid message type: {type}, sent from {self._uuid}")
         payload = {
             "from": self._uuid,
             "content": content,
+            "type": type,
             "timestamp": int(datetime.now().timestamp() * 1000),
             "day": await self.simulator.get_simulator_day(),
             "t": await self.simulator.get_simulator_second_from_start_of_day(),
@@ -485,11 +488,11 @@ class Agent(ABC):
         auros.append(_message_dict)
         pg_list.append((_message_dict, _date_time))
         # Avro
-        if self._avro_file is not None:
+        if self._avro_file is not None and type == "social":
             with open(self._avro_file["dialog"], "a+b") as f:
                 fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
         # Pg
-        if self._pgsql_writer is not None:
+        if self._pgsql_writer is not None and type == "social":
             if self._last_asyncio_pg_task is not None:
                 await self._last_asyncio_pg_task
             _keys = ["id", "day", "t", "type", "speaker", "content", "created_at"]
