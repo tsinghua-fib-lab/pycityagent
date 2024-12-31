@@ -1,6 +1,10 @@
 """LLM相关模块"""
 
 from .llm import LLM, LLMConfig
-from .embedding import SimpleEmbedding
+from .embeddings import SentenceEmbedding
 
-__all__ = ["LLM", "LLMConfig", "SimpleEmbedding"]
+__all__ = [
+    "LLM",
+    "LLMConfig",
+    "SentenceEmbedding",
+]

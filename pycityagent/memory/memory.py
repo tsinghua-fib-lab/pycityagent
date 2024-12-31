@@ -1,20 +1,24 @@
 import asyncio
 import logging
+from collections import defaultdict
+from collections.abc import Callable, Sequence
 from copy import deepcopy
 from datetime import datetime
-from typing import Any, Literal, Optional,  Union
-from collections.abc import Sequence,Callable
+from typing import Any, Literal, Optional, Union
 
 import numpy as np
+from langchain_core.embeddings import Embeddings
 from pyparsing import deque
 
 from ..utils.decorators import lock_decorator
 from .const import *
+from .faiss_query import FaissQuery
 from .profile import ProfileMemory
 from .self_define import DynamicMemory
 from .state import StateMemory
 
 logger = logging.getLogger("pycityagent")
+
 
 class Memory:
     """
@@ -33,7 +37,8 @@ class Memory:
         base: Optional[dict[Any, Any]] = None,
         motion: Optional[dict[Any, Any]] = None,
         activate_timestamp: bool = False,
-        embedding_model: Any = None,
+        embedding_model: Optional[Embeddings] = None,
+        faiss_query: Optional[FaissQuery] = None,
     ) -> None:
         """
         Initializes the Memory with optional configuration.
@@ -51,20 +56,21 @@ class Memory:
             base (Optional[dict[Any, Any]], optional): base attribute dict from City Simulator.
             motion (Optional[dict[Any, Any]], optional): motion attribute dict from City Simulator.
             activate_timestamp (bool): Whether activate timestamp storage in MemoryUnit
-            embedding_model (Any): The embedding model for memory search.
+            embedding_model (Embeddings): The embedding model for memory search.
+            faiss_query (FaissQuery): The faiss_query of the agent. Defaults to None.
         """
         self.watchers: dict[str, list[Callable]] = {}
         self._lock = asyncio.Lock()
-        self.embedding_model = embedding_model
-
-        # 初始化embedding存储
-        self._embeddings = {"state": {}, "profile": {}, "dynamic": {}}
+        self._agent_id: int = -1
+        self._embedding_model = embedding_model
 
         _dynamic_config: dict[Any, Any] = {}
         _state_config: dict[Any, Any] = {}
         _profile_config: dict[Any, Any] = {}
         # 记录哪些字段需要embedding
         self._embedding_fields: dict[str, bool] = {}
+        self._embedding_field_to_doc_id: dict[Any, str] = defaultdict(str)
+        self._faiss_query = faiss_query
 
         if config is not None:
             for k, v in config.items():
@@ -135,8 +141,55 @@ class Memory:
         self._profile = ProfileMemory(
             msg=_profile_config, activate_timestamp=activate_timestamp
         )
-        self.memories = []  # 存储记忆内容
-        self.embeddings = []  # 存储记忆的向量表示
+        # self.memories = []  # 存储记忆内容
+        # self.embeddings = []  # 存储记忆的向量表示
+
+    def set_embedding_model(
+        self,
+        embedding_model: Embeddings,
+    ):
+        self._embedding_model = embedding_model
+
+    @property
+    def embedding_model(
+        self,
+    ):
+        if self._embedding_model is None:
+            raise RuntimeError(
+                f"embedding_model before assignment, please `set_embedding_model` first!"
+            )
+        return self._embedding_model
+
+    def set_faiss_query(self, faiss_query: FaissQuery):
+        """
+        Set the FaissQuery of the agent.
+        """
+        self._faiss_query = faiss_query
+
+    @property
+    def agent_id(
+        self,
+    ):
+        if self._agent_id < 0:
+            raise RuntimeError(
+                f"agent_id before assignment, please `set_agent_id` first!"
+            )
+        return self._agent_id
+
+    def set_agent_id(self, agent_id: int):
+        """
+        Set the FaissQuery of the agent.
+        """
+        self._agent_id = agent_id
+
+    @property
+    def faiss_query(self) -> FaissQuery:
+        """FaissQuery"""
+        if self._faiss_query is None:
+            raise RuntimeError(
+                f"FaissQuery access before assignment, please `set_faiss_query` first!"
+            )
+        return self._faiss_query
 
     @lock_decorator
     async def get(
@@ -192,11 +245,23 @@ class Memory:
                 if mode == "replace":
                     await _mem.update(key, value, store_snapshot)
                     # 如果字段需要embedding，则更新embedding
-                    if self.embedding_model and self._embedding_fields.get(key, False):
+                    if self._embedding_fields.get(key, False) and self.embedding_model:
                         memory_type = self._get_memory_type(_mem)
-                        self._embeddings[memory_type][key] = (
-                            await self._generate_embedding(f"{key}: {str(value)}")
+                        # 覆盖更新删除原vector
+                        orig_doc_id = self._embedding_field_to_doc_id[key]
+                        if orig_doc_id:
+                            await self.faiss_query.delete_documents(
+                                to_delete_ids=[orig_doc_id],
+                            )
+                        doc_ids: list[str] = await self.faiss_query.add_documents(
+                            agent_id=self.agent_id,
+                            documents=f"{key}: {str(value)}",
+                            extra_tags={
+                                "type": memory_type,
+                                "key": key,
+                            },
                         )
+                        self._embedding_field_to_doc_id[key] = doc_ids[0]
                     if key in self.watchers:
                         for callback in self.watchers[key]:
                             asyncio.create_task(callback())
@@ -214,13 +279,17 @@ class Memory:
                             f"Type of {type(original_value)} does not support mode `merge`, using `replace` instead!"
                         )
                         await _mem.update(key, value, store_snapshot)
-                    if self.embedding_model and self._embedding_fields.get(key, False):
+                    if self._embedding_fields.get(key, False) and self.embedding_model:
                         memory_type = self._get_memory_type(_mem)
-                        self._embeddings[memory_type][key] = (
-                            await self._generate_embedding(
-                                f"{key}: {str(original_value)}"
-                            )
+                        doc_ids = await self.faiss_query.add_documents(
+                            agent_id=self.agent_id,
+                            documents=f"{key}: {str(original_value)}",
+                            extra_tags={
+                                "type": memory_type,
+                                "key": key,
+                            },
                         )
+                        self._embedding_field_to_doc_id[key] = doc_ids[0]
                     if key in self.watchers:
                         for callback in self.watchers[key]:
                             asyncio.create_task(callback())
@@ -239,68 +308,6 @@ class Memory:
             return "profile"
         else:
             return "dynamic"
-
-    async def _generate_embedding(self, text: str) -> np.ndarray:
-        """生成文本的向量表示
-
-        Args:
-            text: 输入文本
-
-        Returns:
-            np.ndarray: 文本的向量表示
-
-        Raises:
-            ValueError: 如果embedding_model未初始化
-        """
-        if not self.embedding_model:
-            raise RuntimeError("Embedding model not initialized")
-
-        return await self.embedding_model.embed(text)
-
-    async def search(self, query: str, top_k: int = 3) -> str:
-        """搜索相关记忆
-
-        Args:
-            query: 查询文本
-            top_k: 返回最相关的记忆数量
-
-        Returns:
-            str: 格式化的相关记忆文本
-        """
-        if not self.embedding_model:
-            return "Embedding model not initialized"
-
-        query_embedding = await self._generate_embedding(query)
-        all_results = []
-
-        # 搜索所有记忆类型中启用了embedding的字段
-        for memory_type, embeddings in self._embeddings.items():
-            for key, embedding in embeddings.items():
-                similarity = self._cosine_similarity(query_embedding, embedding)
-                value = await self.get(key)
-
-                all_results.append(
-                    {
-                        "type": memory_type,
-                        "key": key,
-                        "content": f"{key}: {str(value)}",
-                        "similarity": similarity,
-                    }
-                )
-
-        # 按相似度排序
-        all_results.sort(key=lambda x: x["similarity"], reverse=True)
-        top_results = all_results[:top_k]
-
-        # 格式化输出
-        formatted_results = []
-        for result in top_results:
-            formatted_results.append(
-                f"- [{result['type']}] {result['content']} "
-                f"(相关度: {result['similarity']:.2f})"
-            )
-
-        return "\n".join(formatted_results)
 
     async def update_batch(
         self,
@@ -388,67 +395,54 @@ class Memory:
             if _snapshot:
                 await _mem.load(snapshots=_snapshot, reset_memory=reset_memory)
 
+    # async def add(self, content: str, metadata: Optional[dict] = None) -> None:
+    #     """添加新的记忆
+
+    #     Args:
+    #         content: 记忆内容
+    #         metadata: 相关元数据，如时间、地点等
+    #     """
+    #     embedding = await self.embedding_model.aembed_query(content)
+    #     self.memories.append(
+    #         {
+    #             "content": content,
+    #             "metadata": metadata or {},
+    #             "timestamp": datetime.now(),
+    #             "embedding": embedding,
+    #         }
+    #     )
+    #     self.embeddings.append(embedding)
+
     @lock_decorator
-    async def get_top_k(
-        self,
-        key: Any,
-        metric: Callable[[Any], Any],
-        top_k: Optional[int] = None,
-        mode: Union[Literal["read only"], Literal["read and write"]] = "read only",
-        preserve_order: bool = True,
-    ) -> Any:
-        """
-        Retrieves the top-k items from the memory based on the given key and metric.
+    async def search(
+        self, query: str, top_k: int = 3, filter: Optional[dict] = None
+    ) -> str:
+        """搜索相关记忆
 
         Args:
-            key (Any): The key of the item to retrieve.
-            metric (Callable[[Any], Any]): A callable function that defines the metric for ranking the items.
-            top_k (Optional[int], optional): The number of top items to retrieve. Defaults to None (all items).
-            mode (Union[Literal["read only"], Literal["read and write"]], optional): Access mode for the item. Defaults to "read only".
-            preserve_order (bool): Whether preserve original order in output values.
+            query: 查询文本
+            top_k: 返回最相关的记忆数量
+            filter (dict, optional): 记忆的筛选条件，如 {"type":"dynamic", "key":"self_define_1",}，默认为空
 
         Returns:
-            Any: The top-k items based on the specified metric.
-
-        Raises:
-            ValueError: If an invalid mode is provided.
-            KeyError: If the key is not found in any of the memory sections.
+            str: 格式化的相关记忆文本
         """
-        if mode == "read only":
-            process_func = deepcopy
-        elif mode == "read and write":
-            process_func = lambda x: x
-        else:
-            raise ValueError(f"Invalid get mode `{mode}`!")
-        for _mem in [self._state, self._profile, self._dynamic]:
-            try:
-                value = await _mem.get_top_k(key, metric, top_k, preserve_order)
-                return process_func(value)
-            except KeyError as e:
-                continue
-        raise KeyError(f"No attribute `{key}` in memories!")
-
-    async def add(self, content: str, metadata: Optional[dict] = None) -> None:
-        """添加新的记忆
-
-        Args:
-            content: 记忆内容
-            metadata: 相关元数据，如时间、地点等
-        """
-        embedding = await self.embedding_model.embed(content)
-        self.memories.append(
-            {
-                "content": content,
-                "metadata": metadata or {},
-                "timestamp": datetime.now(),
-                "embedding": embedding,
-            }
+        if not self._embedding_model:
+            return "Embedding model not initialized"
+        top_results: list[tuple[str, float, dict]] = (
+            await self.faiss_query.similarity_search(  # type:ignore
+                query=query,
+                agent_id=self.agent_id,
+                k=top_k,
+                return_score_type="similarity_score",
+                filter=filter,
+            )
         )
-        self.embeddings.append(embedding)
+        # 格式化输出
+        formatted_results = []
+        for content, score, metadata in top_results:
+            formatted_results.append(
+                f"- [{metadata['type']}] {content} " f"(相关度: {score:.2f})"
+            )
 
-    def _cosine_similarity(self, v1: np.ndarray, v2: np.ndarray) -> float:
-        """计算余弦相似度"""
-        dot_product = np.dot(v1, v2)
-        norm_v1 = np.linalg.norm(v1)
-        norm_v2 = np.linalg.norm(v2)
-        return dot_product / (norm_v1 * norm_v2)
+        return "\n".join(formatted_results)

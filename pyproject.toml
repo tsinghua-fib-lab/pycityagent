@@ -47,6 +47,10 @@ pandavro = "^1.8.0"
 langchain-core = "^0.3.28"
 mlflow = "^2.19.0"
 psycopg = {extras = ["binary"], version = "^3.2.3"}
+transformers = "^4.47.1"
+torch = "^2.5.1"
+faiss-cpu = "^1.9.0.post1"
+langchain-community = "^0.3.13"
 
 [build-system]
 requires = ["poetry-core"]
