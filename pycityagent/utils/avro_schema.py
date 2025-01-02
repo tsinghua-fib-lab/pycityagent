@@ -87,7 +87,6 @@ INSTITUTION_STATUS_SCHEMA = {
         {"name": "bracket_cutoffs", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
         {"name": "bracket_rates", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
         {"name": "employees", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
-        {"name": "customers", "type": {"type": "array", "items": ["float", "int", "string", "null"]}},
     ],
 }
 
