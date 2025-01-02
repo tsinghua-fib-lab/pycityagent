@@ -104,6 +104,8 @@ class Simulator:
         self._bbox: tuple[float, float, float, float] = (-1, -1, -1, -1)
         self.poi_matrix_centers = []
         self._lock = asyncio.Lock()
+        # poi id dict
+        self.poi_id_2_aoi_id: dict[int, int] = {}
         # poi STRtree
         self.set_poi_tree()
 
@@ -146,6 +148,7 @@ class Simulator:
         for tree_id, poi in enumerate(self.map.pois.values()):
             tree_id_2_poi_and_catg[tree_id] = (poi, poi["category"])
             poi_geos.append(Point([poi["position"][k] for k in ["x", "y"]]))
+            self.poi_id_2_aoi_id[poi["id"]] = poi["aoi_id"]
         self.tree_id_2_poi_and_catg = tree_id_2_poi_and_catg
         self.pois_tree = STRtree(poi_geos)
 
@@ -250,12 +253,21 @@ class Simulator:
         _schedules = []
         for target_pos, _time, _mode in zip(target_positions, departure_times, modes):
             if isinstance(target_pos, int):
-                aoi_id = target_pos
-                end = {
-                    "aoi_position": {
-                        "aoi_id": aoi_id,
+                if target_pos >= POI_START_ID:
+                    poi_id = target_pos
+                    end = {
+                        "aoi_position": {
+                            "aoi_id": self.poi_id_2_aoi_id[poi_id],
+                            "poi_id": poi_id,
+                        }
                     }
-                }
+                else:
+                    aoi_id = target_pos
+                    end = {
+                        "aoi_position": {
+                            "aoi_id": aoi_id,
+                        }
+                    }
             else:
                 aoi_id, poi_id = target_pos
                 end = {"aoi_position": {"aoi_id": aoi_id, "poi_id": poi_id}}
