@@ -271,7 +271,6 @@ class AgentGroup:
                     elif "lane_position" in position:
                         parent_id = position["lane_position"]["lane_id"]
                     else:
-                        # BUG: 需要处理
                         parent_id = -1
                     needs = await agent.memory.get("needs")
                     action = await agent.memory.get("current_step")
@@ -297,23 +296,71 @@ class AgentGroup:
             else:
                 for agent in self.agents:
                     _date_time = datetime.now(timezone.utc)
+                    try:
+                        nominal_gdp = await agent.memory.get("nominal_gdp")
+                    except:
+                        nominal_gdp = []
+                    try:
+                        real_gdp = await agent.memory.get("real_gdp")
+                    except:
+                        real_gdp = []
+                    try:
+                        unemployment = await agent.memory.get("unemployment")
+                    except:
+                        unemployment = []
+                    try:
+                        wages = await agent.memory.get("wages")
+                    except:
+                        wages = []
+                    try:
+                        prices = await agent.memory.get("prices")
+                    except:
+                        prices = []
+                    try:
+                        inventory = await agent.memory.get("inventory")
+                    except:
+                        inventory = 0
+                    try:
+                        price = await agent.memory.get("price")
+                    except:
+                        price = 0.0
+                    try:
+                        interest_rate = await agent.memory.get("interest_rate")
+                    except:
+                        interest_rate = 0.0
+                    try:
+                        bracket_cutoffs = await agent.memory.get("bracket_cutoffs")
+                    except:
+                        bracket_cutoffs = []
+                    try:
+                        bracket_rates = await agent.memory.get("bracket_rates")
+                    except:
+                        bracket_rates = []
+                    try:
+                        employees = await agent.memory.get("employees")
+                    except:
+                        employees = []
+                    try:
+                        customers = await agent.memory.get("customers")
+                    except:
+                        customers = []
                     avro = {
                         "id": agent._uuid,
                         "day": await self.simulator.get_simulator_day(),
                         "t": await self.simulator.get_simulator_second_from_start_of_day(),
                         "type": await agent.memory.get("type"),
-                        "nominal_gdp": await agent.memory.get("nominal_gdp"),
-                        "real_gdp": await agent.memory.get("real_gdp"),
-                        "unemployment": await agent.memory.get("unemployment"),
-                        "wages": await agent.memory.get("wages"),
-                        "prices": await agent.memory.get("prices"),
-                        "inventory": await agent.memory.get("inventory"),
-                        "price": await agent.memory.get("price"),
-                        "interest_rate": await agent.memory.get("interest_rate"),
-                        "bracket_cutoffs": await agent.memory.get("bracket_cutoffs"),
-                        "bracket_rates": await agent.memory.get("bracket_rates"),
-                        "employees": await agent.memory.get("employees"),
-                        "customers": await agent.memory.get("customers"),
+                        "nominal_gdp": nominal_gdp,
+                        "real_gdp": real_gdp,
+                        "unemployment": unemployment,
+                        "wages": wages,
+                        "prices": prices,
+                        "inventory": inventory,
+                        "price": price,
+                        "interest_rate": interest_rate,
+                        "bracket_cutoffs": bracket_cutoffs,
+                        "bracket_rates": bracket_rates,
+                        "employees": employees,
+                        "customers": customers,
                     }
                     avros.append(avro)
                     _statuses_time_list.append((avro, _date_time))
