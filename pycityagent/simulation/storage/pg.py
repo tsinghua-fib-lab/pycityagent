@@ -13,7 +13,10 @@ from ...utils.pg_query import PGSQL_DICT
 
 def create_pg_tables(exp_id: str, dsn: str):
     for table_type, exec_strs in PGSQL_DICT.items():
-        table_name = f"socialcity_{exp_id.replace('-', '_')}_{table_type}"
+        if not table_type == "experiment":
+            table_name = f"socialcity_{exp_id.replace('-', '_')}_{table_type}"
+        else:
+            table_name = f"socialcity_{table_type}"
         # # debug str
         # for _str in [f"DROP TABLE IF EXISTS {table_name}"] + [
         #     _exec_str.format(table_name=table_name) for _exec_str in exec_strs
@@ -21,9 +24,10 @@ def create_pg_tables(exp_id: str, dsn: str):
         #     print(_str)
         with psycopg.connect(dsn) as conn:
             with conn.cursor() as cur:
-                # delete table
-                cur.execute(f"DROP TABLE IF EXISTS {table_name}")  # type:ignore
-                conn.commit()
+                if not table_type == "experiment":
+                    # delete table
+                    cur.execute(f"DROP TABLE IF EXISTS {table_name}")  # type:ignore
+                    conn.commit()
                 # create table
                 for _exec_str in exec_strs:
                     cur.execute(_exec_str.format(table_name=table_name))
@@ -106,10 +110,11 @@ class PgWriter:
                         ]
                         await copy.write_row(_row)
 
+    # @lock_decorator
     async def async_update_exp_info(self, exp_info: dict[str, Any]):
         # timestamp不做类型转换
         TO_UPDATE_EXP_INFO_KEYS_AND_TYPES = [
-            ("id", str),
+            ("id", None),
             ("name", str),
             ("num_day", int),
             ("status", int),
@@ -120,37 +125,31 @@ class PgWriter:
             ("created_at", None),
             ("updated_at", None),
         ]
-        table_name = f"socialcity_{self.exp_id.replace('-', '_')}_experiment"
+        table_name = f"socialcity_experiment"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
-            async with aconn.cursor(row_factory=dict_row) as cur:
-                await cur.execute(
-                    "SELECT * FROM {table_name}".format(table_name=table_name) # type:ignore
-                )  
-                record_exists = await cur.fetchall()
-
+            async with aconn.cursor(row_factory=dict_row) as cur:                
+                await cur.execute("SELECT * FROM {table_name} WHERE id=%s".format(table_name = table_name),(self.exp_id,))# type:ignore
+                record_exists = await cur.fetchall()    
+                print("record_exists",record_exists)            
                 if record_exists:
                     # UPDATE
                     columns = ", ".join(
                         f"{key} = %s" for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
                     )
                     update_sql = psycopg.sql.SQL(
-                        f"UPDATE {{}} SET {columns}"  # type:ignore
+                        f"UPDATE {{}} SET {columns} WHERE id='{self.exp_id}'" # type:ignore
                     ).format(psycopg.sql.Identifier(table_name))
                     params = [
                         _type(exp_info[key]) if _type is not None else exp_info[key]
                         for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-                    ]  # + [self.exp_id]
+                    ]# + [self.exp_id]
                     await cur.execute(update_sql, params)
                 else:
                     # INSERT
-                    keys = ", ".join(
-                        key for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-                    )
-                    placeholders = ", ".join(
-                        ["%s"] * len(TO_UPDATE_EXP_INFO_KEYS_AND_TYPES)
-                    )
+                    keys = ", ".join(key for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES)
+                    placeholders = ", ".join(["%s"] * len(TO_UPDATE_EXP_INFO_KEYS_AND_TYPES))
                     insert_sql = psycopg.sql.SQL(
-                        f"INSERT INTO {{}} ({keys}) VALUES ({placeholders})"  # type:ignore
+                        f"INSERT INTO {{}} ({keys}) VALUES ({placeholders})" # type:ignore
                     ).format(psycopg.sql.Identifier(table_name))
                     params = [
                         _type(exp_info[key]) if _type is not None else exp_info[key]
