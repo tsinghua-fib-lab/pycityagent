@@ -3,7 +3,6 @@
 import asyncio
 import logging
 import os
-from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import Any, Optional, Union, cast
 
@@ -22,13 +21,14 @@ from .utils.const import *
 
 logger = logging.getLogger("pycityagent")
 
+
 class Simulator:
     """
     - 模拟器主类
     - Simulator Class
     """
 
-    def __init__(self, config:dict, secure: bool = False) -> None:
+    def __init__(self, config: dict, secure: bool = False) -> None:
         self.config = config
         """
         - 模拟器配置
@@ -193,7 +193,7 @@ class Simulator:
         else:
             # BUG: 返回的time是float类型
             return t_sec["t"]
-        
+
     async def get_simulator_day(self) -> int:
         """
         获取模拟器到第几日
@@ -202,7 +202,7 @@ class Simulator:
         t_sec = cast(dict[str, int], t_sec)
         day = t_sec["t"] // 86400
         return day
-    
+
     async def get_simulator_second_from_start_of_day(self) -> int:
         """
         获取模拟器从00:00:00到当前的秒数
@@ -316,7 +316,7 @@ class Simulator:
         radius: float,
         poi_type: Union[str, list[str]],
     ):
-        if not isinstance(poi_type, Sequence):
+        if isinstance(poi_type, str):
             poi_type = [poi_type]
         transformed_poi_type = []
         for t in poi_type:
