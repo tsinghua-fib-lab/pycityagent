@@ -106,7 +106,6 @@ class PgWriter:
                         ]
                         await copy.write_row(_row)
 
-    # @lock_decorator
     async def async_update_exp_info(self, exp_info: dict[str, Any]):
         # timestamp不做类型转换
         TO_UPDATE_EXP_INFO_KEYS_AND_TYPES = [
@@ -124,16 +123,38 @@ class PgWriter:
         table_name = f"socialcity_{self.exp_id.replace('-', '_')}_experiment"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             async with aconn.cursor(row_factory=dict_row) as cur:
-                # UPDATE
-                columns = ", ".join(
-                    f"{key} = %s" for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-                )
-                update_sql = psycopg.sql.SQL(
-                    f"UPDATE {{}} SET {columns} WHERE id = %s"  # type:ignore
-                ).format(psycopg.sql.Identifier(table_name))
-                params = [
-                    _type(exp_info[key]) if _type is not None else exp_info[key]
-                    for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-                ] + [self.exp_id]
-                await cur.execute(update_sql, params)
+                await cur.execute(
+                    "SELECT * FROM {table_name}".format(table_name=table_name) # type:ignore
+                )  
+                record_exists = await cur.fetchall()
+
+                if record_exists:
+                    # UPDATE
+                    columns = ", ".join(
+                        f"{key} = %s" for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+                    )
+                    update_sql = psycopg.sql.SQL(
+                        f"UPDATE {{}} SET {columns}"  # type:ignore
+                    ).format(psycopg.sql.Identifier(table_name))
+                    params = [
+                        _type(exp_info[key]) if _type is not None else exp_info[key]
+                        for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+                    ]  # + [self.exp_id]
+                    await cur.execute(update_sql, params)
+                else:
+                    # INSERT
+                    keys = ", ".join(
+                        key for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+                    )
+                    placeholders = ", ".join(
+                        ["%s"] * len(TO_UPDATE_EXP_INFO_KEYS_AND_TYPES)
+                    )
+                    insert_sql = psycopg.sql.SQL(
+                        f"INSERT INTO {{}} ({keys}) VALUES ({placeholders})"  # type:ignore
+                    ).format(psycopg.sql.Identifier(table_name))
+                    params = [
+                        _type(exp_info[key]) if _type is not None else exp_info[key]
+                        for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+                    ]
+                    await cur.execute(insert_sql, params)
                 await aconn.commit()
