@@ -340,10 +340,6 @@ class AgentGroup:
                         employees = await agent.memory.get("employees")
                     except:
                         employees = []
-                    try:
-                        customers = await agent.memory.get("customers")
-                    except:
-                        customers = []
                     avro = {
                         "id": agent._uuid,
                         "day": await self.simulator.get_simulator_day(),
@@ -360,7 +356,6 @@ class AgentGroup:
                         "bracket_cutoffs": bracket_cutoffs,
                         "bracket_rates": bracket_rates,
                         "employees": employees,
-                        "customers": customers,
                     }
                     avros.append(avro)
                     _statuses_time_list.append((avro, _date_time))
