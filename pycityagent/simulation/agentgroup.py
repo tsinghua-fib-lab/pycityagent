@@ -134,8 +134,8 @@ class AgentGroup:
                 agent.memory.set_embedding_model(self.embedding_model)
 
     async def __aexit__(self, exc_type, exc_value, traceback):
-        self.message_dispatch_task.cancel()
-        await asyncio.gather(self.message_dispatch_task, return_exceptions=True)
+        self.message_dispatch_task.cancel()  # type: ignore
+        await asyncio.gather(self.message_dispatch_task, return_exceptions=True)  # type: ignore
 
     async def init_agents(self):
         logger.debug(f"-----Initializing Agents in AgentGroup {self._uuid} ...")
@@ -418,8 +418,11 @@ class AgentGroup:
                     # institution
                     for agent in self.agents:
                         _date_time = datetime.now(timezone.utc)
+                        position = await agent.memory.get("position")
+                        x = position["xy_position"]["x"]
+                        y = position["xy_position"]["y"]
+                        lng, lat = self.projector(x, y, inverse=True)
                         # ATTENTION: no valid position for an institution
-                        lng, lat = -1, -1
                         parent_id = -1
                         try:
                             nominal_gdp = await agent.memory.get("nominal_gdp")

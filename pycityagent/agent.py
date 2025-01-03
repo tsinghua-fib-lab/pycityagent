@@ -688,6 +688,28 @@ class InstitutionAgent(Agent):
             _id = random.randint(100000, 999999)
             self._agent_id = _id
             self.memory.set_agent_id(_id)
+            map_header = self.simulator.map.header
+            # TODO: remove random position assignment
+            await self.memory.update(
+                "position",
+                {
+                    "xy_position": {
+                        "x": float(
+                            random.randrange(
+                                start=int(map_header["west"]),
+                                stop=int(map_header["east"]),
+                            )
+                        ),
+                        "y": float(
+                            random.randrange(
+                                start=int(map_header["south"]),
+                                stop=int(map_header["north"]),
+                            )
+                        ),
+                    }
+                },
+                protect_llm_read_only_fields=False,
+            )
             await self.memory.update("id", _id, protect_llm_read_only_fields=False)
             try:
                 await self._economy_client.remove_orgs([self._agent_id])
