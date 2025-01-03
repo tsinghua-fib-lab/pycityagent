@@ -147,10 +147,14 @@ class AgentGroup:
         await self.messager.connect()
         if self.messager.is_connected():
             await self.messager.start_listening()
+            topics = []
+            agents = []
             for agent in self.agents:
                 agent.set_messager(self.messager)
-                topic = f"exps/{self.exp_id}/agents/{agent._uuid}/#"
-                await self.messager.subscribe(topic, agent)
+                topic = (f"exps/{self.exp_id}/agents/{agent._uuid}/#", 1)
+                topics.append(topic)
+                agents.append(agent)
+            await self.messager.subscribe(topics, agents)
         self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
         if self.enable_avro:
             logger.debug(f"-----Creating Avro files in AgentGroup {self._uuid} ...")

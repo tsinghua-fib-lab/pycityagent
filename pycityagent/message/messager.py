@@ -1,8 +1,8 @@
 import asyncio
-from collections import defaultdict
 import json
 import logging
 import math
+from typing import Any, List, Union
 from aiomqtt import Client
 
 logger = logging.getLogger("pycityagent")
@@ -40,15 +40,20 @@ class Messager:
         """检查是否成功连接到 Broker"""
         return self.connected
 
-    async def subscribe(self, topic, agent):
+    async def subscribe(self, topics: Union[str, List[str]], agents: Union[Any, List[Any]]):
         if not self.is_connected():
             logger.error(
-                f"Cannot subscribe to {topic} because not connected to the Broker."
+                f"Cannot subscribe to {topics} because not connected to the Broker."
             )
             return
-        await self.client.subscribe(topic=topic, qos=1)
-        self.subscribers[topic] = agent
-        logger.info(f"Subscribed to {topic} for Agent {agent._uuid}")
+        if not isinstance(topics, list):
+            topics = [topics]
+        if not isinstance(agents, list):
+            agents = [agents]
+        for topic, agent in zip(topics, agents):
+            self.subscribers[topic] = agent
+            logger.info(f"Subscribed to {topic} for Agent {agent._uuid}")
+        await self.client.subscribe(topics, qos=1)
 
     async def receive_messages(self):
         """监听并将消息存入队列"""
