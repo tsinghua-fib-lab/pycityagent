@@ -409,6 +409,50 @@ class AgentGroup:
                 else:
                     for agent in self.agents:
                         _date_time = datetime.now(timezone.utc)
+                        try:
+                            nominal_gdp = await agent.memory.get("nominal_gdp")
+                        except:
+                            nominal_gdp = []
+                        try:
+                            real_gdp = await agent.memory.get("real_gdp")
+                        except:
+                            real_gdp = []
+                        try:
+                            unemployment = await agent.memory.get("unemployment")
+                        except:
+                            unemployment = []
+                        try:
+                            wages = await agent.memory.get("wages")
+                        except:
+                            wages = []
+                        try:
+                            prices = await agent.memory.get("prices")
+                        except:
+                            prices = []
+                        try:
+                            inventory = await agent.memory.get("inventory")
+                        except:
+                            inventory = 0
+                        try:
+                            price = await agent.memory.get("price")
+                        except:
+                            price = 0.0
+                        try:
+                            interest_rate = await agent.memory.get("interest_rate")
+                        except:
+                            interest_rate = 0.0
+                        try:
+                            bracket_cutoffs = await agent.memory.get("bracket_cutoffs")
+                        except:
+                            bracket_cutoffs = []
+                        try:
+                            bracket_rates = await agent.memory.get("bracket_rates")
+                        except:
+                            bracket_rates = []
+                        try:
+                            employees = await agent.memory.get("employees")
+                        except:
+                            employees = []
                         _status_dict = {
                             "id": agent._uuid,
                             "day": await self.simulator.get_simulator_day(),
@@ -418,20 +462,17 @@ class AgentGroup:
                             "parent_id": -1,
                             "action": "",
                             "type": await agent.memory.get("type"),
-                            "nominal_gdp": await agent.memory.get("nominal_gdp"),
-                            "real_gdp": await agent.memory.get("real_gdp"),
-                            "unemployment": await agent.memory.get("unemployment"),
-                            "wages": await agent.memory.get("wages"),
-                            "prices": await agent.memory.get("prices"),
-                            "inventory": await agent.memory.get("inventory"),
-                            "price": await agent.memory.get("price"),
-                            "interest_rate": await agent.memory.get("interest_rate"),
-                            "bracket_cutoffs": await agent.memory.get(
-                                "bracket_cutoffs"
-                            ),
-                            "bracket_rates": await agent.memory.get("bracket_rates"),
-                            "employees": await agent.memory.get("employees"),
-                            "customers": await agent.memory.get("customers"),
+                            "nominal_gdp": nominal_gdp,
+                            "real_gdp": real_gdp,
+                            "unemployment": unemployment,
+                            "wages": wages,
+                            "prices": prices,
+                            "inventory": inventory,
+                            "price": price,
+                            "interest_rate": interest_rate,
+                            "bracket_cutoffs": bracket_cutoffs,
+                            "bracket_rates": bracket_rates,
+                            "employees": employees,
                             "created_at": _date_time,
                         }
                         _statuses_time_list.append((_status_dict, _date_time))
