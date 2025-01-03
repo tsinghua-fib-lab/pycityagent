@@ -9,6 +9,7 @@ from typing import Any
 from uuid import UUID
 
 import fastavro
+import pyproj
 import ray
 from langchain_core.embeddings import Embeddings
 
@@ -80,6 +81,7 @@ class AgentGroup:
         # Step:2 prepare Simulator
         logger.info(f"-----Creating Simulator in AgentGroup {self._uuid} ...")
         self.simulator = Simulator(config["simulator_request"])
+        self.projector = pyproj.Proj(self.simulator.map.header["projection"])
 
         # Step:3 prepare Economy client
         if "economy" in config["simulator_request"]:
@@ -264,8 +266,9 @@ class AgentGroup:
                 for agent in self.agents:
                     _date_time = datetime.now(timezone.utc)
                     position = await agent.memory.get("position")
-                    lng = position["longlat_position"]["longitude"]
-                    lat = position["longlat_position"]["latitude"]
+                    x = position["xy_position"]["x"]
+                    y = position["xy_position"]["y"]
+                    lng, lat = self.projector(x, y, inverse=True)
                     if "aoi_position" in position:
                         parent_id = position["aoi_position"]["aoi_id"]
                     elif "lane_position" in position:
@@ -379,8 +382,9 @@ class AgentGroup:
                     for agent in self.agents:
                         _date_time = datetime.now(timezone.utc)
                         position = await agent.memory.get("position")
-                        lng = position["longlat_position"]["longitude"]
-                        lat = position["longlat_position"]["latitude"]
+                        x = position["xy_position"]["x"]
+                        y = position["xy_position"]["y"]
+                        lng, lat = self.projector(x, y, inverse=True)
                         if "aoi_position" in position:
                             parent_id = position["aoi_position"]["aoi_id"]
                         elif "lane_position" in position:
@@ -409,6 +413,17 @@ class AgentGroup:
                 else:
                     for agent in self.agents:
                         _date_time = datetime.now(timezone.utc)
+                        position = await agent.memory.get("position")
+                        x = position["xy_position"]["x"]
+                        y = position["xy_position"]["y"]
+                        lng, lat = self.projector(x, y, inverse=True)
+                        if "aoi_position" in position:
+                            parent_id = position["aoi_position"]["aoi_id"]
+                        elif "lane_position" in position:
+                            parent_id = position["lane_position"]["lane_id"]
+                        else:
+                            # BUG: 需要处理
+                            parent_id = -1
                         try:
                             nominal_gdp = await agent.memory.get("nominal_gdp")
                         except:
@@ -457,9 +472,9 @@ class AgentGroup:
                             "id": agent._uuid,
                             "day": await self.simulator.get_simulator_day(),
                             "t": await self.simulator.get_simulator_second_from_start_of_day(),
-                            "lng": -1,
-                            "lat": -1,
-                            "parent_id": -1,
+                            "lng": lng,
+                            "lat": lat,
+                            "parent_id": parent_id,
                             "action": "",
                             "type": await agent.memory.get("type"),
                             "nominal_gdp": nominal_gdp,
