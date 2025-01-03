@@ -69,6 +69,7 @@ class AgentGroup:
             username=config["simulator_request"]["mqtt"].get("username", None),
             password=config["simulator_request"]["mqtt"].get("password", None),
         )
+        self.message_dispatch_task = None
         self._pgsql_writer = pgsql_writer
         self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
         self.initialized = False
@@ -132,6 +133,10 @@ class AgentGroup:
             if self.embedding_model is not None:
                 agent.memory.set_embedding_model(self.embedding_model)
 
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        self.message_dispatch_task.cancel()
+        await asyncio.gather(self.message_dispatch_task, return_exceptions=True)
+
     async def init_agents(self):
         logger.debug(f"-----Initializing Agents in AgentGroup {self._uuid} ...")
         logger.debug(f"-----Binding Agents to Simulator in AgentGroup {self._uuid} ...")
@@ -144,13 +149,7 @@ class AgentGroup:
             await self.messager.start_listening()
             for agent in self.agents:
                 agent.set_messager(self.messager)
-                topic = f"exps/{self.exp_id}/agents/{agent._uuid}/agent-chat"
-                await self.messager.subscribe(topic, agent)
-                topic = f"exps/{self.exp_id}/agents/{agent._uuid}/user-chat"
-                await self.messager.subscribe(topic, agent)
-                topic = f"exps/{self.exp_id}/agents/{agent._uuid}/user-survey"
-                await self.messager.subscribe(topic, agent)
-                topic = f"exps/{self.exp_id}/agents/{agent._uuid}/gather"
+                topic = f"exps/{self.exp_id}/agents/{agent._uuid}/#"
                 await self.messager.subscribe(topic, agent)
         self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
         if self.enable_avro:
@@ -225,6 +224,7 @@ class AgentGroup:
                 logger.warning(
                     "Messager is not connected. Skipping message processing."
                 )
+                break
 
             # Step 1: 获取消息
             messages = await self.messager.fetch_messages()

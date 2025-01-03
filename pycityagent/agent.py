@@ -687,6 +687,7 @@ class InstitutionAgent(Agent):
             # TODO: More general id generation
             _id = random.randint(100000, 999999)
             self._agent_id = _id
+            self.memory.set_agent_id(_id)
             await self.memory.update("id", _id, protect_llm_read_only_fields=False)
             try:
                 await self._economy_client.remove_orgs([self._agent_id])

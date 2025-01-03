@@ -17,6 +17,10 @@ class Messager:
         self.connected = False  # 是否已连接标志
         self.message_queue = asyncio.Queue()  # 用于存储接收到的消息
         self.subscribers = {}  # 订阅者信息，topic -> Agent 映射
+        self.receive_messages_task = None
+    
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        await self.stop()
 
     async def connect(self):
         try:
@@ -42,7 +46,7 @@ class Messager:
                 f"Cannot subscribe to {topic} because not connected to the Broker."
             )
             return
-        await self.client.subscribe(topic)
+        await self.client.subscribe(topic=topic, qos=1)
         self.subscribers[topic] = agent
         logger.info(f"Subscribed to {topic} for Agent {agent._uuid}")
 
@@ -61,12 +65,17 @@ class Messager:
     async def send_message(self, topic: str, payload: dict):
         """通过 Messager 发送消息"""
         message = json.dumps(payload, default=str)
-        await self.client.publish(topic, message)
+        await self.client.publish(topic=topic, payload=message, qos=1)
         logger.info(f"Message sent to {topic}: {message}")
 
     async def start_listening(self):
         """启动消息监听任务"""
         if self.is_connected():
-            asyncio.create_task(self.receive_messages())
+            self.receive_messages_task = asyncio.create_task(self.receive_messages())
         else:
             logger.error("Cannot start listening because not connected to the Broker.")
+
+    async def stop(self):
+        self.receive_messages_task.cancel()
+        await asyncio.gather(self.receive_messages_task, return_exceptions=True)
+        await self.disconnect()

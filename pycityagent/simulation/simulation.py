@@ -74,7 +74,6 @@ class AgentSimulation:
             username=config["simulator_request"]["mqtt"].get("username", None),
             password=config["simulator_request"]["mqtt"].get("password", None),
         )
-        asyncio.create_task(self._messager.connect())
 
         # storage
         _storage_config: dict[str, Any] = config.get("storage", {})
@@ -202,6 +201,7 @@ class AgentSimulation:
             group_size: 每个组的智能体数量，每一个组为一个独立的ray actor
             memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组, 如果为列表，则每个元素表示一个智能体类创建的Memory配置函数
         """
+        await self._messager.connect()
         if not isinstance(agent_count, list):
             agent_count = [agent_count]
 
@@ -535,13 +535,6 @@ class AgentSimulation:
         try:
             if self.enable_pgsql:
                 worker: ray.ObjectRef = self._pgsql_writers[0]  # type:ignore
-                # if self._last_asyncio_pg_task is not None:
-                #     await self._last_asyncio_pg_task
-                # self._last_asyncio_pg_task = (
-                #     worker.async_update_exp_info.remote(  # type:ignore
-                #         pg_exp_info
-                #     )
-                # )
                 pg_exp_info = {k: v for k, v in self._exp_info.items()}
                 pg_exp_info["created_at"] = self._exp_created_time
                 pg_exp_info["updated_at"] = self._exp_updated_time
