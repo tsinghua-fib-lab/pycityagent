@@ -14,7 +14,6 @@ from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pycityproto.city.person.v2 import person_service_pb2 as person_service
 from pymongo import MongoClient
 from shapely.geometry import Point
-from shapely.strtree import STRtree
 
 from .sim import CityClient, ControlSimEnv
 from .utils.const import *
@@ -87,12 +86,6 @@ class Simulator:
         - Simulator map object
         """
 
-        self.pois_matrix: dict[str, list[list[list]]] = {}
-        """
-        pois的基于区块的划分——方便快速粗略地查询poi
-        通过Simulator.set_pois_matrix()初始化
-        """
-
         self.time: int = 0
         """
         - 模拟城市当前时间
@@ -102,12 +95,11 @@ class Simulator:
         self.map_x_gap = None
         self.map_y_gap = None
         self._bbox: tuple[float, float, float, float] = (-1, -1, -1, -1)
-        self.poi_matrix_centers = []
         self._lock = asyncio.Lock()
         # poi id dict
-        self.poi_id_2_aoi_id: dict[int, int] = {}
-        # poi STRtree
-        self.set_poi_tree()
+        self.poi_id_2_aoi_id: dict[int, int] = {
+            poi["id"]: poi["aoi_id"] for _, poi in self.map.pois.items()
+        }
 
     # * Agent相关
     def find_agents_by_area(self, req: dict, status=None):
@@ -137,35 +129,21 @@ class Simulator:
             resp.motions = motions  # type: ignore
             return resp
 
-    def set_poi_tree(
-        self,
-    ):
-        """
-        初始化pois_tree
-        """
-        poi_geos = []
-        tree_id_2_poi_and_catg: dict[int, tuple[dict, str]] = {}
-        for tree_id, poi in enumerate(self.map.pois.values()):
-            tree_id_2_poi_and_catg[tree_id] = (poi, poi["category"])
-            poi_geos.append(Point([poi["position"][k] for k in ["x", "y"]]))
-            self.poi_id_2_aoi_id[poi["id"]] = poi["aoi_id"]
-        self.tree_id_2_poi_and_catg = tree_id_2_poi_and_catg
-        self.pois_tree = STRtree(poi_geos)
-
     def get_poi_categories(
         self,
         center: Optional[Union[tuple[float, float], Point]] = None,
         radius: Optional[float] = None,
     ) -> list[str]:
-        if center is not None and radius is not None:
-            if not isinstance(center, Point):
-                center = Point(center)
-            indices = self.pois_tree.query(center.buffer(radius))
-        else:
-            indices = list(self.tree_id_2_poi_and_catg.keys())
-        categories = []
-        for index in indices:
-            _, catg = self.tree_id_2_poi_and_catg[index]
+        categories: list[str] = []
+        if center is None:
+            center = (0, 0)
+        _pois: list[dict] = self.map.query_pois(  # type:ignore
+            center=center,
+            radius=radius,
+            return_distance=False,
+        )
+        for poi in _pois:
+            catg = poi["category"]
             categories.append(catg.split("|")[-1])
         return list(set(categories))
 
@@ -327,7 +305,7 @@ class Simulator:
         center: Union[tuple[float, float], Point],
         radius: float,
         poi_type: Union[str, list[str]],
-    ):
+    ) -> list[dict]:
         if isinstance(poi_type, str):
             poi_type = [poi_type]
         transformed_poi_type = []
@@ -337,14 +315,16 @@ class Simulator:
             else:
                 transformed_poi_type += self.poi_cate[t]
         poi_type_set = set(transformed_poi_type)
-        if not isinstance(center, Point):
-            center = Point(center)
         # 获取半径内的poi
-        indices = self.pois_tree.query(center.buffer(radius))
+        _pois: list[dict] = self.map.query_pois(  # type:ignore
+            center=center,
+            radius=radius,
+            return_distance=False,
+        )
         # 过滤掉不满足类别前缀的poi
         pois = []
-        for index in indices:
-            poi, catg = self.tree_id_2_poi_and_catg[index]
+        for poi in _pois:
+            catg = poi["category"]
             if catg.split("|")[-1] not in poi_type_set:
                 continue
             pois.append(poi)
