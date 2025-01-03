@@ -168,16 +168,44 @@ class Block:
     def llm(
         self,
     ) -> LLM:
-        return self._llm  # type: ignore
+        if self._llm is None:
+            raise RuntimeError(f"LLM access before assignment, please `set_llm` first!")
+        return self._llm
 
     @property
     def memory(
         self,
     ) -> Memory:
-        return self._memory  # type: ignore
+        if self._memory is None:
+            raise RuntimeError(
+                f"Memory access before assignment, please `set_memory` first!"
+            )
+        return self._memory
 
     @property
     def simulator(
         self,
     ) -> Simulator:
-        return self._simulator  # type: ignore
+        if self._simulator is None:
+            raise RuntimeError(
+                f"Simulator access before assignment, please `set_simulator` first!"
+            )
+        return self._simulator
+
+    def set_llm_client(self, llm: LLM):
+        """
+        Set the llm_client of the block.
+        """
+        self._llm = llm
+
+    def set_simulator(self, simulator: Simulator):
+        """
+        Set the simulator of the block.
+        """
+        self._simulator = simulator
+
+    def set_memory(self, memory: Memory):
+        """
+        Set the memory of the block.
+        """
+        self._memory = memory
