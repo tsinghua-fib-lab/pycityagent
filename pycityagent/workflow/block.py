@@ -148,9 +148,9 @@ class Block:
         trigger: Optional[EventTrigger] = None,
     ):
         self.name = name
-        self.llm = llm
-        self.memory = memory
-        self.simulator = simulator
+        self._llm = llm
+        self._memory = memory
+        self._simulator = simulator
         # 如果传入trigger，将block注入到trigger中并立即初始化
         if trigger is not None:
             trigger.block = self
@@ -163,3 +163,21 @@ class Block:
         To be overridden by specific block implementations.
         """
         raise NotImplementedError("Subclasses should implement this method")
+
+    @property
+    def llm(
+        self,
+    ) -> LLM:
+        return self._llm  # type: ignore
+
+    @property
+    def memory(
+        self,
+    ) -> Memory:
+        return self._memory  # type: ignore
+
+    @property
+    def simulator(
+        self,
+    ) -> Simulator:
+        return self._simulator  # type: ignore

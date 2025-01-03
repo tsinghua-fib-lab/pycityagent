@@ -411,19 +411,12 @@ class AgentGroup:
                         }
                         _statuses_time_list.append((_status_dict, _date_time))
                 else:
+                    # institution
                     for agent in self.agents:
                         _date_time = datetime.now(timezone.utc)
-                        position = await agent.memory.get("position")
-                        x = position["xy_position"]["x"]
-                        y = position["xy_position"]["y"]
-                        lng, lat = self.projector(x, y, inverse=True)
-                        if "aoi_position" in position:
-                            parent_id = position["aoi_position"]["aoi_id"]
-                        elif "lane_position" in position:
-                            parent_id = position["lane_position"]["lane_id"]
-                        else:
-                            # BUG: 需要处理
-                            parent_id = -1
+                        # ATTENTION: no valid position for an institution
+                        lng, lat = -1, -1
+                        parent_id = -1
                         try:
                             nominal_gdp = await agent.memory.get("nominal_gdp")
                         except:
