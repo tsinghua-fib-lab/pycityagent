@@ -20,10 +20,11 @@ from mosstool.map._map_util.const import AOI_START_ID
 from ..agent import Agent, InstitutionAgent
 from ..environment.simulator import Simulator
 from ..llm import SimpleEmbedding
-from ..memory import FaissQuery, Memory
+from ..memory import Memory
 from ..message.messager import Messager
 from ..metrics import init_mlflow_connection
 from ..survey import Survey
+from ..utils import TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
 from .agentgroup import AgentGroup
 from .storage.pg import PgWriter, create_pg_tables
 
@@ -96,7 +97,11 @@ class AgentSimulation:
             logger.warning("PostgreSQL is not enabled, NO POSTGRESQL DATABASE STORAGE")
             self._pgsql_dsn = ""
         else:
-            self._pgsql_dsn = _pgsql_config["data_source_name"]
+            self._pgsql_dsn = (
+                _pgsql_config["data_source_name"]
+                if "data_source_name" in _pgsql_config
+                else _pgsql_config["dsn"]
+            )
 
         # 添加实验信息相关的属性
         self._exp_created_time = datetime.now(timezone.utc)
@@ -535,7 +540,9 @@ class AgentSimulation:
         try:
             if self.enable_pgsql:
                 worker: ray.ObjectRef = self._pgsql_writers[0]  # type:ignore
-                pg_exp_info = {k: v for k, v in self._exp_info.items()}
+                pg_exp_info = {
+                    k: self._exp_info[k] for (k, _) in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+                }
                 pg_exp_info["created_at"] = self._exp_created_time
                 pg_exp_info["updated_at"] = self._exp_updated_time
                 await worker.async_update_exp_info.remote(  # type:ignore

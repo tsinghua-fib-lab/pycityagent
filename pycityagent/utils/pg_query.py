@@ -78,3 +78,15 @@ PGSQL_DICT: dict[str, list[Any]] = {
         "CREATE INDEX {table_name}_day_t_idx ON {table_name} (day,t)",
     ],
 }
+TO_UPDATE_EXP_INFO_KEYS_AND_TYPES: list[tuple[str, Any]] = [
+    ("id", None),
+    ("name", str),
+    ("num_day", int),
+    ("status", int),
+    ("cur_day", int),
+    ("cur_t", float),
+    ("config", str),
+    ("error", str),
+    ("created_at", None),
+    ("updated_at", None),
+]

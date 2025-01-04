@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections import defaultdict
 from typing import Any
 
@@ -8,7 +9,9 @@ import ray
 from psycopg.rows import dict_row
 
 from ...utils.decorators import lock_decorator
-from ...utils.pg_query import PGSQL_DICT
+from ...utils.pg_query import PGSQL_DICT, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+
+logger = logging.getLogger("pg")
 
 
 def create_pg_tables(exp_id: str, dsn: str):
@@ -27,10 +30,15 @@ def create_pg_tables(exp_id: str, dsn: str):
                 if not table_type == "experiment":
                     # delete table
                     cur.execute(f"DROP TABLE IF EXISTS {table_name}")  # type:ignore
+                    logger.debug(
+                        f"table:{table_name} sql: DROP TABLE IF EXISTS {table_name}"
+                    )
                     conn.commit()
                 # create table
                 for _exec_str in exec_strs:
-                    cur.execute(_exec_str.format(table_name=table_name))
+                    exec_str = _exec_str.format(table_name=table_name)
+                    cur.execute(exec_str)
+                    logger.debug(f"table:{table_name} sql: {exec_str}")
                 conn.commit()
 
 
@@ -50,6 +58,7 @@ class PgWriter:
             copy_sql = psycopg.sql.SQL(
                 "COPY {} (id, day, t, type, speaker, content, created_at) FROM STDIN"
             ).format(psycopg.sql.Identifier(table_name))
+            _rows: list[Any] = []
             async with aconn.cursor() as cur:
                 async with cur.copy(copy_sql) as copy:
                     for row in rows:
@@ -58,6 +67,8 @@ class PgWriter:
                             for (_type, r) in zip(_tuple_types, row)
                         ]
                         await copy.write_row(_row)
+                        _rows.append(_row)
+            logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     # @lock_decorator
     async def async_write_status(self, rows: list[tuple]):
@@ -67,6 +78,7 @@ class PgWriter:
             copy_sql = psycopg.sql.SQL(
                 "COPY {} (id, day, t, lng, lat, parent_id, action, status, created_at) FROM STDIN"
             ).format(psycopg.sql.Identifier(table_name))
+            _rows: list[Any] = []
             async with aconn.cursor() as cur:
                 async with cur.copy(copy_sql) as copy:
                     for row in rows:
@@ -75,6 +87,8 @@ class PgWriter:
                             for (_type, r) in zip(_tuple_types, row)
                         ]
                         await copy.write_row(_row)
+                        _rows.append(_row)
+            logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     # @lock_decorator
     async def async_write_profile(self, rows: list[tuple]):
@@ -84,6 +98,7 @@ class PgWriter:
             copy_sql = psycopg.sql.SQL("COPY {} (id, name, profile) FROM STDIN").format(
                 psycopg.sql.Identifier(table_name)
             )
+            _rows: list[Any] = []
             async with aconn.cursor() as cur:
                 async with cur.copy(copy_sql) as copy:
                     for row in rows:
@@ -92,6 +107,8 @@ class PgWriter:
                             for (_type, r) in zip(_tuple_types, row)
                         ]
                         await copy.write_row(_row)
+                        _rows.append(_row)
+            logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     # @lock_decorator
     async def async_write_survey(self, rows: list[tuple]):
@@ -101,6 +118,7 @@ class PgWriter:
             copy_sql = psycopg.sql.SQL(
                 "COPY {} (id, day, t, survey_id, result, created_at) FROM STDIN"
             ).format(psycopg.sql.Identifier(table_name))
+            _rows: list[Any] = []
             async with aconn.cursor() as cur:
                 async with cur.copy(copy_sql) as copy:
                     for row in rows:
@@ -109,51 +127,54 @@ class PgWriter:
                             for (_type, r) in zip(_tuple_types, row)
                         ]
                         await copy.write_row(_row)
+                        _rows.append(_row)
+            logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
     # @lock_decorator
     async def async_update_exp_info(self, exp_info: dict[str, Any]):
         # timestamp不做类型转换
-        TO_UPDATE_EXP_INFO_KEYS_AND_TYPES = [
-            ("id", None),
-            ("name", str),
-            ("num_day", int),
-            ("status", int),
-            ("cur_day", int),
-            ("cur_t", float),
-            ("config", str),
-            ("error", str),
-            ("created_at", None),
-            ("updated_at", None),
-        ]
         table_name = f"socialcity_experiment"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
-            async with aconn.cursor(row_factory=dict_row) as cur:                
-                await cur.execute("SELECT * FROM {table_name} WHERE id=%s".format(table_name = table_name),(self.exp_id,))# type:ignore
-                record_exists = await cur.fetchall()    
-                print("record_exists",record_exists)            
+            async with aconn.cursor(row_factory=dict_row) as cur:
+                exec_str = "SELECT * FROM {table_name} WHERE id=%s".format(
+                    table_name=table_name
+                ), (self.exp_id,)
+                await cur.execute(exec_str)  # type:ignore
+                logger.debug(f"table:{table_name} sql: {exec_str}")
+                record_exists = await cur.fetchall()
                 if record_exists:
                     # UPDATE
                     columns = ", ".join(
                         f"{key} = %s" for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
                     )
                     update_sql = psycopg.sql.SQL(
-                        f"UPDATE {{}} SET {columns} WHERE id='{self.exp_id}'" # type:ignore
-                    ).format(psycopg.sql.Identifier(table_name))
-                    params = [
-                        _type(exp_info[key]) if _type is not None else exp_info[key]
-                        for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
-                    ]# + [self.exp_id]
-                    await cur.execute(update_sql, params)
-                else:
-                    # INSERT
-                    keys = ", ".join(key for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES)
-                    placeholders = ", ".join(["%s"] * len(TO_UPDATE_EXP_INFO_KEYS_AND_TYPES))
-                    insert_sql = psycopg.sql.SQL(
-                        f"INSERT INTO {{}} ({keys}) VALUES ({placeholders})" # type:ignore
+                        f"UPDATE {{}} SET {columns} WHERE id='{self.exp_id}'"  # type:ignore
                     ).format(psycopg.sql.Identifier(table_name))
                     params = [
                         _type(exp_info[key]) if _type is not None else exp_info[key]
                         for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
                     ]
+                    logger.debug(
+                        f"table:{table_name} sql: {update_sql} values: {params}"
+                    )
+                    await cur.execute(update_sql, params)
+                else:
+                    # INSERT
+                    keys = ", ".join(
+                        key for key, _ in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+                    )
+                    placeholders = ", ".join(
+                        ["%s"] * len(TO_UPDATE_EXP_INFO_KEYS_AND_TYPES)
+                    )
+                    insert_sql = psycopg.sql.SQL(
+                        f"INSERT INTO {{}} ({keys}) VALUES ({placeholders})"  # type:ignore
+                    ).format(psycopg.sql.Identifier(table_name))
+                    params = [
+                        _type(exp_info[key]) if _type is not None else exp_info[key]
+                        for key, _type in TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+                    ]
+                    logger.debug(
+                        f"table:{table_name} sql: {insert_sql} values: {params}"
+                    )
                     await cur.execute(insert_sql, params)
                 await aconn.commit()
