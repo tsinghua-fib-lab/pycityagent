@@ -199,11 +199,40 @@ class AgentGroup:
                     profile = profile[0]
                     profile["id"] = agent._uuid
                     profiles.append(
-                        (agent._uuid, profile.get("name", ""), json.dumps(profile))
+                        (
+                            agent._uuid,
+                            profile.get("name", ""),
+                            json.dumps(
+                                {
+                                    k: v
+                                    for k, v in profile.items()
+                                    if k not in {"id", "name"}
+                                }
+                            ),
+                        )
                     )
-                await self._pgsql_writer.async_write_profile.remote(  # type:ignore
-                    profiles
-                )
+            else:
+                profiles: list[Any] = []
+                for agent in self.agents:
+                    profile = await agent.memory._profile.export()
+                    profile = profile[0]
+                    profile["id"] = agent._uuid
+                    profiles.append(
+                        (
+                            agent._uuid,
+                            profile.get("name", ""),
+                            json.dumps(
+                                {
+                                    k: v
+                                    for k, v in profile.items()
+                                    if k not in {"id", "name"}
+                                }
+                            ),
+                        )
+                    )
+            await self._pgsql_writer.async_write_profile.remote(  # type:ignore
+                profiles
+            )
         self.initialized = True
         logger.debug(f"-----AgentGroup {self._uuid} initialized")
 
