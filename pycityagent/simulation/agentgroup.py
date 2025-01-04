@@ -63,7 +63,7 @@ class AgentGroup:
         if self.enable_pgsql:
             pass
 
-        self.messager = Messager(
+        self.messager = Messager.remote(
             hostname=config["simulator_request"]["mqtt"]["server"],
             port=config["simulator_request"]["mqtt"]["port"],
             username=config["simulator_request"]["mqtt"].get("username", None),
@@ -144,9 +144,9 @@ class AgentGroup:
             await agent.bind_to_simulator()  # type: ignore
         self.id2agent = {agent._uuid: agent for agent in self.agents}
         logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
-        await self.messager.connect()
-        if self.messager.is_connected():
-            await self.messager.start_listening()
+        await self.messager.connect.remote()
+        if ray.get(self.messager.is_connected.remote()):
+            await self.messager.start_listening.remote()
             topics = []
             agents = []
             for agent in self.agents:
@@ -154,7 +154,7 @@ class AgentGroup:
                 topic = (f"exps/{self.exp_id}/agents/{agent._uuid}/#", 1)
                 topics.append(topic)
                 agents.append(agent)
-            await self.messager.subscribe(topics, agents)
+            await self.messager.subscribe.remote(topics, agents)
         self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
         if self.enable_avro:
             logger.debug(f"-----Creating Avro files in AgentGroup {self._uuid} ...")
@@ -253,14 +253,14 @@ class AgentGroup:
     async def message_dispatch(self):
         logger.debug(f"-----Starting message dispatch for group {self._uuid}")
         while True:
-            if not self.messager.is_connected():
+            if not ray.get(self.messager.is_connected.remote()):
                 logger.warning(
                     "Messager is not connected. Skipping message processing."
                 )
                 break
 
             # Step 1: 获取消息
-            messages = await self.messager.fetch_messages()
+            messages = await self.messager.fetch_messages.remote()
             logger.info(f"Group {self._uuid} received {len(messages)} messages")
 
             # Step 2: 分发消息到对应的 Agent

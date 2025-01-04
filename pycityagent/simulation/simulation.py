@@ -69,7 +69,7 @@ class AgentSimulation:
         self._loop = asyncio.get_event_loop()
         # self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
 
-        self._messager = Messager(
+        self._messager = Messager.remote(
             hostname=config["simulator_request"]["mqtt"]["server"],
             port=config["simulator_request"]["mqtt"]["port"],
             username=config["simulator_request"]["mqtt"].get("username", None),
@@ -206,7 +206,7 @@ class AgentSimulation:
             group_size: 每个组的智能体数量，每一个组为一个独立的ray actor
             memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组, 如果为列表，则每个元素表示一个智能体类创建的Memory配置函数
         """
-        await self._messager.connect()
+        await self._messager.connect.remote()
         if not isinstance(agent_count, list):
             agent_count = [agent_count]
 
@@ -499,7 +499,7 @@ class AgentSimulation:
         }
         for uuid in agent_uuids:
             topic = self._user_survey_topics[uuid]
-            await self._messager.send_message(topic, payload)
+            await self._messager.send_message.remote(topic, payload)
 
     async def send_interview_message(
         self, content: str, agent_uuids: Union[uuid.UUID, list[uuid.UUID]]
@@ -516,7 +516,7 @@ class AgentSimulation:
             agent_uuids = [agent_uuids]
         for uuid in agent_uuids:
             topic = self._user_chat_topics[uuid]
-            await self._messager.send_message(topic, payload)
+            await self._messager.send_message.remote(topic, payload)
 
     async def step(self):
         """运行一步, 即每个智能体执行一次forward"""

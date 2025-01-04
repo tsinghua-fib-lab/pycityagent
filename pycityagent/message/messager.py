@@ -4,9 +4,11 @@ import logging
 import math
 from typing import Any, List, Union
 from aiomqtt import Client
+import ray
 
 logger = logging.getLogger("pycityagent")
 
+@ray.remote
 class Messager:
     def __init__(
         self, hostname:str, port:int=1883, username=None, password=None, timeout=math.inf

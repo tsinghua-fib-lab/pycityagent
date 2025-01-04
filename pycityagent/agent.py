@@ -464,7 +464,7 @@ class Agent(ABC):
         if self._messager is None:
             raise RuntimeError("Messager is not set")
         topic = f"exps/{self._exp_id}/agents/{to_agent_uuid}/{sub_topic}"
-        await self._messager.send_message(topic, payload)
+        await self._messager.send_message.remote(topic, payload)
 
     async def send_message_to_agent(
         self, to_agent_uuid: str, content: str, type: str = "social"
