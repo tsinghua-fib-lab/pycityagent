@@ -153,7 +153,7 @@ class AgentGroup:
                 agent.set_messager(self.messager)
                 topic = (f"exps/{self.exp_id}/agents/{agent._uuid}/#", 1)
                 topics.append(topic)
-                agents.append(agent)
+                agents.append(agent.uuid)
             await self.messager.subscribe.remote(topics, agents)
         self.message_dispatch_task = asyncio.create_task(self.message_dispatch())
         if self.enable_avro:

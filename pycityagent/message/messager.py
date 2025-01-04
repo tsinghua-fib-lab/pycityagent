@@ -11,27 +11,30 @@ logger = logging.getLogger("pycityagent")
 @ray.remote
 class Messager:
     def __init__(
-        self, hostname:str, port:int=1883, username=None, password=None, timeout=math.inf
+        self, hostname:str, port:int=1883, username=None, password=None, timeout=60
     ):
         self.client = Client(
             hostname, port=port, username=username, password=password, timeout=timeout
         )
         self.connected = False  # 是否已连接标志
         self.message_queue = asyncio.Queue()  # 用于存储接收到的消息
-        self.subscribers = {}  # 订阅者信息，topic -> Agent 映射
         self.receive_messages_task = None
     
     async def __aexit__(self, exc_type, exc_value, traceback):
         await self.stop()
 
     async def connect(self):
-        try:
-            await self.client.__aenter__()
-            self.connected = True
-            logger.info("Connected to MQTT Broker")
-        except Exception as e:
-            self.connected = False
-            logger.error(f"Failed to connect to MQTT Broker: {e}")
+        for i in range(3):
+            try:
+                await self.client.__aenter__()
+                self.connected = True
+                logger.info("Connected to MQTT Broker")
+                return
+            except Exception as e:
+                logger.error(f"Attempt {i+1}: Failed to connect to MQTT Broker: {e}")
+                await asyncio.sleep(10)
+        self.connected = False
+        logger.error("All connection attempts failed.")
 
     async def disconnect(self):
         await self.client.__aexit__(None, None, None)
@@ -52,9 +55,6 @@ class Messager:
             topics = [topics]
         if not isinstance(agents, list):
             agents = [agents]
-        for topic, agent in zip(topics, agents):
-            self.subscribers[topic] = agent
-            logger.info(f"Subscribed to {topic} for Agent {agent._uuid}")
         await self.client.subscribe(topics, qos=1)
 
     async def receive_messages(self):
