@@ -139,7 +139,12 @@ class PgWriter:
                 exec_str = "SELECT * FROM {table_name} WHERE id=%s".format(
                     table_name=table_name
                 ), (self.exp_id,)
-                await cur.execute(exec_str)  # type:ignore
+                await cur.execute(
+                    "SELECT * FROM {table_name} WHERE id=%s".format(
+                        table_name=table_name
+                    ),
+                    (self.exp_id,),
+                )  # type:ignore
                 logger.debug(f"table:{table_name} sql: {exec_str}")
                 record_exists = await cur.fetchall()
                 if record_exists:
