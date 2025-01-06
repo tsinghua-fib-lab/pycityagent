@@ -576,5 +576,6 @@ class AgentGroup:
                 await self.step()
 
         except Exception as e:
-            logger.error(f"模拟器运行错误: {str(e)}")
+            import traceback
+            logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e
