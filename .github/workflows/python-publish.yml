@@ -38,3 +38,22 @@ jobs:
       with:
         verbose: true
         packages-dir: wheelhouse/
+  deploy-macos: # WITHOUT testing
+    name: Build wheels for macOS
+    runs-on: macos-latest
+    permissions:
+      # IMPORTANT: this permission is mandatory for PyPI trusted publishing
+      id-token: write
+    steps:
+    - uses: actions/checkout@v4
+    # ATTENTION: set CIBW_ENVIRONMENT=GITLAB_AUTH=username:token in your repository secrets
+    - name: Build wheels
+      env:
+        CIBW_ENVIRONMENT: ${{ secrets.CIBW_ENVIRONMENT }}
+      uses: pypa/cibuildwheel@v2.19.2
+    # ATTENTION: this step is mandatory for PyPI trusted publishing
+    - name: Publish package
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        verbose: true
+        packages-dir: wheelhouse/
