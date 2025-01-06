@@ -29,6 +29,8 @@ jobs:
     - uses: actions/checkout@v4
     # ATTENTION: set CIBW_ENVIRONMENT=GITLAB_AUTH=username:token in your repository secrets
     - name: Build wheels
+      env:
+        CIBW_ENVIRONMENT: ${{ secrets.CIBW_ENVIRONMENT }}
       uses: pypa/cibuildwheel@v2.19.2
     # ATTENTION: this step is mandatory for PyPI trusted publishing
     - name: Publish package
@@ -46,6 +48,8 @@ jobs:
     - uses: actions/checkout@v4
     # ATTENTION: set CIBW_ENVIRONMENT=GITLAB_AUTH=username:token in your repository secrets
     - name: Build wheels
+      env:
+        CIBW_ENVIRONMENT: ${{ secrets.CIBW_ENVIRONMENT }}
       uses: pypa/cibuildwheel@v2.19.2
     # ATTENTION: this step is mandatory for PyPI trusted publishing
     - name: Publish package

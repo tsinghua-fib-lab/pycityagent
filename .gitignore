@@ -1,5 +1,7 @@
 .vscode/
 .env
+.python-version
+.venv/
 wheelhouse/
 build/
 log/
