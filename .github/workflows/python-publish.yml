@@ -22,38 +22,59 @@ jobs:
   deploy-linux:
     name: Build wheels for Linux
     runs-on: ubuntu-latest
-    permissions:
-      # IMPORTANT: this permission is mandatory for PyPI trusted publishing
-      id-token: write
     steps:
-    - uses: actions/checkout@v4
-    # ATTENTION: set CIBW_ENVIRONMENT=GITLAB_AUTH=username:token in your repository secrets
-    - name: Build wheels
-      env:
-        CIBW_ENVIRONMENT: ${{ secrets.CIBW_ENVIRONMENT }}
-      uses: pypa/cibuildwheel@v2.19.2
-    # ATTENTION: this step is mandatory for PyPI trusted publishing
-    - name: Publish package
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        verbose: true
-        packages-dir: wheelhouse/
-  deploy-macos: # WITHOUT testing
+      - uses: actions/checkout@v4
+      - name: Build wheels for Linux
+        env:
+          CIBW_ENVIRONMENT: ${{ secrets.CIBW_ENVIRONMENT }}
+        uses: pypa/cibuildwheel@v2.19.2
+      - name: Upload Linux wheels as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-wheels
+          path: wheelhouse/
+          retention-days: 1
+
+  deploy-macos:
     name: Build wheels for macOS
     runs-on: macos-latest
-    permissions:
-      # IMPORTANT: this permission is mandatory for PyPI trusted publishing
-      id-token: write
     steps:
-    - uses: actions/checkout@v4
-    # ATTENTION: set CIBW_ENVIRONMENT=GITLAB_AUTH=username:token in your repository secrets
-    - name: Build wheels
-      env:
-        CIBW_ENVIRONMENT: ${{ secrets.CIBW_ENVIRONMENT }}
-      uses: pypa/cibuildwheel@v2.19.2
-    # ATTENTION: this step is mandatory for PyPI trusted publishing
-    - name: Publish package
-      uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        verbose: true
-        packages-dir: wheelhouse/
+      - uses: actions/checkout@v4
+      - name: Build wheels for macOS
+        env:
+          CIBW_ENVIRONMENT: ${{ secrets.CIBW_ENVIRONMENT }}
+        uses: pypa/cibuildwheel@v2.19.2
+      - name: Upload macOS wheels as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-wheels
+          path: wheelhouse/
+          retention-days: 1
+
+  publish:
+    name: Publish wheels to PyPI
+    runs-on: ubuntu-latest
+    needs: [deploy-linux, deploy-macos]
+    permissions:
+      id-token: write  # Required for PyPI trusted publishing
+    steps:
+      - name: Download Linux wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-wheels
+          path: linux-wheels
+      - name: Download macOS wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-wheels
+          path: macos-wheels
+      - name: Combine wheels into a single directory
+        run: |
+          mkdir -p wheelhouse
+          cp linux-wheels/*.whl wheelhouse/
+          cp macos-wheels/*.whl wheelhouse/
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+          packages-dir: wheelhouse/
