@@ -577,4 +577,4 @@ class AgentGroup:
 
         except Exception as e:
             logger.error(f"模拟器运行错误: {str(e)}")
-            raise
+            raise RuntimeError(str(e)) from e

@@ -618,7 +618,7 @@ class AgentSimulation:
             error_msg = f"模拟器运行错误: {str(e)}"
             logger.error(error_msg)
             await self._update_exp_status(3, error_msg)
-            raise e
+            raise RuntimeError(error_msg) from e
 
     async def __aenter__(self):
         """异步上下文管理器入口"""
