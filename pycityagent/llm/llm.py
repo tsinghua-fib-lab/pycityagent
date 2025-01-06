@@ -37,24 +37,32 @@ class LLM:
         self.completion_tokens_used = 0
         self.request_number = 0
         self.semaphore = None
-        if self.config.text["request_type"] == "openai":
-            self._aclient = AsyncOpenAI(
-                api_key=self.config.text["api_key"], timeout=300
-            )
-        elif self.config.text["request_type"] == "deepseek":
-            self._aclient = AsyncOpenAI(
-                api_key=self.config.text["api_key"],
-                base_url="https://api.deepseek.com/v1",
-                timeout=300,
-            )
-        elif self.config.text["request_type"] == "qwen":
-            self._aclient = AsyncOpenAI(
-                api_key=self.config.text["api_key"],
-                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-                timeout=300,
-            )
-        elif self.config.text["request_type"] == "zhipuai":
-            self._aclient = ZhipuAI(api_key=self.config.text["api_key"], timeout=300)
+        self._current_client_index = 0
+        
+        api_keys = self.config.text["api_key"]
+        if not isinstance(api_keys, list):
+            api_keys = [api_keys]
+            
+        self._aclients = []
+        
+        for api_key in api_keys:
+            if self.config.text["request_type"] == "openai":
+                client = AsyncOpenAI(api_key=api_key, timeout=300)
+            elif self.config.text["request_type"] == "deepseek":
+                client = AsyncOpenAI(
+                    api_key=api_key,
+                    base_url="https://api.deepseek.com/v1",
+                    timeout=300,
+                )
+            elif self.config.text["request_type"] == "qwen":
+                client = AsyncOpenAI(
+                    api_key=api_key,
+                    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    timeout=300,
+                )
+            elif self.config.text["request_type"] == "zhipuai":
+                client = ZhipuAI(api_key=api_key, timeout=300)
+            self._aclients.append(client)
 
     def set_semaphore(self, number_of_coroutine: int):
         self.semaphore = asyncio.Semaphore(number_of_coroutine)
@@ -107,6 +115,12 @@ Token Usage:
             "ratio": rate,
         }
 
+    def _get_next_client(self):
+        """获取下一个要使用的客户端"""
+        client = self._aclients[self._current_client_index]
+        self._current_client_index = (self._current_client_index + 1) % len(self._aclients)
+        return client
+
     async def atext_request(
         self,
         dialog: Any,
@@ -130,9 +144,10 @@ Token Usage:
         ):
             for attempt in range(retries):
                 try:
+                    client = self._get_next_client()
                     if self.semaphore != None:
                         async with self.semaphore:
-                            response = await self._aclient.chat.completions.create(
+                            response = await client.chat.completions.create(
                                 model=self.config.text["model"],
                                 messages=dialog,
                                 temperature=temperature,
@@ -157,7 +172,7 @@ Token Usage:
                             else:
                                 return response.choices[0].message.content
                     else:
-                        response = await self._aclient.chat.completions.create(
+                        response = await client.chat.completions.create(
                             model=self.config.text["model"],
                             messages=dialog,
                             temperature=temperature,
@@ -199,7 +214,8 @@ Token Usage:
         elif self.config.text["request_type"] == "zhipuai":
             for attempt in range(retries):
                 try:
-                    response = self._aclient.chat.asyncCompletions.create(  # type: ignore
+                    client = self._get_next_client()
+                    response = client.chat.asyncCompletions.create(  # type: ignore
                         model=self.config.text["model"],
                         messages=dialog,
                         temperature=temperature,
@@ -217,7 +233,7 @@ Token Usage:
                         and task_status != "FAILED"
                         and get_cnt <= cnt_threshold
                     ):
-                        result_response = self._aclient.chat.asyncCompletions.retrieve_completion_result(id=task_id)  # type: ignore
+                        result_response = client.chat.asyncCompletions.retrieve_completion_result(id=task_id)  # type: ignore
                         task_status = result_response.task_status
                         await asyncio.sleep(0.5)
                         get_cnt += 1
