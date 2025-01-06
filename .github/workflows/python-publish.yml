@@ -9,6 +9,9 @@
 name: Upload Python Package
 
 on:
+  push:
+    branches:
+      - main
   release:
     types: [published]
 
@@ -16,28 +19,37 @@ permissions:
   contents: read
 
 jobs:
-  deploy:
-
+  deploy-linux:
+    name: Build wheels for Linux
     runs-on: ubuntu-latest
-
+    permissions:
+      # IMPORTANT: this permission is mandatory for PyPI trusted publishing
+      id-token: write
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up Python
-      uses: actions/setup-python@v3
-      with:
-        python-version: '3.x'
-    - name: Install Poetry
-      run: |
-        curl -sSL https://install.python-poetry.org | python3 -
-        export PATH="/home/runner/.local/bin:$PATH"
-    - name: Install dependencies
-      run: |
-        poetry self add poetry-git-version-plugin
-        poetry set-git-version
-        poetry install --no-dev
-    - name: Build package
-      run: poetry build
+    - uses: actions/checkout@v4
+    # ATTENTION: set CIBW_ENVIRONMENT=GITLAB_AUTH=username:token in your repository secrets
+    - name: Build wheels
+      uses: pypa/cibuildwheel@v2.19.2
+    # ATTENTION: this step is mandatory for PyPI trusted publishing
     - name: Publish package
-      env:
-        POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
-      run: poetry publish --username __token__ --password $POETRY_PYPI_TOKEN_PYPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        verbose: true
+        packages-dir: wheelhouse/
+  deploy-macos: # WITHOUT testing
+    name: Build wheels for macOS
+    runs-on: macos-latest
+    permissions:
+      # IMPORTANT: this permission is mandatory for PyPI trusted publishing
+      id-token: write
+    steps:
+    - uses: actions/checkout@v4
+    # ATTENTION: set CIBW_ENVIRONMENT=GITLAB_AUTH=username:token in your repository secrets
+    - name: Build wheels
+      uses: pypa/cibuildwheel@v2.19.2
+    # ATTENTION: this step is mandatory for PyPI trusted publishing
+    - name: Publish package
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        verbose: true
+        packages-dir: wheelhouse/

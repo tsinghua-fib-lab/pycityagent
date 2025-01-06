@@ -3,4 +3,8 @@
 .git/
 .gitlab-ci.yml
 .gitmodules
+.venv/
+build/
+dist/
+*.egg-info/
 examples/
