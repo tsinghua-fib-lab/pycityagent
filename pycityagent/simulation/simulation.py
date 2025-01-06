@@ -70,7 +70,7 @@ class AgentSimulation:
         # self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
 
         self._messager = Messager.remote(
-            hostname=config["simulator_request"]["mqtt"]["server"],
+            hostname=config["simulator_request"]["mqtt"]["server"], # type:ignore
             port=config["simulator_request"]["mqtt"]["port"],
             username=config["simulator_request"]["mqtt"].get("username", None),
             password=config["simulator_request"]["mqtt"].get("password", None),

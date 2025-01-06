@@ -64,7 +64,7 @@ class AgentGroup:
             pass
 
         self.messager = Messager.remote(
-            hostname=config["simulator_request"]["mqtt"]["server"],
+            hostname=config["simulator_request"]["mqtt"]["server"], # type:ignore
             port=config["simulator_request"]["mqtt"]["port"],
             username=config["simulator_request"]["mqtt"].get("username", None),
             password=config["simulator_request"]["mqtt"].get("password", None),

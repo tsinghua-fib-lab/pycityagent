@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from collections import defaultdict
 from typing import Any
 
 import psycopg
@@ -47,9 +46,9 @@ class PgWriter:
     def __init__(self, exp_id: str, dsn: str):
         self.exp_id = exp_id
         self._dsn = dsn
-        # self._lock = asyncio.Lock()
+        self._lock = asyncio.Lock()
 
-    # @lock_decorator
+    @lock_decorator
     async def async_write_dialog(self, rows: list[tuple]):
         _tuple_types = [str, int, float, int, str, str, str, None]
         table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_dialog"
@@ -70,7 +69,7 @@ class PgWriter:
                         _rows.append(_row)
             logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
-    # @lock_decorator
+    @lock_decorator
     async def async_write_status(self, rows: list[tuple]):
         _tuple_types = [str, int, float, float, float, int, str, str, None]
         table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_status"
@@ -90,7 +89,7 @@ class PgWriter:
                         _rows.append(_row)
             logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
-    # @lock_decorator
+    @lock_decorator
     async def async_write_profile(self, rows: list[tuple]):
         _tuple_types = [str, str, str]
         table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_profile"
@@ -110,7 +109,7 @@ class PgWriter:
                         _rows.append(_row)
             logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
-    # @lock_decorator
+    @lock_decorator
     async def async_write_survey(self, rows: list[tuple]):
         _tuple_types = [str, int, float, str, str, None]
         table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_survey"
@@ -130,7 +129,7 @@ class PgWriter:
                         _rows.append(_row)
             logger.debug(f"table:{table_name} sql: {copy_sql} values: {_rows}")
 
-    # @lock_decorator
+    @lock_decorator
     async def async_update_exp_info(self, exp_info: dict[str, Any]):
         # timestamp不做类型转换
         table_name = f"socialcity_experiment"
