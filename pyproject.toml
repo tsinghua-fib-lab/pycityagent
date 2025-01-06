@@ -15,8 +15,7 @@ license = { file = "LICENSE" }
 readme = "README.md"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Operating System :: Linux",
-    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
 ]
 requires-python = ">=3.9"
 dependencies = [
@@ -66,11 +65,8 @@ where = ["."]
 include = ["pycityagent*"]
 
 [tool.cibuildwheel]
-build = ["cp3*manylinux_x86_64", "cp3*macosx_arm64"]
+build = ["cp3*manylinux_x86_64"]
 skip = ["cp36-*", "cp37-*", "cp38-*"]
 
 [tool.cibuildwheel.linux]
-repair-wheel-command = ""
-
-[tool.cibuildwheel.macos]
 repair-wheel-command = ""

@@ -9,11 +9,9 @@ PACKAGE_NAME = "pycityagent"
 BIN_SOURCES = {
     "pycityagent-sim": {
         "linux_x86_64": "https://git.fiblab.net/api/v4/projects/25/packages/generic/simulet-go/v1.3.0/simulet-go-noproj-linux-amd64",
-        "darwin_arm64": "https://git.fiblab.net/api/v4/projects/25/packages/generic/simulet-go/v1.3.0/simulet-go-noproj-darwin-arm64",
     },
     "pycityagent-ui": {
         "linux_x86_64": "https://git.fiblab.net/api/v4/projects/188/packages/generic/socialcity-web/v0.2.3/socialcity-web-linux-amd64",
-        "darwin_arm64": "https://git.fiblab.net/api/v4/projects/188/packages/generic/socialcity-web/v0.2.3/socialcity-web-darwin-arm64",
     },
 }
 
@@ -37,19 +35,12 @@ class DownloadBin(build_ext):
             if len(auth) != 2:
                 print("Invalid authentication provided for downloading binaries, please set GITLAB_AUTH=username:token")
                 raise Exception("Invalid authentication provided for downloading binaries, please set GITLAB_AUTH=username:token")
-        if system == "Linux":
+        if system == "Linux" and machine == "x86_64":
             plat_dir = "linux"
-            if machine == "x86_64":
-                arch = "x86_64"
-            else:
-                print("Unsupported architecture on Linux")
-                raise Exception("Unsupported architecture on Linux")
-        elif system == "Darwin" and machine.startswith("arm"):
-            plat_dir = "darwin"
-            arch = "arm64"
+            arch = "x86_64"
         else:
-            print("Unsupported platform")
-            raise Exception("Unsupported platform")
+            print("Only Linux x86_64 platform is supported")
+            raise Exception("Only Linux x86_64 platform is supported")
         # build the extension
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(PACKAGE_NAME)))
         for ext in self.extensions:
