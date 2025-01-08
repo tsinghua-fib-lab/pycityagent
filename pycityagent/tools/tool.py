@@ -7,9 +7,9 @@ from typing import Any, Optional, Union
 from mlflow.entities import Metric
 
 from ..agent import Agent
-from ..utils.decorators import lock_decorator
 from ..environment import (LEVEL_ONE_PRE, POI_TYPE_DICT, AoiService,
                            PersonService)
+from ..utils.decorators import lock_decorator
 from ..workflow import Block
 
 
@@ -199,6 +199,7 @@ class ExportMlflowMetrics(Tool):
         # TODO: support other log types
         self.metric_log_cache: dict[str, list[Metric]] = defaultdict(list)
         self._lock = asyncio.Lock()
+
     @lock_decorator
     async def __call__(
         self,
@@ -231,6 +232,7 @@ class ExportMlflowMetrics(Tool):
                 _cache = _cache[batch_size:]
         if clear_cache:
             await self._clear_cache()
+
     @lock_decorator
     async def _clear_cache(
         self,

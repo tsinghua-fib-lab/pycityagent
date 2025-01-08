@@ -13,6 +13,11 @@ import yaml
 from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, InstitutionAgent
+from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
+                         SocietyAgent, memory_config_bank, memory_config_firm,
+                         memory_config_government, memory_config_nbs,
+                         memory_config_societyagent)
+from ..cityagent.initial import bind_agent_info, initialize_social_network
 from ..environment.simulator import Simulator
 from ..llm import SimpleEmbedding
 from ..memory import Memory
@@ -22,10 +27,9 @@ from ..survey import Survey
 from ..utils import TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
 from .agentgroup import AgentGroup
 from .storage.pg import PgWriter, create_pg_tables
-from ..cityagent import SocietyAgent, FirmAgent, BankAgent, NBSAgent, GovernmentAgent, memory_config_societyagent, memory_config_government, memory_config_firm, memory_config_bank, memory_config_nbs
-from ..cityagent.initial import bind_agent_info, initialize_social_network
 
 logger = logging.getLogger("pycityagent")
+
 
 class AgentSimulation:
     """城市智能体模拟器"""
@@ -52,7 +56,13 @@ class AgentSimulation:
             self.agent_class = agent_class
         elif agent_class is None:
             if enable_economy:
-                self.agent_class = [SocietyAgent, FirmAgent, BankAgent, NBSAgent, GovernmentAgent]
+                self.agent_class = [
+                    SocietyAgent,
+                    FirmAgent,
+                    BankAgent,
+                    NBSAgent,
+                    GovernmentAgent,
+                ]
                 self.default_memory_config_func = [
                     memory_config_societyagent,
                     memory_config_firm,
@@ -82,7 +92,7 @@ class AgentSimulation:
         # self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
 
         self._messager = Messager.remote(
-            hostname=config["simulator_request"]["mqtt"]["server"], # type:ignore
+            hostname=config["simulator_request"]["mqtt"]["server"],  # type:ignore
             port=config["simulator_request"]["mqtt"]["port"],
             username=config["simulator_request"]["mqtt"].get("username", None),
             password=config["simulator_request"]["mqtt"].get("password", None),
@@ -143,7 +153,7 @@ class AgentSimulation:
         """Directly run from config file
         Basic config file should contain:
         - simulation_config: file_path
-        - agent_config: 
+        - agent_config:
             - agent_config_file: Optional[dict]
             - memory_config_func: Optional[Union[Callable, list[Callable]]]
             - init_func: Optional[list[Callable[AgentSimulation, None]]]
@@ -173,13 +183,14 @@ class AgentSimulation:
         if "workflow" not in config:
             raise ValueError("workflow is required")
         import yaml
+
         logger.info("Loading config file...")
         with open(config["simulation_config"], "r") as f:
             simulation_config = yaml.safe_load(f)
         logger.info("Creating AgentSimulation Task...")
         simulation = cls(
-            config=simulation_config, 
-            agent_config_file=config["agent_config"].get("agent_config_file", None), 
+            config=simulation_config,
+            agent_config_file=config["agent_config"].get("agent_config_file", None),
             exp_name=config.get("exp_name", "default_experiment"),
             logging_level=config.get("logging_level", logging.WARNING),
         )
@@ -193,21 +204,28 @@ class AgentSimulation:
         await simulation.init_agents(
             agent_count=agent_count,
             group_size=config["agent_config"].get("group_size", 10000),
-            embedding_model=config["agent_config"].get("embedding_model", SimpleEmbedding()),
+            embedding_model=config["agent_config"].get(
+                "embedding_model", SimpleEmbedding()
+            ),
             memory_config_func=config["agent_config"].get("memory_config_func", None),
         )
         logger.info("Running Init Functions...")
-        for init_func in config["agent_config"].get("init_func", [bind_agent_info, initialize_social_network]):
+        for init_func in config["agent_config"].get(
+            "init_func", [bind_agent_info, initialize_social_network]
+        ):
             await init_func(simulation)
         logger.info("Starting Simulation...")
         for step in config["workflow"]:
-            logger.info(f"Running step: type: {step['type']} - description: {step.get('description', 'no description')}")
+            logger.info(
+                f"Running step: type: {step['type']} - description: {step.get('description', 'no description')}"
+            )
             if step["type"] not in ["run", "step", "interview", "survey", "intervene"]:
                 raise ValueError(f"Invalid step type: {step['type']}")
             if step["type"] == "run":
                 await simulation.run(step.get("day", 1))
             elif step["type"] == "step":
-                await simulation.step(step.get("time", 1))
+                # await simulation.step(step.get("time", 1))
+                await simulation.step()
             else:
                 await step["step_func"](simulation)
         logger.info("Simulation finished")
@@ -241,11 +259,11 @@ class AgentSimulation:
     @property
     def agent_uuid2group(self):
         return self._agent_uuid2group
-    
+
     @property
     def messager(self):
         return self._messager
-    
+
     async def _save_exp_info(self) -> None:
         """异步保存实验信息到YAML文件"""
         try:
@@ -354,38 +372,44 @@ class AgentSimulation:
         # 分别处理机构智能体和普通智能体
         institution_params = []
         citizen_params = []
-        
+
         # 收集所有参数
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
             agent_count_i = agent_count[i]
             memory_config_func_i = memory_config_func[i]
-            
+
             if self.agent_config_file is not None:
-                config_file = self.agent_config_file.get(agent_class, None) 
+                config_file = self.agent_config_file.get(agent_class, None)
             else:
                 config_file = None
-                
+
             if issubclass(agent_class, InstitutionAgent):
-                institution_params.append((agent_class, agent_count_i, memory_config_func_i, config_file))
+                institution_params.append(
+                    (agent_class, agent_count_i, memory_config_func_i, config_file)
+                )
             else:
-                citizen_params.append((agent_class, agent_count_i, memory_config_func_i, config_file))
+                citizen_params.append(
+                    (agent_class, agent_count_i, memory_config_func_i, config_file)
+                )
 
         # 处理机构智能体组
         if institution_params:
             total_institution_count = sum(p[1] for p in institution_params)
-            num_institution_groups = (total_institution_count + group_size - 1) // group_size
-            
+            num_institution_groups = (
+                total_institution_count + group_size - 1
+            ) // group_size
+
             for k in range(num_institution_groups):
                 start_idx = k * group_size
                 remaining = total_institution_count - start_idx
                 number_of_agents = min(remaining, group_size)
-                
+
                 agent_classes = []
                 agent_counts = []
                 memory_config_funcs = []
                 config_files = []
-                
+
                 # 分配每种类型的机构智能体到当前组
                 curr_start = start_idx
                 for agent_class, count, mem_func, conf_file in institution_params:
@@ -395,30 +419,32 @@ class AgentSimulation:
                         memory_config_funcs.append(mem_func)
                         config_files.append(conf_file)
                     curr_start = max(0, curr_start - count)
-                
-                group_creation_params.append((
-                    agent_classes,
-                    agent_counts, 
-                    memory_config_funcs,
-                    f"InstitutionGroup_{k}",
-                    config_files
-                ))
+
+                group_creation_params.append(
+                    (
+                        agent_classes,
+                        agent_counts,
+                        memory_config_funcs,
+                        f"InstitutionGroup_{k}",
+                        config_files,
+                    )
+                )
 
         # 处理普通智能体组
         if citizen_params:
             total_citizen_count = sum(p[1] for p in citizen_params)
             num_citizen_groups = (total_citizen_count + group_size - 1) // group_size
-            
+
             for k in range(num_citizen_groups):
                 start_idx = k * group_size
                 remaining = total_citizen_count - start_idx
                 number_of_agents = min(remaining, group_size)
-                
+
                 agent_classes = []
                 agent_counts = []
                 memory_config_funcs = []
                 config_files = []
-                
+
                 # 分配每种类型的普通智能体到当前组
                 curr_start = start_idx
                 for agent_class, count, mem_func, conf_file in citizen_params:
@@ -428,14 +454,16 @@ class AgentSimulation:
                         memory_config_funcs.append(mem_func)
                         config_files.append(conf_file)
                     curr_start = max(0, curr_start - count)
-                
-                group_creation_params.append((
-                    agent_classes,
-                    agent_counts,
-                    memory_config_funcs, 
-                    f"CitizenGroup_{k}",
-                    config_files
-                ))
+
+                group_creation_params.append(
+                    (
+                        agent_classes,
+                        agent_counts,
+                        memory_config_funcs,
+                        f"CitizenGroup_{k}",
+                        config_files,
+                    )
+                )
 
         # 初始化mlflow连接
         _mlflow_config = self.config.get("metric_request", {}).get("mlflow")
@@ -463,7 +491,13 @@ class AgentSimulation:
             self._pgsql_writers = _workers = [None for _ in range(_num_workers)]
 
         creation_tasks = []
-        for i, (agent_class, number_of_agents, memory_config_function_group, group_name, config_file) in enumerate(group_creation_params):
+        for i, (
+            agent_class,
+            number_of_agents,
+            memory_config_function_group,
+            group_name,
+            config_file,
+        ) in enumerate(group_creation_params):
             # 直接创建异步任务
             group = AgentGroup.remote(
                 agent_class,
@@ -489,7 +523,9 @@ class AgentSimulation:
             group_agent_uuids = ray.get(group.get_agent_uuids.remote())
             for agent_uuid in group_agent_uuids:
                 self._agent_uuid2group[agent_uuid] = group
-                self._user_chat_topics[agent_uuid] = f"exps/{self.exp_id}/agents/{agent_uuid}/user-chat"
+                self._user_chat_topics[agent_uuid] = (
+                    f"exps/{self.exp_id}/agents/{agent_uuid}/user-chat"
+                )
                 self._user_survey_topics[agent_uuid] = (
                     f"exps/{self.exp_id}/agents/{agent_uuid}/user-survey"
                 )
@@ -511,23 +547,26 @@ class AgentSimulation:
         for group in self._groups.values():
             gather_tasks.append(group.gather.remote(content))
         return await asyncio.gather(*gather_tasks)
-    
-    async def filter(self, 
-                     types: Optional[list[Type[Agent]]] = None, 
-                     keys: Optional[list[str]] = None, 
-                     values: Optional[list[Any]] = None) -> list[str]:
+
+    async def filter(
+        self,
+        types: Optional[list[Type[Agent]]] = None,
+        keys: Optional[list[str]] = None,
+        values: Optional[list[Any]] = None,
+    ) -> list[str]:
         """过滤出指定类型的智能体"""
         if not types and not keys and not values:
             return self._agent_uuids
         group_to_filter = []
-        for t in types:
-            if t in self._type2group:
-                group_to_filter.extend(self._type2group[t])
-            else:
-                raise ValueError(f"type {t} not found in simulation")
+        if types is not None:
+            for t in types:
+                if t in self._type2group:
+                    group_to_filter.extend(self._type2group[t])
+                else:
+                    raise ValueError(f"type {t} not found in simulation")
         filtered_uuids = []
         if keys:
-            if len(keys) != len(values):
+            if values is None or len(keys) != len(values):
                 raise ValueError("the length of key and value does not match")
             for group in group_to_filter:
                 filtered_uuids.extend(await group.filter.remote(types, keys, values))

@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import asyncio
 import functools
 import inspect
-from collections.abc import Awaitable, Callable, Coroutine
 import json
-from typing import Any, List, Optional, Union
+from collections.abc import Awaitable, Callable, Coroutine
+from typing import Any, Optional, Union
 
 from pyparsing import Dict
 
@@ -143,7 +144,7 @@ def trigger_class():
 
 # Define a Block, similar to a layer in PyTorch
 class Block:
-    configurable_fields: List[str] = []
+    configurable_fields: list[str] = []
     default_values: dict[str, Any] = {}
 
     def __init__(
@@ -164,22 +165,23 @@ class Block:
             trigger.initialize()  # 立即初始化trigger
         self.trigger = trigger
 
-    def export_config(self) -> Dict[str, Optional[str]]:
+    def export_config(self) -> dict[str, Optional[str]]:
         return {
             field: self.default_values.get(field, "default_value")
             for field in self.configurable_fields
         }
 
     @classmethod
-    def export_class_config(cls) -> Dict[str, str]:
+    def export_class_config(cls) -> dict[str, str]:
         return {
             field: cls.default_values.get(field, "default_value")
             for field in cls.configurable_fields
         }
 
     @classmethod
-    def import_config(cls, config: Dict[str, str]) -> "Block":
+    def import_config(cls, config: dict[str, Union[str, dict]]) -> Block:
         instance = cls(name=config["name"])
+        assert isinstance(config["config"], dict)
         for field, value in config["config"].items():
             if field in cls.configurable_fields:
                 setattr(instance, field, value)
@@ -190,8 +192,8 @@ class Block:
             setattr(instance, child_block.name.lower(), child_block)
 
         return instance
-    
-    def load_from_config(self, config: Dict[str, List[Dict]]) -> None:
+
+    def load_from_config(self, config: dict[str, list[Dict]]) -> None:
         """
         使用配置更新当前Block实例的参数，并递归更新子Block。
         """
@@ -201,8 +203,8 @@ class Block:
                 if config["config"][field] != "default_value":
                     setattr(self, field, config["config"][field])
 
-        def build_or_update_block(block_data: Dict) -> Block:
-            block_name = block_data["name"].lower()
+        def build_or_update_block(block_data: dict) -> Block:
+            block_name = block_data["name"].lower()  # type:ignore
             existing_block = getattr(self, block_name, None)
 
             if existing_block:

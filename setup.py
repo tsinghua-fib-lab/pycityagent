@@ -29,7 +29,7 @@ class DownloadBin(build_ext):
         system = platform.system()
         machine = platform.machine()
         auth = os.environ.get("GITLAB_AUTH")
-        if auth == "":
+        if not auth:
             print("No authentication provided for downloading binaries, please set GITLAB_AUTH=username:token")
             raise Exception("No authentication provided for downloading binaries, please set GITLAB_AUTH=username:token")
         else:

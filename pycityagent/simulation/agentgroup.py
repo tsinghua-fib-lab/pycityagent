@@ -48,7 +48,7 @@ class AgentGroup:
         mlflow_run_id: str,
         embedding_model: Embeddings,
         logging_level: int,
-        agent_config_file: Union[str, list[str]] = None,
+        agent_config_file: Optional[Union[str, list[str]]] = None,
     ):
         logger.setLevel(logging_level)
         self._uuid = str(uuid.uuid4())
@@ -163,7 +163,7 @@ class AgentGroup:
                     agent.memory.set_faiss_query(self.faiss_query)
                 if self.embedding_model is not None:
                     agent.memory.set_embedding_model(self.embedding_model)
-                if self.agent_config_file[i]:
+                if self.agent_config_file is not None and self.agent_config_file[i]:
                     agent.load_from_file(self.agent_config_file[i])
                 self.agents.append(agent)
                 self.id2agent[agent._uuid] = agent
