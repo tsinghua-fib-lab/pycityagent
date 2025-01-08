@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pycityagent"
-version = "2.0.0a47" # change it for each release
-description = "LLM-based城市环境agent构建库"
+version = "2.0.0a48" # change it for each release
+description = "LLM-based city environment agent building library"
 authors = [
     { name = "Yuwei Yan", email = "pinkgranite86@gmail.com" },
     { name = "Junbo Yan", email = "yanjb20thu@gmali.com" },
