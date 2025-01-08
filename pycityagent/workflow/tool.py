@@ -1,14 +1,10 @@
-import time
+from typing import Any, Optional, Union
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from typing import Any, Optional, Union
-
 from mlflow.entities import Metric
+import time
 
-from ..agent import Agent
-from ..environment import (LEVEL_ONE_PRE, POI_TYPE_DICT, AoiService,
-                           PersonService)
-from ..workflow import Block
+from ..environment import LEVEL_ONE_PRE, POI_TYPE_DICT
 
 
 class Tool:
@@ -38,22 +34,30 @@ class Tool:
         raise NotImplementedError
 
     @property
-    def agent(self) -> Agent:
+    def agent(self):
         instance = self._instance  # type:ignore
-        if not isinstance(instance, Agent):
+        if not isinstance(instance, self._get_agent_class()):
             raise RuntimeError(
                 f"Tool bind to object `{type(instance).__name__}`, not an `Agent` object!"
             )
         return instance
 
     @property
-    def block(self) -> Block:
+    def block(self):
         instance = self._instance  # type:ignore
-        if not isinstance(instance, Block):
+        if not isinstance(instance, self._get_block_class()):
             raise RuntimeError(
                 f"Tool bind to object `{type(instance).__name__}`, not an `Block` object!"
             )
         return instance
+
+    def _get_agent_class(self):
+        from ..agent import Agent
+        return Agent
+
+    def _get_block_class(self):
+        from ..workflow import Block
+        return Block
 
 
 class GetMap(Tool):

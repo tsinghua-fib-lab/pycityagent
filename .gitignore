@@ -4,6 +4,8 @@
 .venv/
 wheelhouse/
 build/
+.venv/
+.python-version
 log/
 test*
 cache/
@@ -20,3 +22,5 @@ __*
 !__init__.py
 docs/
 TODO
+pycityagent-sim
+pycityagent-ui

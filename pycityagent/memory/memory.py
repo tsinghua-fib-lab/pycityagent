@@ -395,24 +395,6 @@ class Memory:
             if _snapshot:
                 await _mem.load(snapshots=_snapshot, reset_memory=reset_memory)
 
-    # async def add(self, content: str, metadata: Optional[dict] = None) -> None:
-    #     """添加新的记忆
-
-    #     Args:
-    #         content: 记忆内容
-    #         metadata: 相关元数据，如时间、地点等
-    #     """
-    #     embedding = await self.embedding_model.aembed_query(content)
-    #     self.memories.append(
-    #         {
-    #             "content": content,
-    #             "metadata": metadata or {},
-    #             "timestamp": datetime.now(),
-    #             "embedding": embedding,
-    #         }
-    #     )
-    #     self.embeddings.append(embedding)
-
     @lock_decorator
     async def search(
         self, query: str, top_k: int = 3, filter: Optional[dict] = None

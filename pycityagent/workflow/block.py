@@ -1,8 +1,12 @@
+from __future__ import annotations
 import asyncio
 import functools
 import inspect
 from collections.abc import Awaitable, Callable, Coroutine
-from typing import Any, Optional, Union
+import json
+from typing import Any, List, Optional, Union
+
+from pyparsing import Dict
 
 from ..environment.simulator import Simulator
 from ..llm import LLM
@@ -139,6 +143,9 @@ def trigger_class():
 
 # Define a Block, similar to a layer in PyTorch
 class Block:
+    configurable_fields: List[str] = []
+    default_values: dict[str, Any] = {}
+
     def __init__(
         self,
         name: str,
@@ -156,6 +163,64 @@ class Block:
             trigger.block = self
             trigger.initialize()  # 立即初始化trigger
         self.trigger = trigger
+
+    def export_config(self) -> Dict[str, Optional[str]]:
+        return {
+            field: self.default_values.get(field, "default_value")
+            for field in self.configurable_fields
+        }
+
+    @classmethod
+    def export_class_config(cls) -> Dict[str, str]:
+        return {
+            field: cls.default_values.get(field, "default_value")
+            for field in cls.configurable_fields
+        }
+
+    @classmethod
+    def import_config(cls, config: Dict[str, str]) -> "Block":
+        instance = cls(name=config["name"])
+        for field, value in config["config"].items():
+            if field in cls.configurable_fields:
+                setattr(instance, field, value)
+
+        # 递归创建子Block
+        for child_config in config.get("children", []):
+            child_block = Block.import_config(child_config)
+            setattr(instance, child_block.name.lower(), child_block)
+
+        return instance
+    
+    def load_from_config(self, config: Dict[str, List[Dict]]) -> None:
+        """
+        使用配置更新当前Block实例的参数，并递归更新子Block。
+        """
+        # 更新当前Block的参数
+        for field in self.configurable_fields:
+            if field in config["config"]:
+                if config["config"][field] != "default_value":
+                    setattr(self, field, config["config"][field])
+
+        def build_or_update_block(block_data: Dict) -> Block:
+            block_name = block_data["name"].lower()
+            existing_block = getattr(self, block_name, None)
+
+            if existing_block:
+                # 递归更新子Block
+                existing_block.load_from_config(block_data)
+                return existing_block
+            else:
+                # 创建新的子Block
+                block_cls = globals().get(block_data["name"])
+                if block_cls is None:
+                    raise KeyError(f"Block class '{block_data['name']}' not found.")
+                block_instance = block_cls.import_config(block_data)
+                setattr(self, block_name, block_instance)
+                return block_instance
+
+        # 递归遍历子Block配置
+        for block_data in config.get("blocks", []):
+            build_or_update_block(block_data)
 
     async def forward(self):
         """

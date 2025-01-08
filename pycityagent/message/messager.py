@@ -25,6 +25,9 @@ class Messager:
     async def __aexit__(self, exc_type, exc_value, traceback):
         await self.stop()
 
+    async def ping(self):
+        await self.client.publish(topic="ping", payload="ping", qos=1)
+
     async def connect(self):
         for i in range(3):
             try:
@@ -43,14 +46,14 @@ class Messager:
         self.connected = False
         logger.info("Disconnected from MQTT Broker")
 
-    def is_connected(self):
+    async def is_connected(self):
         """检查是否成功连接到 Broker"""
         return self.connected
 
     async def subscribe(
         self, topics: Union[str, List[str]], agents: Union[Any, List[Any]]
     ):
-        if not self.is_connected():
+        if not await self.is_connected():
             logger.error(
                 f"Cannot subscribe to {topics} because not connected to the Broker."
             )
@@ -81,7 +84,7 @@ class Messager:
 
     async def start_listening(self):
         """启动消息监听任务"""
-        if self.is_connected():
+        if await self.is_connected():
             self.receive_messages_task = asyncio.create_task(self.receive_messages())
         else:
             logger.error("Cannot start listening because not connected to the Broker.")

@@ -4,8 +4,9 @@ Pycityagent: 城市智能体构建框架
 
 from .agent import Agent, CitizenAgent, InstitutionAgent
 from .environment import Simulator
-import logging
 from .llm import SentenceEmbedding
+from .simulation import AgentSimulation
+import logging
 
 # 创建一个 pycityagent 记录器
 logger = logging.getLogger("pycityagent")
@@ -20,4 +21,4 @@ if not logger.hasHandlers():
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
-__all__ = ["Agent", "Simulator", "CitizenAgent", "InstitutionAgent","SentenceEmbedding",]
+__all__ = ["Agent", "Simulator", "CitizenAgent", "InstitutionAgent","SentenceEmbedding","AgentSimulation"]

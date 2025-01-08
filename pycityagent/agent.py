@@ -1,6 +1,6 @@
-"""智能体模板类及其定义"""
-
+from __future__ import annotations
 import asyncio
+import inspect
 import json
 import logging
 import random
@@ -9,13 +9,16 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, List, Optional, Type, get_type_hints
 from uuid import UUID
 
 import fastavro
+from pyparsing import Dict
 import ray
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
+
+from pycityagent.workflow import Block
 
 from .economy import EconomyClient
 from .environment import Simulator
@@ -46,6 +49,8 @@ class Agent(ABC):
     """
     Agent base class
     """
+    configurable_fields: List[str] = []
+    default_values: dict[str, Any] = {}
 
     def __init__(
         self,
@@ -100,6 +105,98 @@ class Agent(ABC):
         # 排除锁对象
         del state["_llm_client"]
         return state
+
+    @classmethod
+    def export_class_config(cls) -> Dict[str, Dict]:
+        result = {
+            "agent_name": cls.__name__,
+            "config": {},
+            "blocks": []
+        }
+        config = {
+            field: cls.default_values.get(field, "default_value")
+            for field in cls.configurable_fields
+        }
+        result["config"] = config
+        # 解析类中的注解，找到Block类型的字段
+        hints = get_type_hints(cls)
+        for attr_name, attr_type in hints.items():
+            if inspect.isclass(attr_type) and issubclass(attr_type, Block):
+                block_config = attr_type.export_class_config()
+                result["blocks"].append({
+                    "name": attr_name,
+                    "config": block_config,
+                    "children": cls._export_subblocks(attr_type)
+                })
+        return result
+
+    @classmethod
+    def _export_subblocks(cls, block_cls: Type[Block]) -> List[Dict]:
+        children = []
+        hints = get_type_hints(block_cls)  # 获取类的注解
+        for attr_name, attr_type in hints.items():
+            if inspect.isclass(attr_type) and issubclass(attr_type, Block):
+                block_config = attr_type.export_class_config()
+                children.append({
+                    "name": attr_name,
+                    "config": block_config,
+                    "children": cls._export_subblocks(attr_type)
+                })
+        return children
+
+    @classmethod
+    def export_to_file(cls, filepath: str) -> None:
+        config = cls.export_class_config()
+        with open(filepath, "w") as f:
+            json.dump(config, f, indent=4)
+
+    @classmethod
+    def import_block_config(cls, config: Dict[str, List[Dict]]) -> "Agent":
+        agent = cls(name=config["agent_name"])
+
+        def build_block(block_data: Dict) -> Block:
+            block_cls = globals()[block_data["name"]]
+            block_instance = block_cls.import_config(block_data)
+            return block_instance
+
+        # 创建顶层Block
+        for block_data in config["blocks"]:
+            block = build_block(block_data)
+            setattr(agent, block.name.lower(), block)
+
+        return agent
+
+    @classmethod
+    def import_from_file(cls, filepath: str) -> "Agent":
+        with open(filepath, "r") as f:
+            config = json.load(f)
+            return cls.import_block_config(config)
+        
+    def load_from_config(self, config: Dict[str, List[Dict]]) -> None:
+        """
+        使用配置更新当前Agent实例的Block层次结构。
+        """
+        # 更新当前Agent的基础参数
+        for field in self.configurable_fields:
+            if field in config["config"]:
+                if config["config"][field] != "default_value":
+                    setattr(self, field, config["config"][field])
+
+        # 递归更新或创建顶层Block
+        for block_data in config.get("blocks", []):
+            block_name = block_data["name"]
+            existing_block = getattr(self, block_name, None)
+
+            if existing_block:
+                # 如果Block已经存在，则递归更新
+                existing_block.load_from_config(block_data)
+            else:
+                raise KeyError(f"Block '{block_name}' not found in agent '{self.__class__.__name__}'")
+
+    def load_from_file(self, filepath: str) -> None:
+        with open(filepath, "r") as f:
+            config = json.load(f)
+            self.load_from_config(config)
 
     def set_messager(self, messager: Messager):  # type:ignore
         """
@@ -218,6 +315,11 @@ class Agent(ABC):
                 f"Copy Writer access before assignment, please `set_pgsql_writer` first!"
             )
         return self._pgsql_writer
+    
+    async def messager_ping(self):
+        if self._messager is None:
+            raise RuntimeError("Messager is not set")
+        return await self._messager.ping()
 
     async def generate_user_survey_response(self, survey: dict) -> str:
         """生成回答 —— 可重写
@@ -527,6 +629,8 @@ class Agent(ABC):
         统一的Agent执行入口
         当_blocked为True时，不执行forward方法
         """
+        if self._messager is not None:
+            await self._messager.ping.remote()
         if not self._blocked:
             await self.forward()
 
@@ -621,10 +725,11 @@ class CitizenAgent(Agent):
                 except:
                     pass
                 person_id = await self.memory.get("id")
+                currency = await self.memory.get("currency")
                 await self._economy_client.add_agents(
                     {
                         "id": person_id,
-                        "currency": await self.memory.get("currency"),
+                        "currency": currency,
                     }
                 )
                 self._has_bound_to_economy = True

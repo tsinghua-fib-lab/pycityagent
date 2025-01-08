@@ -1,11 +1,12 @@
 import asyncio
+from collections.abc import Callable
 import json
 import logging
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Type, Union
 from uuid import UUID
 
 import fastavro
@@ -13,12 +14,12 @@ import pyproj
 import ray
 from langchain_core.embeddings import Embeddings
 
-from ..agent import Agent, CitizenAgent, InstitutionAgent
+from ..agent import Agent, InstitutionAgent
 from ..economy.econ_client import EconomyClient
 from ..environment.simulator import Simulator
 from ..llm.llm import LLM
 from ..llm.llmconfig import LLMConfig
-from ..memory import FaissQuery
+from ..memory import FaissQuery, Memory
 from ..message import Messager
 from ..metrics import MlflowClient
 from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
@@ -31,7 +32,9 @@ logger = logging.getLogger("pycityagent")
 class AgentGroup:
     def __init__(
         self,
-        agents: list[Agent],
+        agent_class: Union[type[Agent], list[type[Agent]]],
+        number_of_agents: Union[int, list[int]],
+        memory_config_function_group: Union[Callable[[], tuple[dict, dict, dict]], list[Callable[[], tuple[dict, dict, dict]]]],
         config: dict,
         exp_id: str | UUID,
         exp_name: str,
@@ -42,15 +45,27 @@ class AgentGroup:
         mlflow_run_id: str,
         embedding_model: Embeddings,
         logging_level: int,
+        agent_config_file: Union[str, list[str]] = None,
     ):
         logger.setLevel(logging_level)
         self._uuid = str(uuid.uuid4())
-        self.agents = agents
+        if not isinstance(agent_class, list):
+            agent_class = [agent_class]
+        if not isinstance(memory_config_function_group, list):
+            memory_config_function_group = [memory_config_function_group]
+        if not isinstance(number_of_agents, list):
+            number_of_agents = [number_of_agents]
+        self.agent_class = agent_class
+        self.number_of_agents = number_of_agents
+        self.memory_config_function_group = memory_config_function_group
+        self.agents: list[Agent] = []
+        self.id2agent: dict[str, Agent] = {}
         self.config = config
         self.exp_id = exp_id
         self.enable_avro = enable_avro
         self.enable_pgsql = enable_pgsql
         self.embedding_model = embedding_model
+        self.agent_config_file = agent_config_file
         if enable_avro:
             self.avro_path = avro_path / f"{self._uuid}"
             self.avro_path.mkdir(parents=True, exist_ok=True)
@@ -63,28 +78,33 @@ class AgentGroup:
         if self.enable_pgsql:
             pass
 
-        self.messager = Messager.remote(
-            hostname=config["simulator_request"]["mqtt"]["server"],  # type:ignore
-            port=config["simulator_request"]["mqtt"]["port"],
-            username=config["simulator_request"]["mqtt"].get("username", None),
-            password=config["simulator_request"]["mqtt"].get("password", None),
-        )
+        # prepare Messager
+        if "mqtt" in config["simulator_request"]:
+            self.messager = Messager.remote(
+                hostname=config["simulator_request"]["mqtt"]["server"], 
+                port=config["simulator_request"]["mqtt"]["port"],
+                username=config["simulator_request"]["mqtt"].get("username", None),
+                password=config["simulator_request"]["mqtt"].get("password", None),
+            )
+        else:
+            self.messager = None
+        
         self.message_dispatch_task = None
         self._pgsql_writer = pgsql_writer
         self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
         self.initialized = False
         self.id2agent = {}
-        # Step:1 prepare LLM client
+        # prepare LLM client
         llmConfig = LLMConfig(config["llm_request"])
         logger.info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
         self.llm = LLM(llmConfig)
 
-        # Step:2 prepare Simulator
+        # prepare Simulator
         logger.info(f"-----Creating Simulator in AgentGroup {self._uuid} ...")
         self.simulator = Simulator(config["simulator_request"])
         self.projector = pyproj.Proj(self.simulator.map.header["projection"])
 
-        # Step:3 prepare Economy client
+        # prepare Economy client
         if "economy" in config["simulator_request"]:
             logger.info(f"-----Creating Economy client in AgentGroup {self._uuid} ...")
             self.economy_client = EconomyClient(
@@ -113,25 +133,62 @@ class AgentGroup:
             )
         else:
             self.faiss_query = None
-        for agent in self.agents:
-            agent.set_exp_id(self.exp_id)  # type: ignore
-            agent.set_llm_client(self.llm)
-            agent.set_simulator(self.simulator)
-            if self.economy_client is not None:
-                agent.set_economy_client(self.economy_client)
-            if self.mlflow_client is not None:
-                agent.set_mlflow_client(self.mlflow_client)
-            agent.set_messager(self.messager)
-            if self.enable_avro:
-                agent.set_avro_file(self.avro_file)  # type: ignore
-            if self.enable_pgsql:
-                agent.set_pgsql_writer(self._pgsql_writer)
-            # set memory.faiss_query
-            if self.faiss_query is not None:
-                agent.memory.set_faiss_query(self.faiss_query)
-            # set memory.embedding model
-            if self.embedding_model is not None:
-                agent.memory.set_embedding_model(self.embedding_model)
+        for i in range(len(number_of_agents)):
+            agent_class_i = agent_class[i]
+            number_of_agents_i = number_of_agents[i]
+            for j in range(number_of_agents_i):
+                memory_config_function_group_i = memory_config_function_group[i]
+                extra_attributes, profile, base = memory_config_function_group_i()
+                memory = Memory(config=extra_attributes, profile=profile, base=base)
+                agent = agent_class_i(
+                    name=f"{agent_class_i.__name__}_{i}",
+                    memory=memory,
+                    llm_client=self.llm,
+                    economy_client=self.economy_client,
+                    simulator=self.simulator,
+                )
+                agent.set_exp_id(self.exp_id)  # type: ignore
+                if self.mlflow_client is not None:
+                    agent.set_mlflow_client(self.mlflow_client)
+                if self.messager is not None:
+                    agent.set_messager(self.messager)
+                if self.enable_avro:
+                    agent.set_avro_file(self.avro_file)  # type: ignore
+                if self.enable_pgsql:
+                    agent.set_pgsql_writer(self._pgsql_writer)
+                if self.faiss_query is not None:
+                    agent.memory.set_faiss_query(self.faiss_query)
+                if self.embedding_model is not None:
+                    agent.memory.set_embedding_model(self.embedding_model)
+                if self.agent_config_file[i]:
+                    agent.load_from_file(self.agent_config_file[i])
+                self.agents.append(agent)
+                self.id2agent[agent._uuid] = agent
+
+    @property
+    def agent_count(self):
+        return self.number_of_agents
+    
+    @property
+    def agent_uuids(self):
+        return list(self.id2agent.keys())
+    
+    @property
+    def agent_type(self):
+        return self.agent_class
+    
+    def get_agent_count(self):
+        return self.agent_count
+    
+    def get_agent_uuids(self):
+        return self.agent_uuids
+    
+    def get_agent_type(self):
+        return self.agent_type
+
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        self.message_dispatch_task.cancel()  # type: ignore
+        await asyncio.gather(self.message_dispatch_task, return_exceptions=True)  # type: ignore
 
     async def __aexit__(self, exc_type, exc_value, traceback):
         self.message_dispatch_task.cancel()  # type: ignore
@@ -145,7 +202,7 @@ class AgentGroup:
         self.id2agent = {agent._uuid: agent for agent in self.agents}
         logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
         await self.messager.connect.remote()
-        if ray.get(self.messager.is_connected.remote()):
+        if await self.messager.is_connected.remote():
             await self.messager.start_listening.remote()
             topics = []
             agents = []
@@ -236,6 +293,31 @@ class AgentGroup:
         self.initialized = True
         logger.debug(f"-----AgentGroup {self._uuid} initialized")
 
+    async def filter(self, 
+                     types: Optional[list[Type[Agent]]] = None, 
+                     keys: Optional[list[str]] = None, 
+                     values: Optional[list[Any]] = None) -> list[str]:
+        filtered_uuids = []
+        for agent in self.agents:
+            add = True
+            if types:
+                if agent.__class__ in types:
+                    if keys:
+                        for key in keys:
+                            if not agent.memory.get(key) == values[keys.index(key)]:
+                                add = False
+                                break
+                    if add:
+                        filtered_uuids.append(agent._uuid)
+            elif keys:
+                for key in keys:
+                    if not agent.memory.get(key) == values[keys.index(key)]:
+                        add = False
+                        break
+                if add:
+                    filtered_uuids.append(agent._uuid)
+        return filtered_uuids
+
     async def gather(self, content: str):
         logger.debug(f"-----Gathering {content} from all agents in group {self._uuid}")
         results = {}
@@ -253,7 +335,7 @@ class AgentGroup:
     async def message_dispatch(self):
         logger.debug(f"-----Starting message dispatch for group {self._uuid}")
         while True:
-            if not ray.get(self.messager.is_connected.remote()):
+            if not await self.messager.is_connected.remote():
                 logger.warning(
                     "Messager is not connected. Skipping message processing."
                 )
@@ -287,8 +369,7 @@ class AgentGroup:
                         await agent.handle_user_survey_message(payload)
                     elif topic_type == "gather":
                         await agent.handle_gather_message(payload)
-
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(3)
 
     async def save_status(
         self, simulator_day: Optional[int] = None, simulator_t: Optional[int] = None
