@@ -6,7 +6,7 @@ from pycityagent.agent import CitizenAgent
 from pycityagent.environment.simulator import Simulator
 from pycityagent.llm import LLM
 from pycityagent.memory.memory import Memory
-from pycityagent.workflow.tool import ResetAgentPosition, UpdateWithSimulator
+from pycityagent.tools import ResetAgentPosition, UpdateWithSimulator
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
 logging.basicConfig(

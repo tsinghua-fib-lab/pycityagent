@@ -10,7 +10,7 @@ from examples.cityagent.blocks.social_block import SocialBlock
 from pycityagent import CitizenAgent, Simulator
 from pycityagent.llm.llm import LLM
 from pycityagent.memory import Memory
-from pycityagent.workflow.tool import ResetAgentPosition, UpdateWithSimulator
+from pycityagent.tools import ResetAgentPosition, UpdateWithSimulator
 
 
 class MyAgent(CitizenAgent):

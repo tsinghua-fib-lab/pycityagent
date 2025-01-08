@@ -10,7 +10,7 @@ from pycityagent.llm.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.message import Messager
 from pycityagent.workflow import Block
-from pycityagent.workflow.tool import UpdateWithSimulator
+from pycityagent.tools import UpdateWithSimulator
 
 from .blocks import (CognitionBlock, EconomyBlock, MobilityBlock, NeedsBlock,
                      OtherBlock, PlanBlock, SocialBlock)

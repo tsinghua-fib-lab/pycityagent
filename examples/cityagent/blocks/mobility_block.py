@@ -8,7 +8,7 @@ import random
 import numpy as np
 
 from pycityagent.workflow.prompt import FormatPrompt
-from pycityagent.workflow.tool import GetMap
+from pycityagent.tools import GetMap
 
 PLACE_TYPE_SELECTION_PROMPT = """
 作为一个智能决策系统，请从用户输入的需求中判断其需要前往的地点类型。

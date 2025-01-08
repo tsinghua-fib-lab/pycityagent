@@ -1,4 +1,5 @@
-from .tool import ExportMlflowMetrics, GetMap, SencePOI, Tool, UpdateWithSimulator
+from .tool import (ExportMlflowMetrics, GetMap, ResetAgentPosition, SencePOI,
+                   Tool, UpdateWithSimulator)
 
 __all__ = [
     "SencePOI",
@@ -6,4 +7,5 @@ __all__ = [
     "ExportMlflowMetrics",
     "GetMap",
     "UpdateWithSimulator",
+    "ResetAgentPosition",
 ]
