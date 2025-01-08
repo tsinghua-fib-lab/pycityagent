@@ -302,9 +302,9 @@ class AgentGroup:
             else:
                 _day = await self.simulator.get_simulator_day()
             if simulator_t is not None:
-                _t = await self.simulator.get_simulator_second_from_start_of_day()
-            else:
                 _t = simulator_t
+            else:
+                _t = await self.simulator.get_simulator_second_from_start_of_day()
             if not issubclass(type(self.agents[0]), InstitutionAgent):
                 for agent in self.agents:
                     _date_time = datetime.now(timezone.utc)
@@ -414,9 +414,9 @@ class AgentGroup:
             else:
                 _day = await self.simulator.get_simulator_day()
             if simulator_t is not None:
-                _t = await self.simulator.get_simulator_second_from_start_of_day()
-            else:
                 _t = simulator_t
+            else:
+                _t = await self.simulator.get_simulator_second_from_start_of_day()
             # data already acquired from Avro part
             if len(_statuses_time_list) > 0:
                 for _status_dict, _date_time in _statuses_time_list:
