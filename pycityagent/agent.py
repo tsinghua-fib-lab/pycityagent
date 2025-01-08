@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, List, Optional, Type, get_type_hints
+from typing import Any,  Optional, Type, get_type_hints
 from uuid import UUID
 
 import fastavro
@@ -49,7 +49,7 @@ class Agent(ABC):
     """
     Agent base class
     """
-    configurable_fields: List[str] = []
+    configurable_fields: list[str] = []
     default_values: dict[str, Any] = {}
 
     def __init__(
@@ -107,7 +107,7 @@ class Agent(ABC):
         return state
 
     @classmethod
-    def export_class_config(cls) -> Dict[str, Dict]:
+    def export_class_config(cls) -> dict[str, Dict]:
         result = {
             "agent_name": cls.__name__,
             "config": {},
@@ -131,7 +131,7 @@ class Agent(ABC):
         return result
 
     @classmethod
-    def _export_subblocks(cls, block_cls: Type[Block]) -> List[Dict]:
+    def _export_subblocks(cls, block_cls: Type[Block]) -> list[Dict]:
         children = []
         hints = get_type_hints(block_cls)  # 获取类的注解
         for attr_name, attr_type in hints.items():
@@ -151,7 +151,7 @@ class Agent(ABC):
             json.dump(config, f, indent=4)
 
     @classmethod
-    def import_block_config(cls, config: Dict[str, List[Dict]]) -> "Agent":
+    def import_block_config(cls, config: dict[str, list[Dict]]) -> "Agent":
         agent = cls(name=config["agent_name"])
 
         def build_block(block_data: Dict) -> Block:
@@ -172,7 +172,7 @@ class Agent(ABC):
             config = json.load(f)
             return cls.import_block_config(config)
         
-    def load_from_config(self, config: Dict[str, List[Dict]]) -> None:
+    def load_from_config(self, config: dict[str, list[Dict]]) -> None:
         """
         使用配置更新当前Agent实例的Block层次结构。
         """
@@ -185,7 +185,7 @@ class Agent(ABC):
         # 递归更新或创建顶层Block
         for block_data in config.get("blocks", []):
             block_name = block_data["name"]
-            existing_block = getattr(self, block_name, None)
+            existing_block = getattr(self, block_name, None) # type:ignore
 
             if existing_block:
                 # 如果Block已经存在，则递归更新

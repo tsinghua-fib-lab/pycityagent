@@ -1,10 +1,16 @@
-from typing import Any, Optional, Union
+import asyncio
+import time
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from mlflow.entities import Metric
-import time
+from typing import Any, Optional, Union
 
-from ..environment import LEVEL_ONE_PRE, POI_TYPE_DICT
+from mlflow.entities import Metric
+
+from ..agent import Agent
+from ..utils.decorators import lock_decorator
+from ..environment import (LEVEL_ONE_PRE, POI_TYPE_DICT, AoiService,
+                           PersonService)
+from ..workflow import Block
 
 
 class Tool:
@@ -34,30 +40,22 @@ class Tool:
         raise NotImplementedError
 
     @property
-    def agent(self):
+    def agent(self) -> Agent:
         instance = self._instance  # type:ignore
-        if not isinstance(instance, self._get_agent_class()):
+        if not isinstance(instance, Agent):
             raise RuntimeError(
                 f"Tool bind to object `{type(instance).__name__}`, not an `Agent` object!"
             )
         return instance
 
     @property
-    def block(self):
+    def block(self) -> Block:
         instance = self._instance  # type:ignore
-        if not isinstance(instance, self._get_block_class()):
+        if not isinstance(instance, Block):
             raise RuntimeError(
                 f"Tool bind to object `{type(instance).__name__}`, not an `Block` object!"
             )
         return instance
-
-    def _get_agent_class(self):
-        from ..agent import Agent
-        return Agent
-
-    def _get_block_class(self):
-        from ..workflow import Block
-        return Block
 
 
 class GetMap(Tool):
@@ -140,7 +138,7 @@ class SencePOI(Tool):
 
 class UpdateWithSimulator(Tool):
     def __init__(self) -> None:
-        pass
+        self._lock = asyncio.Lock()
 
     async def _update_motion_with_sim(
         self,
@@ -164,6 +162,7 @@ class UpdateWithSimulator(Tool):
             except KeyError as e:
                 continue
 
+    @lock_decorator
     async def __call__(
         self,
     ):
@@ -173,8 +172,9 @@ class UpdateWithSimulator(Tool):
 
 class ResetAgentPosition(Tool):
     def __init__(self) -> None:
-        pass
+        self._lock = asyncio.Lock()
 
+    @lock_decorator
     async def __call__(
         self,
         aoi_id: Optional[int] = None,
@@ -198,7 +198,8 @@ class ExportMlflowMetrics(Tool):
         self._log_batch_size = log_batch_size
         # TODO: support other log types
         self.metric_log_cache: dict[str, list[Metric]] = defaultdict(list)
-
+        self._lock = asyncio.Lock()
+    @lock_decorator
     async def __call__(
         self,
         metric: Union[Sequence[Union[Metric, dict]], Union[Metric, dict]],
@@ -230,7 +231,7 @@ class ExportMlflowMetrics(Tool):
                 _cache = _cache[batch_size:]
         if clear_cache:
             await self._clear_cache()
-
+    @lock_decorator
     async def _clear_cache(
         self,
     ):

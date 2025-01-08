@@ -1,9 +1,9 @@
 import asyncio
-from collections.abc import Callable
 import json
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional, Type, Union
@@ -34,7 +34,10 @@ class AgentGroup:
         self,
         agent_class: Union[type[Agent], list[type[Agent]]],
         number_of_agents: Union[int, list[int]],
-        memory_config_function_group: Union[Callable[[], tuple[dict, dict, dict]], list[Callable[[], tuple[dict, dict, dict]]]],
+        memory_config_function_group: Union[
+            Callable[[], tuple[dict, dict, dict]],
+            list[Callable[[], tuple[dict, dict, dict]]],
+        ],
         config: dict,
         exp_id: str | UUID,
         exp_name: str,
@@ -81,14 +84,14 @@ class AgentGroup:
         # prepare Messager
         if "mqtt" in config["simulator_request"]:
             self.messager = Messager.remote(
-                hostname=config["simulator_request"]["mqtt"]["server"], 
+                hostname=config["simulator_request"]["mqtt"]["server"],  # type:ignore
                 port=config["simulator_request"]["mqtt"]["port"],
                 username=config["simulator_request"]["mqtt"].get("username", None),
                 password=config["simulator_request"]["mqtt"].get("password", None),
             )
         else:
             self.messager = None
-        
+
         self.message_dispatch_task = None
         self._pgsql_writer = pgsql_writer
         self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
@@ -168,27 +171,23 @@ class AgentGroup:
     @property
     def agent_count(self):
         return self.number_of_agents
-    
+
     @property
     def agent_uuids(self):
         return list(self.id2agent.keys())
-    
+
     @property
     def agent_type(self):
         return self.agent_class
-    
+
     def get_agent_count(self):
         return self.agent_count
-    
+
     def get_agent_uuids(self):
         return self.agent_uuids
-    
+
     def get_agent_type(self):
         return self.agent_type
-
-    async def __aexit__(self, exc_type, exc_value, traceback):
-        self.message_dispatch_task.cancel()  # type: ignore
-        await asyncio.gather(self.message_dispatch_task, return_exceptions=True)  # type: ignore
 
     async def __aexit__(self, exc_type, exc_value, traceback):
         self.message_dispatch_task.cancel()  # type: ignore
@@ -201,6 +200,7 @@ class AgentGroup:
             await agent.bind_to_simulator()  # type: ignore
         self.id2agent = {agent._uuid: agent for agent in self.agents}
         logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
+        assert self.messager is not None
         await self.messager.connect.remote()
         if await self.messager.is_connected.remote():
             await self.messager.start_listening.remote()
@@ -293,10 +293,12 @@ class AgentGroup:
         self.initialized = True
         logger.debug(f"-----AgentGroup {self._uuid} initialized")
 
-    async def filter(self, 
-                     types: Optional[list[Type[Agent]]] = None, 
-                     keys: Optional[list[str]] = None, 
-                     values: Optional[list[Any]] = None) -> list[str]:
+    async def filter(
+        self,
+        types: Optional[list[Type[Agent]]] = None,
+        keys: Optional[list[str]] = None,
+        values: Optional[list[Any]] = None,
+    ) -> list[str]:
         filtered_uuids = []
         for agent in self.agents:
             add = True
@@ -304,6 +306,7 @@ class AgentGroup:
                 if agent.__class__ in types:
                     if keys:
                         for key in keys:
+                            assert values is not None
                             if not agent.memory.get(key) == values[keys.index(key)]:
                                 add = False
                                 break
@@ -311,6 +314,7 @@ class AgentGroup:
                         filtered_uuids.append(agent._uuid)
             elif keys:
                 for key in keys:
+                    assert values is not None
                     if not agent.memory.get(key) == values[keys.index(key)]:
                         add = False
                         break
@@ -335,6 +339,7 @@ class AgentGroup:
     async def message_dispatch(self):
         logger.debug(f"-----Starting message dispatch for group {self._uuid}")
         while True:
+            assert self.messager is not None
             if not await self.messager.is_connected.remote():
                 logger.warning(
                     "Messager is not connected. Skipping message processing."
