@@ -3,15 +3,17 @@ import json
 import logging
 import math
 from typing import Any, List, Union
-from aiomqtt import Client
+
 import ray
+from aiomqtt import Client
 
 logger = logging.getLogger("pycityagent")
+
 
 @ray.remote
 class Messager:
     def __init__(
-        self, hostname:str, port:int=1883, username=None, password=None, timeout=60
+        self, hostname: str, port: int = 1883, username=None, password=None, timeout=60
     ):
         self.client = Client(
             hostname, port=port, username=username, password=password, timeout=timeout
@@ -19,7 +21,7 @@ class Messager:
         self.connected = False  # 是否已连接标志
         self.message_queue = asyncio.Queue()  # 用于存储接收到的消息
         self.receive_messages_task = None
-    
+
     async def __aexit__(self, exc_type, exc_value, traceback):
         await self.stop()
 
@@ -45,7 +47,9 @@ class Messager:
         """检查是否成功连接到 Broker"""
         return self.connected
 
-    async def subscribe(self, topics: Union[str, List[str]], agents: Union[Any, List[Any]]):
+    async def subscribe(
+        self, topics: Union[str, List[str]], agents: Union[Any, List[Any]]
+    ):
         if not self.is_connected():
             logger.error(
                 f"Cannot subscribe to {topics} because not connected to the Broker."
@@ -83,6 +87,9 @@ class Messager:
             logger.error("Cannot start listening because not connected to the Broker.")
 
     async def stop(self):
+        assert self.receive_messages_task is not None
         self.receive_messages_task.cancel()
-        await asyncio.gather(self.receive_messages_task, return_exceptions=True)
+        await asyncio.gather(
+            self.receive_messages_task, return_exceptions=True
+        )
         await self.disconnect()

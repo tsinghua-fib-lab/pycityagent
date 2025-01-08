@@ -53,7 +53,7 @@ class Agent(ABC):
         type: AgentType = AgentType.Unspecified,
         llm_client: Optional[LLM] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,
+        messager: Optional[Messager] = None,  # type:ignore
         simulator: Optional[Simulator] = None,
         mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
@@ -101,7 +101,7 @@ class Agent(ABC):
         del state["_llm_client"]
         return state
 
-    def set_messager(self, messager: Messager):
+    def set_messager(self, messager: Messager):  # type:ignore
         """
         Set the messager of the agent.
         """
@@ -544,7 +544,7 @@ class CitizenAgent(Agent):
         mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,
+        messager: Optional[Messager] = None,  # type:ignore
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
@@ -659,7 +659,7 @@ class InstitutionAgent(Agent):
         mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,
+        messager: Optional[Messager] = None,  # type:ignore
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
@@ -680,6 +680,7 @@ class InstitutionAgent(Agent):
         await self._bind_to_economy()
 
     async def _bind_to_economy(self):
+        print("Debug:", self._economy_client, self._has_bound_to_economy)
         if self._economy_client is None:
             logger.debug("Economy client is not set")
             return

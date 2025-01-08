@@ -5,7 +5,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 import fastavro
@@ -64,7 +64,7 @@ class AgentGroup:
             pass
 
         self.messager = Messager.remote(
-            hostname=config["simulator_request"]["mqtt"]["server"], # type:ignore
+            hostname=config["simulator_request"]["mqtt"]["server"],  # type:ignore
             port=config["simulator_request"]["mqtt"]["port"],
             username=config["simulator_request"]["mqtt"].get("username", None),
             password=config["simulator_request"]["mqtt"].get("password", None),
@@ -290,11 +290,21 @@ class AgentGroup:
 
             await asyncio.sleep(0.5)
 
-    async def save_status(self):
+    async def save_status(
+        self, simulator_day: Optional[int] = None, simulator_t: Optional[int] = None
+    ):
         _statuses_time_list: list[tuple[dict, datetime]] = []
         if self.enable_avro:
-            logger.debug(f"-----Saving status for group {self._uuid}")
+            logger.debug(f"-----Saving status for group {self._uuid} with Avro")
             avros = []
+            if simulator_day is not None:
+                _day = simulator_day
+            else:
+                _day = await self.simulator.get_simulator_day()
+            if simulator_t is not None:
+                _t = await self.simulator.get_simulator_second_from_start_of_day()
+            else:
+                _t = simulator_t
             if not issubclass(type(self.agents[0]), InstitutionAgent):
                 for agent in self.agents:
                     _date_time = datetime.now(timezone.utc)
@@ -313,8 +323,8 @@ class AgentGroup:
                     action = action["intention"]
                     avro = {
                         "id": agent._uuid,
-                        "day": await self.simulator.get_simulator_day(),
-                        "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                        "day": _day,
+                        "t": _t,
                         "lng": lng,
                         "lat": lat,
                         "parent_id": parent_id,
@@ -378,8 +388,8 @@ class AgentGroup:
                         employees = []
                     avro = {
                         "id": agent._uuid,
-                        "day": await self.simulator.get_simulator_day(),
-                        "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                        "day": _day,
+                        "t": _t,
                         "type": await agent.memory.get("type"),
                         "nominal_gdp": nominal_gdp,
                         "real_gdp": real_gdp,
@@ -398,6 +408,15 @@ class AgentGroup:
                 with open(self.avro_file["status"], "a+b") as f:
                     fastavro.writer(f, INSTITUTION_STATUS_SCHEMA, avros, codec="snappy")
         if self.enable_pgsql:
+            logger.debug(f"-----Saving status for group {self._uuid} with PgSQL")
+            if simulator_day is not None:
+                _day = simulator_day
+            else:
+                _day = await self.simulator.get_simulator_day()
+            if simulator_t is not None:
+                _t = await self.simulator.get_simulator_second_from_start_of_day()
+            else:
+                _t = simulator_t
             # data already acquired from Avro part
             if len(_statuses_time_list) > 0:
                 for _status_dict, _date_time in _statuses_time_list:
@@ -430,8 +449,8 @@ class AgentGroup:
                         action = action["intention"]
                         _status_dict = {
                             "id": agent._uuid,
-                            "day": await self.simulator.get_simulator_day(),
-                            "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                            "day": _day,
+                            "t": _t,
                             "lng": lng,
                             "lat": lat,
                             "parent_id": parent_id,
@@ -499,8 +518,8 @@ class AgentGroup:
                             employees = []
                         _status_dict = {
                             "id": agent._uuid,
-                            "day": await self.simulator.get_simulator_day(),
-                            "t": await self.simulator.get_simulator_second_from_start_of_day(),
+                            "day": _day,
+                            "t": _t,
                             "lng": lng,
                             "lat": lat,
                             "parent_id": parent_id,
@@ -577,5 +596,6 @@ class AgentGroup:
 
         except Exception as e:
             import traceback
+
             logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e
