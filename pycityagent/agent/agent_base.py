@@ -48,6 +48,7 @@ class Agent(ABC):
 
     configurable_fields: list[str] = []
     default_values: dict[str, Any] = {}
+    fields_description: dict[str, str] = {}
 
     def __init__(
         self,
@@ -104,25 +105,33 @@ class Agent(ABC):
         return state
 
     @classmethod
-    def export_class_config(cls) -> dict[str, Dict]:
-        result = {"agent_name": cls.__name__, "config": {}, "blocks": []}
+    def export_class_config(cls) -> Dict[str, Dict]:
+        result = {
+            "agent_name": cls.__name__,
+            "config": {},
+            "description": {},
+            "blocks": []
+        }
         config = {
             field: cls.default_values.get(field, "default_value")
             for field in cls.configurable_fields
         }
         result["config"] = config
+        result["description"] = {
+            field: cls.fields_description.get(field, "")
+            for field in cls.configurable_fields
+        }
         # 解析类中的注解，找到Block类型的字段
         hints = get_type_hints(cls)
         for attr_name, attr_type in hints.items():
             if inspect.isclass(attr_type) and issubclass(attr_type, Block):
                 block_config = attr_type.export_class_config()
-                result["blocks"].append(
-                    {
-                        "name": attr_name,
-                        "config": block_config,
-                        "children": cls._export_subblocks(attr_type),
-                    }
-                )
+                result["blocks"].append({
+                    "name": attr_name,
+                    "config": block_config[0],
+                    "description": block_config[1],
+                    "children": cls._export_subblocks(attr_type)
+                })
         return result
 
     @classmethod
@@ -135,7 +144,8 @@ class Agent(ABC):
                 children.append(
                     {
                         "name": attr_name,
-                        "config": block_config,
+                        "config": block_config[0],
+                    "description": block_config[1],
                         "children": cls._export_subblocks(attr_type),
                     }
                 )

@@ -159,6 +159,10 @@ class PlanBlock(Block):
         },
         "max_plan_steps": 6
     }
+    fields_description = {
+        "guidance_options": "A dictionary of guidance options for different needs, the key is the need, the value is a list of options the agent can choose to satisfy the need",
+        "max_plan_steps": "The maximum number of steps in a plan"
+    }
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__("PlanBlock", llm, memory, simulator)

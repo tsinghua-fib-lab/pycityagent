@@ -146,6 +146,7 @@ def trigger_class():
 class Block:
     configurable_fields: list[str] = []
     default_values: dict[str, Any] = {}
+    fields_description: dict[str, str] = {}
 
     def __init__(
         self,
@@ -173,10 +174,16 @@ class Block:
 
     @classmethod
     def export_class_config(cls) -> dict[str, str]:
-        return {
-            field: cls.default_values.get(field, "default_value")
-            for field in cls.configurable_fields
-        }
+        return (
+            {
+                field: cls.default_values.get(field, "default_value")
+                for field in cls.configurable_fields
+            },
+            {
+                field: cls.fields_description.get(field, "")
+                for field in cls.configurable_fields
+            }
+        )
 
     @classmethod
     def import_config(cls, config: dict[str, Union[str, dict]]) -> Block:
