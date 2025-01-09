@@ -233,7 +233,6 @@ class ExportMlflowMetrics(Tool):
         if clear_cache:
             await self._clear_cache()
 
-    @lock_decorator
     async def _clear_cache(
         self,
     ):
