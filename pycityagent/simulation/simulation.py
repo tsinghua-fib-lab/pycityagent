@@ -20,9 +20,8 @@ from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
 from ..cityagent.initial import bind_agent_info, initialize_social_network
 from ..environment.simulator import Simulator
 from ..llm import SimpleEmbedding
-from ..memory import Memory
 from ..message.messager import Messager
-from ..metrics import init_mlflow_connection
+from ..metrics import MlflowClient, init_mlflow_connection
 from ..survey import Survey
 from ..utils import TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
 from .agentgroup import AgentGroup
@@ -39,6 +38,7 @@ class AgentSimulation:
         config: dict,
         agent_class: Union[None, type[Agent], list[type[Agent]]] = None,
         agent_config_file: Optional[dict] = None,
+        metric_extractor: Optional[list[tuple[int, Callable]]] = None,
         enable_economy: bool = True,
         agent_prefix: str = "agent_",
         exp_name: str = "default_experiment",
@@ -89,6 +89,8 @@ class AgentSimulation:
         self._user_survey_topics: dict[str, str] = {}
         self._user_interview_topics: dict[str, str] = {}
         self._loop = asyncio.get_event_loop()
+        self._total_steps = 0
+        self._simulator_day = 0
         # self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
 
         self._messager = Messager.remote(
@@ -102,6 +104,7 @@ class AgentSimulation:
         _storage_config: dict[str, Any] = config.get("storage", {})
         if _storage_config is None:
             _storage_config = {}
+
         # avro
         _avro_config: dict[str, Any] = _storage_config.get("avro", {})
         self._enable_avro = _avro_config.get("enabled", False)
@@ -111,6 +114,27 @@ class AgentSimulation:
         else:
             self._avro_path = Path(_avro_config["path"]) / f"{self.exp_id}"
             self._avro_path.mkdir(parents=True, exist_ok=True)
+
+        # mlflow
+        _mlflow_config: dict[str, Any] = config.get("metric_request", {}).get("mlflow")
+        mlflow_run_id, _ = init_mlflow_connection(
+            config=_mlflow_config,
+            mlflow_run_name=f"EXP_{self.exp_name}_{1000*int(time.time())}",
+            experiment_name=self.exp_name,
+        )
+        if _mlflow_config:
+            logger.info(f"-----Creating Mlflow client...")
+            self.mlflow_client = MlflowClient(
+                config=_mlflow_config,
+                mlflow_run_name=f"EXP_{exp_name}_{1000*int(time.time())}",
+                experiment_name=exp_name,
+                run_id=mlflow_run_id,
+            )
+            self.metric_extractor = metric_extractor
+        else:
+            logger.warning("Mlflow is not enabled, NO MLFLOW STORAGE")
+            self.mlflow_client = None
+            self.metric_extractor = None
 
         # pg
         _pgsql_config: dict[str, Any] = _storage_config.get("pgsql", {})
@@ -167,11 +191,11 @@ class AgentSimulation:
         - workflow:
             - list[Step]
             - Step:
-                - type: str, "step", "run", "interview", "survey", "intervene"
+                - type: str, "step", "run", "interview", "survey", "intervene", "pause", "resume"
                 - day: int if type is "run", else None
-                - time: int if type is "step", else None
+                - times: int if type is "step", else None
                 - description: Optional[str], description of the step
-                - step_func: Optional[Callable[AgentSimulation, None]], only used when type is "interview", "survey" and "intervene"
+                - func: Optional[Callable[AgentSimulation, None]], only used when type is "interview", "survey" and "intervene"
         - logging_level: Optional[int]
         - exp_name: Optional[str]
         """
@@ -224,10 +248,15 @@ class AgentSimulation:
             if step["type"] == "run":
                 await simulation.run(step.get("day", 1))
             elif step["type"] == "step":
-                # await simulation.step(step.get("time", 1))
-                await simulation.step()
+                times = step.get("times", 1)
+                for _ in range(times):
+                    await simulation.step()
+            elif step["type"] == "pause":
+                await simulation.pause_simulator()
+            elif step["type"] == "resume":
+                await simulation.resume_simulator()
             else:
-                await step["step_func"](simulation)
+                await step["func"](simulation)
         logger.info("Simulation finished")
 
     @property
@@ -331,6 +360,12 @@ class AgentSimulation:
             # 如果没有发生异常且状态不是错误，则更新为完成
             await self._update_exp_status(2)
 
+    async def pause_simulator(self):
+        await self._simulator.pause()
+
+    async def resume_simulator(self):
+        await self._simulator.resume()
+
     async def init_agents(
         self,
         agent_count: Union[int, list[int]],
@@ -353,12 +388,12 @@ class AgentSimulation:
             raise ValueError("agent_class和agent_count的长度不一致")
 
         if memory_config_func is None:
-            logger.warning(
-                "memory_config_func is None, using default memory config function"
-            )
             memory_config_func = self.default_memory_config_func
 
         elif not isinstance(memory_config_func, list):
+            logger.warning(
+                "memory_config_func is not a list, using specific memory config function"
+            )
             memory_config_func = [memory_config_func]
 
         if len(memory_config_func) != len(agent_count):
@@ -465,16 +500,6 @@ class AgentSimulation:
                     )
                 )
 
-        # 初始化mlflow连接
-        _mlflow_config = self.config.get("metric_request", {}).get("mlflow")
-        if _mlflow_config:
-            mlflow_run_id, _ = init_mlflow_connection(
-                config=_mlflow_config,
-                mlflow_run_name=f"EXP_{self.exp_name}_{1000*int(time.time())}",
-                experiment_name=self.exp_name,
-            )
-        else:
-            mlflow_run_id = None
         # 建表
         if self.enable_pgsql:
             _num_workers = min(1, pg_sql_writers)
@@ -505,12 +530,10 @@ class AgentSimulation:
                 memory_config_function_group,
                 self.config,
                 self.exp_id,
-                self.exp_name,
                 self.enable_avro,
                 self.avro_path,
                 self.enable_pgsql,
                 _workers[i % _num_workers],  # type:ignore
-                mlflow_run_id,  # type:ignore
                 embedding_model,
                 self.logging_level,
                 config_file,
@@ -536,16 +559,20 @@ class AgentSimulation:
                 self._type2group[agent_type].append(group)
 
         # 并行初始化所有组的agents
+        await self.resume_simulator()
         init_tasks = []
         for group in self._groups.values():
             init_tasks.append(group.init_agents.remote())
         ray.get(init_tasks)
+        await self.messager.connect.remote()
+        await self.messager.subscribe.remote([(f"exps/{self.exp_id}/user_payback", 1)], [self.exp_id])
+        await self.messager.start_listening.remote()
 
-    async def gather(self, content: str):
+    async def gather(self, content: str, target_agent_uuids: Optional[list[str]] = None):
         """收集智能体的特定信息"""
         gather_tasks = []
         for group in self._groups.values():
-            gather_tasks.append(group.gather.remote(content))
+            gather_tasks.append(group.gather.remote(content, target_agent_uuids))
         return await asyncio.gather(*gather_tasks)
 
     async def filter(
@@ -585,7 +612,6 @@ class AgentSimulation:
         self, survey: Survey, agent_uuids: Optional[list[str]] = None
     ):
         """发送问卷"""
-        await self.messager.connect()
         survey_dict = survey.to_dict()
         if agent_uuids is None:
             agent_uuids = self._agent_uuids
@@ -599,13 +625,20 @@ class AgentSimulation:
         }
         for uuid in agent_uuids:
             topic = self._user_survey_topics[uuid]
-            await self.messager.send_message(topic, payload)
+            await self.messager.send_message.remote(topic, payload)
+        remain_payback = len(agent_uuids)
+        while True:
+            messages = await self.messager.fetch_messages.remote()
+            logger.info(f"Received {len(messages)} payback messages [survey]")
+            remain_payback -= len(messages)
+            if remain_payback <= 0:
+                break
+            await asyncio.sleep(3)
 
     async def send_interview_message(
         self, content: str, agent_uuids: Union[str, list[str]]
     ):
         """发送采访消息"""
-        await self.messager.connect()
         _date_time = datetime.now(timezone.utc)
         payload = {
             "from": "none",
@@ -617,24 +650,67 @@ class AgentSimulation:
             agent_uuids = [agent_uuids]
         for uuid in agent_uuids:
             topic = self._user_chat_topics[uuid]
-            await self.messager.send_message(topic, payload)
+            await self.messager.send_message.remote(topic, payload)
+        remain_payback = len(agent_uuids)
+        while True:
+            messages = await self.messager.fetch_messages.remote()
+            logger.info(f"Received {len(messages)} payback messages [interview]")
+            remain_payback -= len(messages)
+            if remain_payback <= 0:
+                break
+            await asyncio.sleep(3)
+
+    async def extract_metric(self, metric_extractor: list[Callable]):
+        """提取指标"""
+        for metric_extractor in metric_extractor:
+            await metric_extractor(self)
 
     async def step(self):
-        """运行一步, 即每个智能体执行一次forward"""
+        """Run one step, each agent execute one forward"""
         try:
+            # check whether insert agents
+            simulator_day = await self._simulator.get_simulator_day()
+            print(f"simulator_day: {simulator_day}, self._simulator_day: {self._simulator_day}")
+            need_insert_agents = False
+            if simulator_day > self._simulator_day:
+                need_insert_agents = True
+                self._simulator_day = simulator_day
+            if need_insert_agents:
+                await self.resume_simulator()
+                insert_tasks = []
+                for group in self._groups.values():
+                    insert_tasks.append(group.insert_agents.remote())
+                await asyncio.gather(*insert_tasks)
+
+            # step
             tasks = []
             for group in self._groups.values():
                 tasks.append(group.step.remote())
             await asyncio.gather(*tasks)
+            # save
+            simulator_day = await self._simulator.get_simulator_day()
+            simulator_time = int(await self._simulator.get_time())
+            save_tasks = []
+            for group in self._groups.values():
+                save_tasks.append(group.save.remote(simulator_day, simulator_time))
+            await asyncio.gather(*save_tasks)
+            self._total_steps += 1
+            if self.metric_extractor is not None:
+                print(f"total_steps: {self._total_steps}, excute metric")
+                to_excute_metric = [
+                    metric[1] for metric in self.metric_extractor if self._total_steps % metric[0] == 0
+                ]
+                await self.extract_metric(to_excute_metric)
         except Exception as e:
-            logger.error(f"运行错误: {str(e)}")
-            raise
+            import traceback
+            logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
+            raise RuntimeError(str(e)) from e
 
     async def run(
         self,
         day: int = 1,
     ):
-        """运行模拟器"""
+        """Run the simulation by days"""
         try:
             self._exp_info["num_day"] += day
             await self._update_exp_status(1)  # 更新状态为运行中
@@ -645,13 +721,12 @@ class AgentSimulation:
             monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
 
             try:
-                for _ in range(day):
-                    tasks = []
-                    for group in self._groups.values():
-                        tasks.append(group.run.remote())
-                    # 等待所有group运行完成
-                    await asyncio.gather(*tasks)
-
+                end_time = await self._simulator.get_time() + day * 24 * 3600
+                while True:
+                    current_time = await self._simulator.get_time()
+                    if current_time >= end_time:
+                        break
+                    await self.step()
             finally:
                 # 设置停止事件
                 stop_event.set()

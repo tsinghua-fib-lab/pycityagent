@@ -9,14 +9,11 @@ from pycityagent.economy import EconomyClient
 from pycityagent.llm.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.message import Messager
-from pycityagent.tools import ExportMlflowMetrics
 
 logger = logging.getLogger("pycityagent")
 
 
 class NBSAgent(InstitutionAgent):
-    export_metrics = ExportMlflowMetrics(log_batch_size=3)
-
     def __init__(
         self,
         name: str,
@@ -60,15 +57,13 @@ class NBSAgent(InstitutionAgent):
 
     async def forward(self):
         if await self.month_trigger():
-            citizens = await self.memory.get("citizens")
-            while True:
-                agents_forward = await self.gather_messages(citizens, "forward")
-                if np.all(np.array(agents_forward) > self.forward_times):
-                    break
-                await asyncio.sleep(1)
+            citizens = await self.memory.status.get("citizens")
+            agents_forward = []
+            if not np.all(np.array(agents_forward) > self.forward_times):
+                return
             work_propensity = await self.gather_messages(citizens, "work_propensity")
             working_hours = np.mean(work_propensity) * self.num_labor_hours
-            firm_id = await self.memory.get("firm_id")
+            firm_id = await self.memory.status.get("firm_id")
             price = await self.economy_client.get(firm_id, "price")
             prices = await self.economy_client.get(self._agent_id, "prices")
             initial_price = prices[0]
@@ -116,23 +111,5 @@ class NBSAgent(InstitutionAgent):
             self.forward_times += 1
             for uuid in citizens:
                 await self.send_message_to_agent(
-                    uuid, f"nbs_forward@{self.forward_times}"
-                )
-
-            metrics = {
-                "nominal_gdp": nominal_gdp,
-                "working_hours": working_hours,
-                "price": price,
-                "depression": depression,
-                "consumption": consumption_currency,
-                "income": income_currency,
-            }
-            for k, v in metrics.items():
-                await self.export_metrics(
-                    metric={
-                        "key": k,
-                        "value": v,
-                        "step": self.forward_times,
-                    },
-                    clear_cache=True,
+                    uuid, f"nbs_forward@{self.forward_times}", "economy"
                 )

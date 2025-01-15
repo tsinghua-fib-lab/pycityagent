@@ -196,30 +196,6 @@ class SimpleEmbedding(Embeddings):
         """Embed query text."""
         return self._embed(text)
 
-    # def save(self, file_path: str):
-    #     """保存模型"""
-    #     state = {
-    #         "vector_dim": self.vector_dim,
-    #         "cache_size": self.cache_size,
-    #         "vocab": self._vocab,
-    #         "idf": self._idf,
-    #         "doc_count": self._doc_count,
-    #     }
-    #     with open(file_path, "w") as f:
-    #         json.dump(state, f)
-
-    # def load(self, file_path: str):
-    #     """加载模型"""
-    #     with open(file_path, "r") as f:
-    #         state = json.load(f)
-    #     self.vector_dim = state["vector_dim"]
-    #     self.cache_size = state["cache_size"]
-    #     self._vocab = state["vocab"]
-    #     self._idf = state["idf"]
-    #     self._doc_count = state["doc_count"]
-    #     self._cache = {}  # 清空缓存
-
-
 if __name__ == "__main__":
     # se = SentenceEmbedding(
     #     pretrained_model_name_or_path="ignore/BAAI--bge-m3", cache_dir="ignore"

@@ -14,7 +14,6 @@ from ..environment import Simulator
 from ..llm import LLM
 from ..memory import Memory
 from ..message.messager import Messager
-from ..metrics import MlflowClient
 from .agent_base import Agent, AgentType
 
 logger = logging.getLogger("pycityagent")
@@ -30,7 +29,6 @@ class CitizenAgent(Agent):
         name: str,
         llm_client: Optional[LLM] = None,
         simulator: Optional[Simulator] = None,
-        mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
         messager: Optional[Messager] = None,  # type:ignore
@@ -43,7 +41,6 @@ class CitizenAgent(Agent):
             economy_client=economy_client,
             messager=messager,
             simulator=simulator,
-            mlflow_client=mlflow_client,
             memory=memory,
             avro_file=avro_file,
         )
@@ -62,42 +59,33 @@ class CitizenAgent(Agent):
         if self._simulator is None:
             logger.warning("Simulator is not set")
             return
-        if not self._has_bound_to_simulator:
-            FROM_MEMORY_KEYS = {
-                "attribute",
-                "home",
-                "work",
-                "vehicle_attribute",
-                "bus_attribute",
-                "pedestrian_attribute",
-                "bike_attribute",
-            }
-            simulator = self.simulator
-            memory = self.memory
-            person_id = await memory.get("id")
-            # ATTENTION:模拟器分配的id从0开始
-            if person_id >= 0:
-                await simulator.get_person(person_id)
-                logger.debug(f"Binding to Person `{person_id}` already in Simulator")
-            else:
-                dict_person = deepcopy(self._person_template)
-                for _key in FROM_MEMORY_KEYS:
-                    try:
-                        _value = await memory.get(_key)
-                        if _value:
-                            dict_person[_key] = _value
-                    except KeyError as e:
-                        continue
-                resp = await simulator.add_person(
-                    dict2pb(dict_person, person_pb2.Person())
-                )
-                person_id = resp["person_id"]
-                await memory.update("id", person_id, protect_llm_read_only_fields=False)
-                logger.debug(f"Binding to Person `{person_id}` just added to Simulator")
-                # 防止模拟器还没有到prepare阶段导致get_person出错
-            self._has_bound_to_simulator = True
-            self._agent_id = person_id
-            self.memory.set_agent_id(person_id)
+        FROM_MEMORY_KEYS = {
+            "attribute",
+            "home",
+            "work",
+            "vehicle_attribute",
+            "bus_attribute",
+            "pedestrian_attribute",
+            "bike_attribute",
+        }
+        simulator = self.simulator
+        status = self.status
+        dict_person = deepcopy(self._person_template)
+        for _key in FROM_MEMORY_KEYS:
+            try:
+                _value = await status.get(_key)
+                if _value:
+                    dict_person[_key] = _value
+            except KeyError as e:
+                continue
+        resp = await simulator.add_person(
+            dict2pb(dict_person, person_pb2.Person())
+        )
+        person_id = resp["person_id"]
+        await status.update("id", person_id, protect_llm_read_only_fields=False)
+        logger.debug(f"Binding to Person `{person_id}` just added to Simulator")
+        self._agent_id = person_id
+        self.status.set_agent_id(person_id)
 
     async def _bind_to_economy(self):
         if self._economy_client is None:
@@ -109,8 +97,8 @@ class CitizenAgent(Agent):
                     await self._economy_client.remove_agents([self._agent_id])
                 except:
                     pass
-                person_id = await self.memory.get("id")
-                currency = await self.memory.get("currency")
+                person_id = await self.status.get("id")
+                currency = await self.status.get("currency")
                 await self._economy_client.add_agents(
                     {
                         "id": person_id,
@@ -128,7 +116,7 @@ class CitizenAgent(Agent):
         # 从消息中解析发送者 ID 和消息内容
         target = payload["target"]
         sender_id = payload["from"]
-        content = await self.memory.get(f"{target}")
+        content = await self.status.get(f"{target}")
         payload = {
             "from": self._uuid,
             "content": content,
@@ -138,7 +126,7 @@ class CitizenAgent(Agent):
 
 class InstitutionAgent(Agent):
     """
-    InstitutionAgent: 机构智能体类及其定义
+    InstitutionAgent: Institution agent class and definition
     """
 
     def __init__(
@@ -146,7 +134,6 @@ class InstitutionAgent(Agent):
         name: str,
         llm_client: Optional[LLM] = None,
         simulator: Optional[Simulator] = None,
-        mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
         messager: Optional[Messager] = None,  # type:ignore
@@ -157,7 +144,6 @@ class InstitutionAgent(Agent):
             type=AgentType.Institution,
             llm_client=llm_client,
             economy_client=economy_client,
-            mlflow_client=mlflow_client,
             messager=messager,
             simulator=simulator,
             memory=memory,
@@ -178,10 +164,10 @@ class InstitutionAgent(Agent):
             # TODO: More general id generation
             _id = random.randint(100000, 999999)
             self._agent_id = _id
-            self.memory.set_agent_id(_id)
+            self.status.set_agent_id(_id)
             map_header = self.simulator.map.header
             # TODO: remove random position assignment
-            await self.memory.update(
+            await self.status.update(
                 "position",
                 {
                     "xy_position": {
@@ -201,57 +187,57 @@ class InstitutionAgent(Agent):
                 },
                 protect_llm_read_only_fields=False,
             )
-            await self.memory.update("id", _id, protect_llm_read_only_fields=False)
+            await self.status.update("id", _id, protect_llm_read_only_fields=False)
             try:
                 await self._economy_client.remove_orgs([self._agent_id])
             except:
                 pass
             try:
-                _memory = self.memory
-                _id = await _memory.get("id")
-                _type = await _memory.get("type")
+                _status = self.status
+                _id = await _status.get("id")
+                _type = await _status.get("type")
                 try:
-                    nominal_gdp = await _memory.get("nominal_gdp")
+                    nominal_gdp = await _status.get("nominal_gdp")
                 except:
                     nominal_gdp = []
                 try:
-                    real_gdp = await _memory.get("real_gdp")
+                    real_gdp = await _status.get("real_gdp")
                 except:
                     real_gdp = []
                 try:
-                    unemployment = await _memory.get("unemployment")
+                    unemployment = await _status.get("unemployment")
                 except:
                     unemployment = []
                 try:
-                    wages = await _memory.get("wages")
+                    wages = await _status.get("wages")
                 except:
                     wages = []
                 try:
-                    prices = await _memory.get("prices")
+                    prices = await _status.get("prices")
                 except:
                     prices = []
                 try:
-                    inventory = await _memory.get("inventory")
+                    inventory = await _status.get("inventory")
                 except:
                     inventory = 0
                 try:
-                    price = await _memory.get("price")
+                    price = await _status.get("price")
                 except:
                     price = 0
                 try:
-                    currency = await _memory.get("currency")
+                    currency = await _status.get("currency")
                 except:
                     currency = 0.0
                 try:
-                    interest_rate = await _memory.get("interest_rate")
+                    interest_rate = await _status.get("interest_rate")
                 except:
                     interest_rate = 0.0
                 try:
-                    bracket_cutoffs = await _memory.get("bracket_cutoffs")
+                    bracket_cutoffs = await _status.get("bracket_cutoffs")
                 except:
                     bracket_cutoffs = []
                 try:
-                    bracket_rates = await _memory.get("bracket_rates")
+                    bracket_rates = await _status.get("bracket_rates")
                 except:
                     bracket_rates = []
                 await self._economy_client.add_orgs(

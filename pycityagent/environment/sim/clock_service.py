@@ -30,10 +30,10 @@ class ClockService:
         Getting current simulation clock
 
         Args:
-        - req (dict): https://cityproto.sim.fiblab.net/#city.clock.v1.NowRequest
+        - req (dict): https://cityproto.readthedocs.io/en/latest/docs.html#nowrequest
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.clock.v1.NowResponse
+        - https://cityproto.readthedocs.io/en/latest/docs.html#nowresponse
         """
         if type(req) != clock_service.NowRequest:
             req = ParseDict(req, clock_service.NowRequest())

@@ -62,12 +62,10 @@ class FirmAgent(InstitutionAgent):
 
     async def forward(self):
         if await self.month_trigger():
-            employees = await self.memory.get("employees")
-            while True:
-                agents_forward = await self.gather_messages(employees, "forward")
-                if np.all(np.array(agents_forward) > self.forward_times):
-                    break
-                await asyncio.sleep(1)
+            employees = await self.memory.status.get("employees")
+            agents_forward = []
+            if not np.all(np.array(agents_forward) > self.forward_times):
+                return
             goods_demand = await self.gather_messages(employees, "goods_demand")
             goods_consumption = await self.gather_messages(
                 employees, "goods_consumption"
@@ -90,6 +88,7 @@ class FirmAgent(InstitutionAgent):
                 await self.send_message_to_agent(
                     uuid,
                     f"work_skill@{max(skill*(1 + np.random.uniform(0, max_change_rate*self.max_wage_inflation)), 1)}",
+                    "economy",
                 )
             price = await self.economy_client.get(self._agent_id, "price")
             await self.economy_client.update(
@@ -109,5 +108,5 @@ class FirmAgent(InstitutionAgent):
             self.forward_times += 1
             for uuid in employees:
                 await self.send_message_to_agent(
-                    uuid, f"firm_forward@{self.forward_times}"
+                    uuid, f"firm_forward@{self.forward_times}", "economy"
                 )

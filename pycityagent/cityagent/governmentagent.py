@@ -53,13 +53,11 @@ class GovernmentAgent(InstitutionAgent):
 
     async def forward(self):
         if await self.month_trigger():
-            citizens = await self.memory.get("citizens")
-            while True:
-                agents_forward = await self.gather_messages(citizens, "forward")
-                if np.all(np.array(agents_forward) > self.forward_times):
-                    break
-                await asyncio.sleep(1)
-            citizens_agent_id = await self.memory.get("citizens_agent_id")
+            citizens = await self.memory.status.get("citizens")
+            agents_forward = await self.gather_messages(citizens, "forward")
+            if not np.all(np.array(agents_forward) > self.forward_times):
+                return
+            citizens_agent_id = await self.memory.status.get("citizens_agent_id")
             incomes = await self.gather_messages(citizens, "income_currency")  # uuid
             _, post_tax_incomes = await self.economy_client.calculate_taxes_due(
                 self._agent_id, citizens_agent_id, incomes, enable_redistribution=False
@@ -68,9 +66,9 @@ class GovernmentAgent(InstitutionAgent):
                 citizens, incomes, post_tax_incomes
             ):
                 tax_paid = income - post_tax_income
-                await self.send_message_to_agent(uuid, f"tax_paid@{tax_paid}")
+                await self.send_message_to_agent(uuid, f"tax_paid@{tax_paid}", "economy")
             self.forward_times += 1
             for uuid in citizens:
                 await self.send_message_to_agent(
-                    uuid, f"government_forward@{self.forward_times}"
+                    uuid, f"government_forward@{self.forward_times}", "economy"
                 )

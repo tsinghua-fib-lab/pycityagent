@@ -58,7 +58,6 @@ class Agent(ABC):
         economy_client: Optional[EconomyClient] = None,
         messager: Optional[Messager] = None,  # type:ignore
         simulator: Optional[Simulator] = None,
-        mlflow_client: Optional[MlflowClient] = None,
         memory: Optional[Memory] = None,
         avro_file: Optional[dict[str, str]] = None,
         copy_writer: Optional[ray.ObjectRef] = None,
@@ -73,7 +72,6 @@ class Agent(ABC):
             economy_client (EconomyClient): The `EconomySim` client. Defaults to None.
             messager (Messager, optional): The messager object. Defaults to None.
             simulator (Simulator, optional): The simulator object. Defaults to None.
-            mlflow_client (MlflowClient, optional): The Mlflow object. Defaults to None.
             memory (Memory, optional): The memory of the agent. Defaults to None.
             avro_file (dict[str, str], optional): The avro file of the agent. Defaults to None.
             copy_writer (ray.ObjectRef): The copy_writer of the agent. Defaults to None.
@@ -85,7 +83,6 @@ class Agent(ABC):
         self._economy_client = economy_client
         self._messager = messager
         self._simulator = simulator
-        self._mlflow_client = mlflow_client
         self._memory = memory
         self._exp_id = -1
         self._agent_id = -1
@@ -226,12 +223,6 @@ class Agent(ABC):
         """
         self._simulator = simulator
 
-    def set_mlflow_client(self, mlflow_client: MlflowClient):
-        """
-        Set the mlflow_client of the agent.
-        """
-        self._mlflow_client = mlflow_client
-
     def set_economy_client(self, economy_client: EconomyClient):
         """
         Set the economy_client of the agent.
@@ -289,16 +280,7 @@ class Agent(ABC):
                 f"EconomyClient access before assignment, please `set_economy_client` first!"
             )
         return self._economy_client
-
-    @property
-    def mlflow_client(self):
-        """The Agent's MlflowClient"""
-        if self._mlflow_client is None:
-            raise RuntimeError(
-                f"MlflowClient access before assignment, please `set_mlflow_client` first!"
-            )
-        return self._mlflow_client
-
+    
     @property
     def memory(self):
         """The Agent's Memory"""
@@ -307,6 +289,24 @@ class Agent(ABC):
                 f"Memory access before assignment, please `set_memory` first!"
             )
         return self._memory
+    
+    @property
+    def status(self):
+        """The Agent's Status Memory"""
+        if self._memory.status is None:
+            raise RuntimeError(
+                f"Status access before assignment, please `set_memory` first!"
+            )
+        return self._memory.status
+    
+    @property
+    def stream(self):
+        """The Agent's Stream Memory"""
+        if self._memory.stream is None:
+            raise RuntimeError(
+                f"Stream access before assignment, please `set_memory` first!"
+            )
+        return self._memory.stream
 
     @property
     def simulator(self):
@@ -325,6 +325,12 @@ class Agent(ABC):
                 f"Copy Writer access before assignment, please `set_pgsql_writer` first!"
             )
         return self._pgsql_writer
+    
+    @property
+    def messager(self):
+        if self._messager is None:
+            raise RuntimeError("Messager is not set")
+        return self._messager
 
     async def messager_ping(self):
         if self._messager is None:
@@ -348,22 +354,15 @@ class Agent(ABC):
 
         # 添加记忆上下文
         if self._memory:
-            relevant_memories = await self.memory.search(survey_prompt)
+            profile_and_states = await self.status.search(survey_prompt)
+            relevant_activities = await self.stream.search(survey_prompt)
 
-            formatted_results = []
-            # for result in top_results:
-            #     formatted_results.append(
-            #         f"- [{result['type']}] {result['content']} "
-            #         f"(相关度: {result['similarity']:.2f})"
-            #     )
-
-            if relevant_memories:
-                dialog.append(
-                    {
-                        "role": "system",
-                        "content": f"Answer based on these memories:\n{relevant_memories}",
-                    }
-                )
+            dialog.append(
+                {
+                    "role": "system",
+                    "content": f"Answer based on following profile and states:\n{profile_and_states}\n Related activities:\n{relevant_activities}",
+                }
+            )
 
         # 添加问卷问题
         dialog.append({"role": "user", "content": survey_prompt})
@@ -422,6 +421,7 @@ class Agent(ABC):
                     _data_tuples
                 )
             )
+        await self.messager.send_message.remote(f"exps/{self._exp_id}/user_payback", {"count": 1})
 
     async def generate_user_chat_response(self, question: str) -> str:
         """生成回答 —— 可重写
@@ -440,14 +440,15 @@ class Agent(ABC):
 
         # 添加记忆上下文
         if self._memory:
-            relevant_memories = await self._memory.search(question)
-            if relevant_memories:
-                dialog.append(
-                    {
-                        "role": "system",
-                        "content": f"Answer based on these memories:\n{relevant_memories}",
-                    }
-                )
+            profile_and_states = await self.status.search(question, top_k=10)
+            relevant_activities = await self.stream.search(question, top_k=10)
+
+            dialog.append(
+                {
+                    "role": "system",
+                    "content": f"Answer based on following profile and states:\n{profile_and_states}\n Related activities:\n{relevant_activities}",
+                }
+            )
 
         # 添加用户问题
         dialog.append({"role": "user", "content": question})
@@ -507,6 +508,8 @@ class Agent(ABC):
                     _data
                 )
             )
+        await self.messager.send_message.remote(f"exps/{self._exp_id}/user_payback", {"count": 1})
+        print(f"Sent payback message to {self._exp_id}")
 
     async def process_agent_chat_response(self, payload: dict) -> str:
         resp = f"Agent {self._uuid} received agent chat response: {payload}"

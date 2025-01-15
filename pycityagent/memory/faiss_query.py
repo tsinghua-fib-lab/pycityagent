@@ -1,4 +1,5 @@
 import asyncio
+import warnings
 from collections.abc import Sequence
 from typing import Any, Literal, Optional, Union
 
@@ -116,32 +117,34 @@ class FaissQuery:
         }
         if filter is not None:
             _filter.update(filter)
-        if return_score_type == "L2-distance":
-            _result = await self.vectors_store.asimilarity_search_with_score(
-                query=query,
-                k=k,
-                filter=_filter,
-                fetch_k=fetch_k,
-            )
-            return [(r.page_content, s, r.metadata) for r, s in _result]
-        elif return_score_type == "none":
-            _result = await self.vectors_store.asimilarity_search(
-                query=query,
-                k=k,
-                filter=_filter,
-                fetch_k=fetch_k,
-            )
-            return [(r.page_content, r.metadata) for r in _result]
-        elif return_score_type == "similarity_score":
-            _result = await self.vectors_store.asimilarity_search_with_relevance_scores(
-                query=query,
-                k=k,
-                filter=_filter,
-                fetch_k=fetch_k,
-            )
-            return [(r.page_content, s, r.metadata) for r, s in _result]
-        else:
-            raise ValueError(f"Invalid `return_score_type` {return_score_type}!")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            if return_score_type == "L2-distance":
+                _result = await self.vectors_store.asimilarity_search_with_score(
+                    query=query,
+                    k=k,
+                    filter=_filter,
+                    fetch_k=fetch_k,
+                )
+                return [(r.page_content, s, r.metadata) for r, s in _result]
+            elif return_score_type == "none":
+                _result = await self.vectors_store.asimilarity_search(
+                    query=query,
+                    k=k,
+                    filter=_filter,
+                    fetch_k=fetch_k,
+                )
+                return [(r.page_content, r.metadata) for r in _result]
+            elif return_score_type == "similarity_score":
+                _result = await self.vectors_store.asimilarity_search_with_relevance_scores(
+                    query=query,
+                    k=k,
+                    filter=_filter,
+                    fetch_k=fetch_k,
+                )
+                return [(r.page_content, s, r.metadata) for r, s in _result]
+            else:
+                raise ValueError(f"Invalid `return_score_type` {return_score_type}!")
 
     @lock_decorator
     async def similarity_search_by_embedding(

@@ -1,8 +1,8 @@
 from typing import List
 from .dispatcher import BlockDispatcher
 from pycityagent.environment.simulator import Simulator
-from pycityagent.llm.llm import LLM
-from pycityagent.memory.memory import Memory
+from pycityagent.llm import LLM
+from pycityagent.memory import Memory
 from pycityagent.workflow.block import Block
 import random
 import logging
@@ -31,25 +31,32 @@ User requirement: {intention}
 Your output must be a single selection from ['home', 'workplace', 'other'] without any additional text or explanation.
 """
 
+RADIUS_PROMPT = """As an intelligent decision system, please determine the maximum travel radius (in meters) based on the current emotional state.
+
+Your current emotion: {emotion_types}
+Your current thought: {thought}
+
+Please analyze how these emotions would affect travel willingness and return only a single integer number between 1000-100000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
+
+Return only the integer number without any additional text or explanation."""
+
 class PlaceSelectionBlock(Block):
     """
     选择目的地
     PlaceSelectionBlock
     """
-    configurable_fields: List[str] = ["search_radius", "search_limit"]
+    configurable_fields: List[str] = ["search_limit"]
     default_values = {
-        "search_radius": 100000,
         "search_limit": 10
     }
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__("PlaceSelectionBlock", llm, memory, simulator)
+        super().__init__("PlaceSelectionBlock", llm=llm, memory=memory, simulator=simulator)
         self.description = "Used to select and determine destinations for unknown locations (excluding home and workplace), such as choosing specific shopping malls, restaurants and other places"
         self.typeSelectionPrompt = FormatPrompt(PLACE_TYPE_SELECTION_PROMPT)
         self.secondTypeSelectionPrompt = FormatPrompt(PLACE_SECOND_TYPE_SELECTION_PROMPT)
-
+        self.radiusPrompt = FormatPrompt(RADIUS_PROMPT)
         # configurable fields
-        self.search_radius = 100000
         self.search_limit = 10
 
     async def forward(self, step, context):
@@ -71,13 +78,18 @@ class PlaceSelectionBlock(Block):
             poi_category = sub_category
         )
         levelTwoType = await self.llm.atext_request(self.secondTypeSelectionPrompt.to_dialog()) # type: ignore
-        center = await self.memory.get('position')
+        center = await self.memory.status.get('position')
         center = (center['xy_position']['x'], center['xy_position']['y'])
+        self.radiusPrompt.format(
+            emotion_types=await self.memory.status.get("emotion_types"),
+            thought=await self.memory.status.get("thought")
+        )
+        radius = int(await self.llm.atext_request(self.radiusPrompt.to_dialog())) # type: ignore
         try:
             pois = self.simulator.map.query_pois(
                 center = center,
                 category_prefix = levelTwoType,
-                radius=self.search_radius,
+                radius=radius,
                 limit=self.search_limit
             )
         except Exception as e:
@@ -86,7 +98,7 @@ class PlaceSelectionBlock(Block):
             pois = self.simulator.map.query_pois(
                 center = center,
                 category_prefix = levelTwoType,
-                radius=self.search_radius,
+                radius=radius,
                 limit=self.search_limit
             )
         if len(pois) > 0:
@@ -94,11 +106,12 @@ class PlaceSelectionBlock(Block):
             nextPlace = (poi['name'], poi['aoi_id'])
             # 将地点信息保存到context中
             context['next_place'] = nextPlace
-            # 这里应该添加选择地点的具体逻辑
+            node_id = await self.memory.stream.add_mobility(description=f"For {step['intention']}, I selected the destination: {nextPlace}")
             return {
                 'success': True,
                 'evaluation': f'Successfully selected the destination: {nextPlace}',
-                'consumed_time': 5
+                'consumed_time': 5,
+                'node_id': node_id
             }
         else:
             simmap = self.simulator.map
@@ -106,11 +119,12 @@ class PlaceSelectionBlock(Block):
             nextPlace = (poi['name'], poi['aoi_id'])
             # 将地点信息保存到context中
             context['next_place'] = nextPlace
-            # 这里应该添加选择地点的具体逻辑
+            node_id = await self.memory.stream.add_mobility(description=f"For {step['intention']}, I selected the destination: {nextPlace}")
             return {
                 'success': True,
                 'evaluation': f'Successfully selected the destination: {nextPlace}',
-                'consumed_time': 5
+                'consumed_time': 5,
+                'node_id': node_id
             }
 
 class MoveBlock(Block):
@@ -119,30 +133,35 @@ class MoveBlock(Block):
     MoveBlock
     """
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__("MoveBlock", llm, memory, simulator)
+        super().__init__("MoveBlock", llm=llm, memory=memory, simulator=simulator)
         self.description = "Used to execute specific mobility operations, such as returning home, going to work, or visiting a specific location"
         self.placeAnalysisPrompt = FormatPrompt(PLACE_ANALYSIS_PROMPT)
 
     async def forward(self, step, context):
         # 这里应该添加移动的具体逻辑
-        agent_id = await self.memory.get("id")
+        agent_id = await self.memory.status.get("id")
         self.placeAnalysisPrompt.format(
             plan = context['plan'],
             intention = step["intention"]
         )
+        number_poi_visited = await self.memory.status.get("number_poi_visited")
+        number_poi_visited += 1
+        await self.memory.status.update("number_poi_visited", number_poi_visited)
         response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog()) # type: ignore
         if response == 'home':
             # 返回到家
-            home = await self.memory.get('home')
+            home = await self.memory.status.get('home')
             home = home['aoi_position']['aoi_id']
-            nowPlace = await self.memory.get('position')
+            nowPlace = await self.memory.status.get('position')
+            node_id = await self.memory.stream.add_mobility(description=f"I returned home")
             if 'aoi_position' in nowPlace and nowPlace['aoi_position']['aoi_id'] == home:
                 return {
                     'success': True,
                     'evaluation': f'Successfully returned home (already at home)',
                     'from_place': home,
                     'to_place': home,
-                    'consumed_time': 0
+                    'consumed_time': 0,
+                    'node_id': node_id
                 }
             await self.simulator.set_aoi_schedules(
                 person_id=agent_id,
@@ -153,20 +172,23 @@ class MoveBlock(Block):
                 'evaluation': f'Successfully returned home',
                 'from_place': nowPlace['aoi_position']['aoi_id'],
                 'to_place': home,
-                'consumed_time': 45
+                'consumed_time': 45,
+                'node_id': node_id
             }
         elif response == 'workplace':
             # 返回到工作地点
-            work = await self.memory.get('work')
+            work = await self.memory.status.get('work')
             work = work['aoi_position']['aoi_id']
-            nowPlace = await self.memory.get('position')
+            nowPlace = await self.memory.status.get('position')
+            node_id = await self.memory.stream.add_mobility(description=f"I went to my workplace")
             if 'aoi_position' in nowPlace and nowPlace['aoi_position']['aoi_id'] == work:
                 return {
                     'success': True,
                     'evaluation': f'Successfully reached the workplace (already at the workplace)',
                     'from_place': work,
                     'to_place': work,
-                    'consumed_time': 0
+                    'consumed_time': 0,
+                    'node_id': node_id
                 }
             await self.simulator.set_aoi_schedules(
                 person_id=agent_id,
@@ -177,12 +199,14 @@ class MoveBlock(Block):
                 'evaluation': f'Successfully reached the workplace',
                 'from_place': nowPlace['aoi_position']['aoi_id'],
                 'to_place': work,
-                'consumed_time': 45
+                'consumed_time': 45,
+                'node_id': node_id
             }
         else:
             # 移动到其他地点
             next_place = context.get('next_place', None)
-            nowPlace = await self.memory.get('position')
+            nowPlace = await self.memory.status.get('position')
+            node_id = await self.memory.stream.add_mobility(description=f"I went to {next_place}")
             if next_place != None:
                 await self.simulator.set_aoi_schedules(
                     person_id=agent_id,
@@ -205,7 +229,8 @@ class MoveBlock(Block):
                 'evaluation': f'Successfully reached the destination: {next_place}',
                 'from_place': nowPlace['aoi_position']['aoi_id'],
                 'to_place': next_place[1],
-                'consumed_time': 45
+                'consumed_time': 45,
+                'node_id': node_id
             }
     
 class MobilityNoneBlock(Block):
@@ -214,14 +239,16 @@ class MobilityNoneBlock(Block):
     MobilityNoneBlock
     """
     def __init__(self, llm: LLM, memory: Memory):
-        super().__init__("MobilityNoneBlock", llm, memory)
+        super().__init__("MobilityNoneBlock", llm=llm, memory=memory)
         self.description = "Used to handle other cases"
 
     async def forward(self, step, context):
+        node_id = await self.memory.stream.add_mobility(description=f"I finished {step['intention']}")
         return {
             'success': True,
             'evaluation': f'Finished executing {step["intention"]}',
-            'consumed_time': 0
+            'consumed_time': 0,
+            'node_id': node_id
         }
 
 class MobilityBlock(Block):
@@ -230,7 +257,7 @@ class MobilityBlock(Block):
     mobility_none_block: MobilityNoneBlock
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__("MobilityBlock", llm, memory, simulator)
+        super().__init__("MobilityBlock", llm=llm, memory=memory, simulator=simulator)
         # 初始化所有块
         self.place_selection_block = PlaceSelectionBlock(llm, memory, simulator)
         self.move_block = MoveBlock(llm, memory, simulator)

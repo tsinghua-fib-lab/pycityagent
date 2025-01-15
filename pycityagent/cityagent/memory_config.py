@@ -17,24 +17,22 @@ agent_skills = list(sorted_clipped_skills.mean(axis=0))
 
 def memory_config_societyagent():
     EXTRA_ATTRIBUTES = {
-        "city": "New York",
-        # 需求信息
         "type": (str, "citizen"),
-        "needs": (
-            dict,
-            {
-                "hungry": random.random(),  # 饥饿感
-                "tired": random.random(),  # 疲劳感
-                "safe": random.random(),  # 安全需
-                "social": random.random(),  # 社会需求
-            },
-            True,
-        ),
+        "city": (str, "New York", True),
+
+        # Needs Model
+        "hunger_satisfaction": (float, random.random(), True),  # 饥饿满意度
+        "energy_satisfaction": (float, random.random(), True),  # 精力满意度  
+        "safety_satisfaction": (float, random.random(), True),  # 安全满意度
+        "social_satisfaction": (float, random.random(), True),  # 社交满意度
         "current_need": (str, "none", True),
+
+        # Plan Behavior Model
         "current_plan": (list, [], True),
         "current_step": (dict, {"intention": "", "type": ""}, True),
         "execution_context": (dict, {}, True),
         "plan_history": (list, [], True),
+
         # cognition
         "emotion": (
             dict,
@@ -46,25 +44,25 @@ def memory_config_societyagent():
                 "anger": 5,
                 "surprise": 5,
             },
-            True,
+            False,
         ),
         "attitude": (dict, {}, True),
         "thought": (str, "Currently nothing good or bad is happening", True),
         "emotion_types": (str, "Relief", True),
-        "incident": (list, [], True),
-        "city": (str, "Texas", True),
+
+        # economy
         "work_skill": (
             float,
             random.choice(agent_skills),
             True,
-        ),  # 工作技能, 即每小时的工资
-        "tax_paid": (float, 0.0, True),  # 纳税
-        "consumption_currency": (float, 0.0, True),  # 月消费
+        ),  # work skill
+        "tax_paid": (float, 0.0, True),  # tax paid
+        "consumption_currency": (float, 0.0, True),  # consumption
         "goods_demand": (int, 0, True),
         "goods_consumption": (int, 0, True),
         "work_propensity": (float, 0.0, True),
         "consumption_propensity": (float, 0.0, True),
-        "income_currency": (float, 0.0, True),  # 月收入
+        "income_currency": (float, 0.0, True),  # monthly income
         "to_income": (float, 0.0, True),
         "to_consumption_currency": (float, 0.0, True),
         "firm_id": (int, 0, True),
@@ -79,23 +77,25 @@ def memory_config_societyagent():
         "forward": (int, 0, True),
         "depression": (float, 0.0, True),
         "ubi_opinion": (list, [], True),
-        # social
-        "friends": (list, [], True),  # 好友列表
-        "relationships": (dict, {}, True),  # 与每个好友的关系强度
-        "relation_types": (dict, {}, True),
-        "chat_histories": (dict, {}, True),  # 所有聊天历史记录
-        "interactions": (dict, {}, True),  # 所有互动记录
-        "to_discuss": (dict, {}, True),
-        # economy
         "working_experience": (list, [], True),
         "work_hour_month": (float, 160, True),
         "work_hour_finish": (float, 0, True),
+
+        # social
+        "friends": (list, [], True),  # friends list
+        "relationships": (dict, {}, True),  # relationship strength with each friend
+        "relation_types": (dict, {}, True),
+        "chat_histories": (dict, {}, True),  # all chat histories
+        "interactions": (dict, {}, True),  # all interaction records
+        "to_discuss": (dict, {}, True),
+
         # mobility
         "environment": (str, "The environment outside is good", True),
+        "number_poi_visited": (int, 1, True),
     }
 
     PROFILE = {
-        "name": random.choice(
+        "name": (str,random.choice(
             [
                 "Alice",
                 "Bob",
@@ -124,13 +124,13 @@ def memory_config_societyagent():
                 "Yvonne",
                 "Zack",
             ]
-        ),
-        "gender": random.choice(["male", "female"]),
-        "age": random.randint(18, 65),
-        "education": random.choice(
+        ), True),
+        "gender": (str, random.choice(["male", "female"]), True),
+        "age": (int, random.randint(18, 65), True),
+        "education": (str, random.choice(
             ["Doctor", "Master", "Bachelor", "College", "High School"]
-        ),
-        "skill": random.choice(
+        ), True),
+        "skill": (str, random.choice(
             [
                 "Good at problem-solving",
                 "Good at communication",
@@ -138,8 +138,8 @@ def memory_config_societyagent():
                 "Good at teamwork",
                 "Other",
             ]
-        ),
-        "occupation": random.choice(
+        ), True),
+        "occupation": (str, random.choice(
             [
                 "Student",
                 "Teacher",
@@ -151,16 +151,16 @@ def memory_config_societyagent():
                 "Athlete",
                 "Other",
             ]
-        ),
-        "family_consumption": random.choice(["low", "medium", "high"]),
-        "consumption": random.choice(["sightly low", "low", "medium", "high"]),
-        "personality": random.choice(
+        ), True),
+        "family_consumption": (str, random.choice(["low", "medium", "high"]), True),
+        "consumption": (str, random.choice(["sightly low", "low", "medium", "high"]), True),
+        "personality": (str, random.choice(
             ["outgoint", "introvert", "ambivert", "extrovert"]
-        ),
+        ), True),
         "income": "0",
         "currency": random.randint(1000, 100000),
-        "residence": random.choice(["city", "suburb", "rural"]),
-        "race": random.choice(
+        "residence": (str, random.choice(["city", "suburb", "rural"]), True),
+        "race": (str, random.choice(
             [
                 "Chinese",
                 "American",
@@ -172,13 +172,13 @@ def memory_config_societyagent():
                 "Russian",
                 "Other",
             ]
-        ),
-        "religion": random.choice(
+        ), True),
+        "religion": (str, random.choice(
             ["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]
-        ),
-        "marital_status": random.choice(
+        ), True),
+        "marital_status": (str, random.choice(
             ["not married", "married", "divorced", "widowed"]
-        ),
+        ), True),
     }
 
     BASE = {

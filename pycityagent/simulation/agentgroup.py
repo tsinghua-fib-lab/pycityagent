@@ -21,7 +21,6 @@ from ..llm.llm import LLM
 from ..llm.llmconfig import LLMConfig
 from ..memory import FaissQuery, Memory
 from ..message import Messager
-from ..metrics import MlflowClient
 from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
                      STATUS_SCHEMA, SURVEY_SCHEMA)
 
@@ -40,12 +39,10 @@ class AgentGroup:
         ],
         config: dict,
         exp_id: str | UUID,
-        exp_name: str,
         enable_avro: bool,
         avro_path: Path,
         enable_pgsql: bool,
         pgsql_writer: ray.ObjectRef,
-        mlflow_run_id: str,
         embedding_model: Embeddings,
         logging_level: int,
         agent_config_file: Optional[Union[str, list[str]]] = None,
@@ -116,19 +113,6 @@ class AgentGroup:
         else:
             self.economy_client = None
 
-        # Mlflow
-        _mlflow_config = config.get("metric_request", {}).get("mlflow")
-        if _mlflow_config:
-            logger.info(f"-----Creating Mlflow client in AgentGroup {self._uuid} ...")
-            self.mlflow_client = MlflowClient(
-                config=_mlflow_config,
-                mlflow_run_name=f"EXP_{exp_name}_{1000*int(time.time())}",
-                experiment_name=exp_name,
-                run_id=mlflow_run_id,
-            )
-        else:
-            self.mlflow_client = None
-
         # set FaissQuery
         if self.embedding_model is not None:
             self.faiss_query = FaissQuery(
@@ -142,7 +126,11 @@ class AgentGroup:
             for j in range(number_of_agents_i):
                 memory_config_function_group_i = memory_config_function_group[i]
                 extra_attributes, profile, base = memory_config_function_group_i()
-                memory = Memory(config=extra_attributes, profile=profile, base=base)
+                memory = Memory(
+                    config=extra_attributes, 
+                    profile=profile, 
+                    base=base
+                )
                 agent = agent_class_i(
                     name=f"{agent_class_i.__name__}_{i}",
                     memory=memory,
@@ -151,18 +139,12 @@ class AgentGroup:
                     simulator=self.simulator,
                 )
                 agent.set_exp_id(self.exp_id)  # type: ignore
-                if self.mlflow_client is not None:
-                    agent.set_mlflow_client(self.mlflow_client)
                 if self.messager is not None:
                     agent.set_messager(self.messager)
                 if self.enable_avro:
                     agent.set_avro_file(self.avro_file)  # type: ignore
                 if self.enable_pgsql:
                     agent.set_pgsql_writer(self._pgsql_writer)
-                if self.faiss_query is not None:
-                    agent.memory.set_faiss_query(self.faiss_query)
-                if self.embedding_model is not None:
-                    agent.memory.set_embedding_model(self.embedding_model)
                 if self.agent_config_file is not None and self.agent_config_file[i]:
                     agent.load_from_file(self.agent_config_file[i])
                 self.agents.append(agent)
@@ -193,11 +175,21 @@ class AgentGroup:
         self.message_dispatch_task.cancel()  # type: ignore
         await asyncio.gather(self.message_dispatch_task, return_exceptions=True)  # type: ignore
 
+    async def insert_agents(self):
+        bind_tasks = []
+        for agent in self.agents:
+            bind_tasks.append(agent.bind_to_simulator())  # type: ignore
+        await asyncio.gather(*bind_tasks)
+
     async def init_agents(self):
         logger.debug(f"-----Initializing Agents in AgentGroup {self._uuid} ...")
         logger.debug(f"-----Binding Agents to Simulator in AgentGroup {self._uuid} ...")
-        for agent in self.agents:
-            await agent.bind_to_simulator()  # type: ignore
+        while True:
+            day = await self.simulator.get_simulator_day()
+            if day == 0:
+                break
+            await asyncio.sleep(1)
+        await self.insert_agents()
         self.id2agent = {agent._uuid: agent for agent in self.agents}
         logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
         assert self.messager is not None
@@ -221,7 +213,7 @@ class AgentGroup:
                 with open(filename, "wb") as f:
                     profiles = []
                     for agent in self.agents:
-                        profile = await agent.memory._profile.export()
+                        profile = await agent.status.profile.export()
                         profile = profile[0]
                         profile["id"] = agent._uuid
                         profiles.append(profile)
@@ -252,7 +244,7 @@ class AgentGroup:
             if not issubclass(type(self.agents[0]), InstitutionAgent):
                 profiles: list[Any] = []
                 for agent in self.agents:
-                    profile = await agent.memory._profile.export()
+                    profile = await agent.status.profile.export()
                     profile = profile[0]
                     profile["id"] = agent._uuid
                     profiles.append(
@@ -271,7 +263,7 @@ class AgentGroup:
             else:
                 profiles: list[Any] = []
                 for agent in self.agents:
-                    profile = await agent.memory._profile.export()
+                    profile = await agent.status.profile.export()
                     profile = profile[0]
                     profile["id"] = agent._uuid
                     profiles.append(
@@ -290,6 +282,16 @@ class AgentGroup:
             await self._pgsql_writer.async_write_profile.remote(  # type:ignore
                 profiles
             )
+        if self.faiss_query is not None:
+            logger.debug(f"-----Initializing embeddings in AgentGroup {self._uuid} ...")
+            embedding_tasks = []
+            for agent in self.agents:
+                embedding_tasks.append(agent.memory.initialize_embeddings())
+                agent.memory.set_search_components(self.faiss_query, self.embedding_model)
+                agent.memory.set_simulator(self.simulator)
+            await asyncio.gather(*embedding_tasks)
+            logger.debug(f"-----Embedding initialized in AgentGroup {self._uuid} ...")
+        
         self.initialized = True
         logger.debug(f"-----AgentGroup {self._uuid} initialized")
 
@@ -307,7 +309,7 @@ class AgentGroup:
                     if keys:
                         for key in keys:
                             assert values is not None
-                            if not agent.memory.get(key) == values[keys.index(key)]:
+                            if not agent.status.get(key) == values[keys.index(key)]:
                                 add = False
                                 break
                     if add:
@@ -315,18 +317,21 @@ class AgentGroup:
             elif keys:
                 for key in keys:
                     assert values is not None
-                    if not agent.memory.get(key) == values[keys.index(key)]:
+                    if not agent.status.get(key) == values[keys.index(key)]:
                         add = False
                         break
                 if add:
                     filtered_uuids.append(agent._uuid)
         return filtered_uuids
 
-    async def gather(self, content: str):
+    async def gather(self, content: str, target_agent_uuids: Optional[list[str]] = None):
         logger.debug(f"-----Gathering {content} from all agents in group {self._uuid}")
         results = {}
+        if target_agent_uuids is None:
+            target_agent_uuids = self.agent_uuids
         for agent in self.agents:
-            results[agent._uuid] = await agent.memory.get(content)
+            if agent._uuid in target_agent_uuids:
+                results[agent._uuid] = await agent.status.get(content)
         return results
 
     async def update(self, target_agent_uuid: str, target_key: str, content: Any):
@@ -334,7 +339,7 @@ class AgentGroup:
             f"-----Updating {target_key} for agent {target_agent_uuid} in group {self._uuid}"
         )
         agent = self.id2agent[target_agent_uuid]
-        await agent.memory.update(target_key, content)
+        await agent.status.update(target_key, content)
 
     async def message_dispatch(self):
         logger.debug(f"-----Starting message dispatch for group {self._uuid}")
@@ -394,7 +399,7 @@ class AgentGroup:
             if not issubclass(type(self.agents[0]), InstitutionAgent):
                 for agent in self.agents:
                     _date_time = datetime.now(timezone.utc)
-                    position = await agent.memory.get("position")
+                    position = await agent.status.get("position")
                     x = position["xy_position"]["x"]
                     y = position["xy_position"]["y"]
                     lng, lat = self.projector(x, y, inverse=True)
@@ -404,8 +409,11 @@ class AgentGroup:
                         parent_id = position["lane_position"]["lane_id"]
                     else:
                         parent_id = -1
-                    needs = await agent.memory.get("needs")
-                    action = await agent.memory.get("current_step")
+                    hunger_satisfaction = await agent.status.get("hunger_satisfaction")
+                    energy_satisfaction = await agent.status.get("energy_satisfaction")
+                    safety_satisfaction = await agent.status.get("safety_satisfaction")
+                    social_satisfaction = await agent.status.get("social_satisfaction")
+                    action = await agent.status.get("current_step")
                     action = action["intention"]
                     avro = {
                         "id": agent._uuid,
@@ -415,10 +423,10 @@ class AgentGroup:
                         "lat": lat,
                         "parent_id": parent_id,
                         "action": action,
-                        "hungry": needs["hungry"],
-                        "tired": needs["tired"],
-                        "safe": needs["safe"],
-                        "social": needs["social"],
+                        "hungry": hunger_satisfaction,
+                        "tired": energy_satisfaction,
+                        "safe": safety_satisfaction,
+                        "social": social_satisfaction,
                         "created_at": int(_date_time.timestamp() * 1000),
                     }
                     avros.append(avro)
@@ -429,54 +437,54 @@ class AgentGroup:
                 for agent in self.agents:
                     _date_time = datetime.now(timezone.utc)
                     try:
-                        nominal_gdp = await agent.memory.get("nominal_gdp")
+                        nominal_gdp = await agent.status.get("nominal_gdp")
                     except:
                         nominal_gdp = []
                     try:
-                        real_gdp = await agent.memory.get("real_gdp")
+                        real_gdp = await agent.status.get("real_gdp")
                     except:
                         real_gdp = []
                     try:
-                        unemployment = await agent.memory.get("unemployment")
+                        unemployment = await agent.status.get("unemployment")
                     except:
                         unemployment = []
                     try:
-                        wages = await agent.memory.get("wages")
+                        wages = await agent.status.get("wages")
                     except:
                         wages = []
                     try:
-                        prices = await agent.memory.get("prices")
+                        prices = await agent.status.get("prices")
                     except:
                         prices = []
                     try:
-                        inventory = await agent.memory.get("inventory")
+                        inventory = await agent.status.get("inventory")
                     except:
                         inventory = 0
                     try:
-                        price = await agent.memory.get("price")
+                        price = await agent.status.get("price")
                     except:
                         price = 0.0
                     try:
-                        interest_rate = await agent.memory.get("interest_rate")
+                        interest_rate = await agent.status.get("interest_rate")
                     except:
                         interest_rate = 0.0
                     try:
-                        bracket_cutoffs = await agent.memory.get("bracket_cutoffs")
+                        bracket_cutoffs = await agent.status.get("bracket_cutoffs")
                     except:
                         bracket_cutoffs = []
                     try:
-                        bracket_rates = await agent.memory.get("bracket_rates")
+                        bracket_rates = await agent.status.get("bracket_rates")
                     except:
                         bracket_rates = []
                     try:
-                        employees = await agent.memory.get("employees")
+                        employees = await agent.status.get("employees")
                     except:
                         employees = []
                     avro = {
                         "id": agent._uuid,
                         "day": _day,
                         "t": _t,
-                        "type": await agent.memory.get("type"),
+                        "type": await agent.status.get("type"),
                         "nominal_gdp": nominal_gdp,
                         "real_gdp": real_gdp,
                         "unemployment": unemployment,
@@ -519,7 +527,7 @@ class AgentGroup:
                 if not issubclass(type(self.agents[0]), InstitutionAgent):
                     for agent in self.agents:
                         _date_time = datetime.now(timezone.utc)
-                        position = await agent.memory.get("position")
+                        position = await agent.status.get("position")
                         x = position["xy_position"]["x"]
                         y = position["xy_position"]["y"]
                         lng, lat = self.projector(x, y, inverse=True)
@@ -528,10 +536,12 @@ class AgentGroup:
                         elif "lane_position" in position:
                             parent_id = position["lane_position"]["lane_id"]
                         else:
-                            # BUG: 需要处理
                             parent_id = -1
-                        needs = await agent.memory.get("needs")
-                        action = await agent.memory.get("current_step")
+                        hunger_satisfaction = await agent.status.get("hunger_satisfaction")
+                        energy_satisfaction = await agent.status.get("energy_satisfaction")
+                        safety_satisfaction = await agent.status.get("safety_satisfaction")
+                        social_satisfaction = await agent.status.get("social_satisfaction")
+                        action = await agent.status.get("current_step")
                         action = action["intention"]
                         _status_dict = {
                             "id": agent._uuid,
@@ -541,10 +551,10 @@ class AgentGroup:
                             "lat": lat,
                             "parent_id": parent_id,
                             "action": action,
-                            "hungry": needs["hungry"],
-                            "tired": needs["tired"],
-                            "safe": needs["safe"],
-                            "social": needs["social"],
+                            "hungry": hunger_satisfaction,
+                            "tired": energy_satisfaction,
+                            "safe": safety_satisfaction,
+                            "social": social_satisfaction,
                             "created_at": _date_time,
                         }
                         _statuses_time_list.append((_status_dict, _date_time))
@@ -552,54 +562,54 @@ class AgentGroup:
                     # institution
                     for agent in self.agents:
                         _date_time = datetime.now(timezone.utc)
-                        position = await agent.memory.get("position")
+                        position = await agent.status.get("position")
                         x = position["xy_position"]["x"]
                         y = position["xy_position"]["y"]
                         lng, lat = self.projector(x, y, inverse=True)
                         # ATTENTION: no valid position for an institution
                         parent_id = -1
                         try:
-                            nominal_gdp = await agent.memory.get("nominal_gdp")
+                            nominal_gdp = await agent.status.get("nominal_gdp")
                         except:
                             nominal_gdp = []
                         try:
-                            real_gdp = await agent.memory.get("real_gdp")
+                            real_gdp = await agent.status.get("real_gdp")
                         except:
                             real_gdp = []
                         try:
-                            unemployment = await agent.memory.get("unemployment")
+                            unemployment = await agent.status.get("unemployment")
                         except:
                             unemployment = []
                         try:
-                            wages = await agent.memory.get("wages")
+                            wages = await agent.status.get("wages")
                         except:
                             wages = []
                         try:
-                            prices = await agent.memory.get("prices")
+                            prices = await agent.status.get("prices")
                         except:
                             prices = []
                         try:
-                            inventory = await agent.memory.get("inventory")
+                            inventory = await agent.status.get("inventory")
                         except:
                             inventory = 0
                         try:
-                            price = await agent.memory.get("price")
+                            price = await agent.status.get("price")
                         except:
                             price = 0.0
                         try:
-                            interest_rate = await agent.memory.get("interest_rate")
+                            interest_rate = await agent.status.get("interest_rate")
                         except:
                             interest_rate = 0.0
                         try:
-                            bracket_cutoffs = await agent.memory.get("bracket_cutoffs")
+                            bracket_cutoffs = await agent.status.get("bracket_cutoffs")
                         except:
                             bracket_cutoffs = []
                         try:
-                            bracket_rates = await agent.memory.get("bracket_rates")
+                            bracket_rates = await agent.status.get("bracket_rates")
                         except:
                             bracket_rates = []
                         try:
-                            employees = await agent.memory.get("employees")
+                            employees = await agent.status.get("employees")
                         except:
                             employees = []
                         _status_dict = {
@@ -610,7 +620,7 @@ class AgentGroup:
                             "lat": lat,
                             "parent_id": parent_id,
                             "action": "",
-                            "type": await agent.memory.get("type"),
+                            "type": await agent.status.get("type"),
                             "nominal_gdp": nominal_gdp,
                             "real_gdp": real_gdp,
                             "unemployment": unemployment,
@@ -653,35 +663,18 @@ class AgentGroup:
             )
 
     async def step(self):
-        if not self.initialized:
-            await self.init_agents()
-
-        tasks = [agent.run() for agent in self.agents]
-        await asyncio.gather(*tasks)
-        await self.save_status()
-
-    async def run(self, day: int = 1):
-        """运行模拟器
-
-        Args:
-            day: 运行天数,默认为1天
-        """
         try:
-            # 获取开始时间
-            start_time = await self.simulator.get_time()
-            start_time = int(start_time)
-            # 计算结束时间（秒）
-            end_time = start_time + day * 24 * 3600  # 将天数转换为秒
-
-            while True:
-                current_time = await self.simulator.get_time()
-                current_time = int(current_time)
-                if current_time >= end_time:
-                    break
-                await self.step()
-
+            tasks = [agent.run() for agent in self.agents]
+            await asyncio.gather(*tasks)
         except Exception as e:
             import traceback
+            logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
+            raise RuntimeError(str(e)) from e
 
+    async def save(self, day: int, t: int):
+        try:
+            await self.save_status(day, t)
+        except Exception as e:
+            import traceback
             logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e

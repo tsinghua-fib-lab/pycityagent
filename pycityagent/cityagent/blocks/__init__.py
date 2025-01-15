@@ -5,7 +5,6 @@ from .needs_block import NeedsBlock
 from .social_block import SocialBlock
 from .economy_block import EconomyBlock
 from .other_block import OtherBlock
-from .time_block import TimeBlock
 
 __all__ = [
     "MobilityBlock",
@@ -16,5 +15,4 @@ __all__ = [
     "EconomyBlock",
     "OtherBlock",
     "LongTermDecisionBlock",    
-    "TimeBlock",
 ]

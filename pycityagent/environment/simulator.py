@@ -162,35 +162,40 @@ class Simulator:
         Returns:
         - time Union[int, str]: 时间 time in second(int) or formatted time(str)
         """
-        t_sec = await self._client.clock_service.Now({})
-        t_sec = cast(dict[str, int], t_sec)
-        self.time = t_sec["t"]
+        now = await self._client.clock_service.Now({})
+        now = cast(dict[str, int], now)
+        self.time = now["t"]
         if format_time:
             current_date = datetime.now().date()
             start_of_day = datetime.combine(current_date, datetime.min.time())
-            current_time = start_of_day + timedelta(seconds=t_sec["t"])
+            current_time = start_of_day + timedelta(seconds=now["t"])
             formatted_time = current_time.strftime(format)
             return formatted_time
         else:
-            # BUG: 返回的time是float类型
-            return t_sec["t"]
+            return int(now["t"])
+        
+    async def pause(self):
+        await self._client.pause_service.pause()
+
+    async def resume(self):
+        await self._client.pause_service.resume()
 
     async def get_simulator_day(self) -> int:
         """
         获取模拟器到第几日
         """
-        t_sec = await self._client.clock_service.Now({})
-        t_sec = cast(dict[str, int], t_sec)
-        day = t_sec["t"] // 86400
+        now = await self._client.clock_service.Now({})
+        now = cast(dict[str, int], now)
+        day = now["day"]
         return day
 
     async def get_simulator_second_from_start_of_day(self) -> int:
         """
         获取模拟器从00:00:00到当前的秒数
         """
-        t_sec = await self._client.clock_service.Now({})
-        t_sec = cast(dict[str, int], t_sec)
-        return t_sec["t"] % 86400
+        now = await self._client.clock_service.Now({})
+        now = cast(dict[str, int], now)
+        return now["t"] % 86400
 
     async def get_person(self, person_id: int) -> dict:
         return await self._client.person_service.GetPerson(

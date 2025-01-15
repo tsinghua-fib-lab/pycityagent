@@ -10,7 +10,7 @@ from .road_service import RoadService
 from .social_service import SocialService
 from .economy_services import EconomyPersonService, EconomyOrgService
 from .light_service import LightService
-
+from .pause_service import PauseService
 from ..utils.grpc import create_aio_channel
 
 __all__ = ["CityClient"]
@@ -44,6 +44,7 @@ class CityClient:
         self._economy_person_service = EconomyPersonService(aio_channel)
         self._economy_org_service = EconomyOrgService(aio_channel)
         self._light_service = LightService(aio_channel)
+        self._pause_service = PauseService(aio_channel)
 
     @staticmethod
     def from_sidecar(sidecar: OnlyClientSidecar, name: str = NAME):
@@ -60,6 +61,14 @@ class CityClient:
         Simulator time service submodule
         """
         return self._clock_service
+
+    @property
+    def pause_service(self):
+        """
+        模拟器暂停服务子模块
+        Simulator pause service submodule
+        """
+        return self._pause_service
 
     @property
     def lane_service(self):

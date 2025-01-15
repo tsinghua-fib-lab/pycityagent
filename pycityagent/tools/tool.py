@@ -119,7 +119,7 @@ class SencePOI(Tool):
         if agent.memory is None or agent.simulator is None:
             raise ValueError("Memory or Simulator is not set.")
         if radius is None and category_prefix is None:
-            position = await agent.memory.get("position")
+            position = await agent.status.get("position")
             resp = []
             for prefix in self.category_prefix:
                 resp += agent.simulator.map.query_pois(
@@ -146,17 +146,15 @@ class UpdateWithSimulator(Tool):
         agent = self.agent
         if agent._simulator is None:
             return
-        if not agent._has_bound_to_simulator:
-            await agent._bind_to_simulator()  # type: ignore
         simulator = agent.simulator
-        memory = agent.memory
-        person_id = await memory.get("id")
+        status = agent.status
+        person_id = await status.get("id")
         resp = await simulator.get_person(person_id)
         resp_dict = resp["person"]
         for k, v in resp_dict.get("motion", {}).items():
             try:
-                await memory.get(k)
-                await memory.update(
+                await status.get(k)
+                await status.update(
                     k, v, mode="replace", protect_llm_read_only_fields=False
                 )
             except KeyError as e:
@@ -183,9 +181,9 @@ class ResetAgentPosition(Tool):
         s: Optional[float] = None,
     ):
         agent = self.agent
-        memory = agent.memory
+        status = agent.status
         await agent.simulator.reset_person_position(
-            person_id=await memory.get("id"),
+            person_id=await status.get("id"),
             aoi_id=aoi_id,
             poi_id=poi_id,
             lane_id=lane_id,

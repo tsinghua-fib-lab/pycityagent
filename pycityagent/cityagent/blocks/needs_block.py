@@ -1,54 +1,54 @@
 import json
 from pycityagent import Simulator
-from pycityagent.memory.memory import Memory
-from pycityagent.llm.llm import LLM
+from pycityagent.memory import Memory
+from pycityagent.llm import LLM
 from pycityagent.workflow.block import Block
 from pycityagent.workflow.prompt import FormatPrompt
 import logging
 logger = logging.getLogger("pycityagent")
 
-INITIAL_NEEDS_PROMPT = """You are an intelligent agent needs initialization system. Based on the profile information below, please help initialize the agent's needs and related parameters.
+INITIAL_NEEDS_PROMPT = """You are an intelligent agent satisfaction initialization system. Based on the profile information below, please help initialize the agent's satisfaction levels and related parameters.
 
 Profile Information:
 - Gender: {gender}
-- Education: {education} 
+- Education Level: {education} 
 - Consumption Level: {consumption}
 - Occupation: {occupation}
 - Age: {age}
 - Monthly Income: {income}
-- Race: {race}
-- Religion: {religion}
-- Skills: {skill}
+
+Current Emotion: {emotion_types}
+Current Thought: {thought}
 
 Current Time: {now_time}
 
-Please initialize the agent's needs and parameters based on the profile above. Return the values in JSON format with the following structure:
+Please initialize the agent's satisfaction levels and parameters based on the profile above. Return the values in JSON format with the following structure:
 
-1. Current needs satisfaction levels (0-1 float values, lower means less satisfied):
-- hungry: Hunger satisfaction level (Normally, the agent will be more hungry at eating time)
-- tired: Fatigue level (Normally, at night, the agent will be more tired)
-- safe: Safety satisfaction level (Normally, the agent will be more safe when they have high income and currency)
-- social: Social satisfaction level
+1. Current satisfaction levels (0-1 float values, lower means less satisfied):
+- hunger_satisfaction: Hunger satisfaction level (Normally, the agent will be less satisfied with hunger at eating time)
+- energy_satisfaction: Energy satisfaction level (Normally, at night, the agent will be less satisfied with energy)
+- safety_satisfaction: Safety satisfaction level (Normally, the agent will be more satisfied with safety when they have high income and currency)
+- social_satisfaction: Social satisfaction level
 
 2. Natural decay rates per hour (0-1 float values):
 - alpha_H: Hunger satisfaction decay rate
-- alpha_D: Fatigue decay rate  
+- alpha_D: Energy satisfaction decay rate  
 - alpha_P: Safety satisfaction decay rate
 - alpha_C: Social satisfaction decay rate
 
 3. Threshold values (0-1 float values, below which the agent will try to improve):
 - T_H: Hunger satisfaction threshold
-- T_D: Fatigue threshold
-- T_S: Safety threshold  
-- T_C: Social threshold
+- T_D: Energy satisfaction threshold
+- T_S: Safety satisfaction threshold  
+- T_C: Social satisfaction threshold
 
 Example response format (Do not return any other text):
 {{
-    "current_needs": {{
-        "hungry": 0.8,
-        "tired": 0.7,
-        "safe": 0.9,
-        "social": 0.6
+    "current_satisfaction": {{
+        "hunger_satisfaction": 0.8,
+        "energy_satisfaction": 0.7,
+        "safety_satisfaction": 0.9,
+        "social_satisfaction": 0.6
     }},
     "decay_rates": {{
         "alpha_H": 0.2,
@@ -68,15 +68,22 @@ Example response format (Do not return any other text):
 EVALUATION_PROMPT = """You are an evaluation system for an intelligent agent. The agent has performed the following actions to satisfy the {current_need} need:
 
 Goal: {plan_target}
-Execution steps:
+Execution situation:
 {evaluation_results}
 
-Current needs status: {current_needs}
+Current satisfaction: 
+- hunger_satisfaction: {hunger_satisfaction}
+- energy_satisfaction: {energy_satisfaction}
+- safety_satisfaction: {safety_satisfaction}
+- social_satisfaction: {social_satisfaction}
 
-Please evaluate and adjust the value of {current_need} need based on the execution results above.
+Current Emotion: {emotion_types}
+Current Thought: {thought}
+
+Please evaluate and adjust the value of {current_need} satisfaction based on the execution results above.
 
 Notes:
-1. Need values range from 0-1, where:
+1. Satisfaction values range from 0-1, where:
    - 1 means the need is fully satisfied
    - 0 means the need is completely unsatisfied 
    - Higher values indicate greater need satisfaction
@@ -85,13 +92,13 @@ Notes:
 
 Example response format for specific need (hungry here) adjustment (Do not return any other text):
 {{
-    "hungry": new_need_value
+    "hunger_satisfaction": new_need_value
 }}
 
 Example response format for whatever need adjustment (Do not return any other text):
 {{
-    "safe": new_safe_value,
-    "social": new_social_value
+    "safety_satisfaction": new_safe_value,
+    "social_satisfaction": new_social_value
 }}
 """
 
@@ -100,50 +107,63 @@ class NeedsBlock(Block):
     Generate needs
     """
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
-        super().__init__("NeedsBlock", llm, memory, simulator)
+        super().__init__("NeedsBlock", llm=llm, memory=memory, simulator=simulator)
         self.evaluation_prompt = FormatPrompt(EVALUATION_PROMPT)
         self.initial_prompt = FormatPrompt(INITIAL_NEEDS_PROMPT)
+        self.need_work = True
+        self.now_day = -1
         self.last_evaluation_time = None
         self.trigger_time = 0
         self.token_consumption = 0
         self.initialized = False
-        self.alpha_H, self.alpha_D, self.alpha_P, self.alpha_C = 0.2, 0.08, 0.05, 0.03  # 饥饿感与疲劳感自然衰减速率
-        self.T_H, self.T_D, self.T_P, self.T_C = 0.4, 0.2, 0.2, 0.2  # 饥饿感与疲劳感临界值
+        self.alpha_H, self.alpha_D, self.alpha_P, self.alpha_C = 0.2, 0.08, 0.05, 0.03  # Hunger decay rate, Energy decay rate, Safety decay rate, Social decay rate
+        self.T_H, self.T_D, self.T_P, self.T_C = 0.4, 0.2, 0.2, 0.2  # Hunger threshold, Energy threshold, Safety threshold, Social threshold
 
     async def initialize(self):
-        self.initial_prompt.format(
-            gender=await self.memory.get("gender"),
-            education=await self.memory.get("education"),
-            consumption=await self.memory.get("consumption"),
-            occupation=await self.memory.get("occupation"),
-            age=await self.memory.get("age"),
-            income=await self.memory.get("income"),
-            race=await self.memory.get("race"),
-            religion=await self.memory.get("religion"),
-            skill=await self.memory.get("skill"),
-            now_time=await self.simulator.get_time(format_time=True)
-        )
-        response = await self.llm.atext_request(
-            self.initial_prompt.to_dialog()
-        )
-        response = self.clean_json_response(response)
-        logger.info(f"Needs Initialization: {response}")
-        try:
-            needs = json.loads(response)
-            await self.memory.update("needs", needs["current_needs"])
-            self.alpha_H, self.alpha_D, self.alpha_P, self.alpha_C = needs["decay_rates"].values()
-            self.T_H, self.T_D, self.T_P, self.T_C = needs["thresholds"].values()
-        except json.JSONDecodeError:
-            logger.warning(f"初始化响应不是有效的JSON格式: {response}")
-        self.initialized = True
-
-    async def forward(self):
-        self.trigger_time += 1
-        consumption_start = self.llm.prompt_tokens_used + self.llm.completion_tokens_used
+        day = await self.simulator.get_simulator_day()
+        if day != self.now_day:
+            self.now_day = day
+            self.need_work = True
+            self.initialized = False
 
         if not self.initialized:
-            await self.initialize()
+            self.initial_prompt.format(
+                gender=await self.memory.status.get("gender"),
+                education=await self.memory.status.get("education"),
+                consumption=await self.memory.status.get("consumption"),
+                occupation=await self.memory.status.get("occupation"),
+                age=await self.memory.status.get("age"),
+                income=await self.memory.status.get("income"),
+                emotion_types=await self.memory.status.get("emotion_types"),
+                thought=await self.memory.status.get("thought"),
+                now_time=await self.simulator.get_time(format_time=True)
+            )
+            response = await self.llm.atext_request(
+                self.initial_prompt.to_dialog()
+            )
+            response = self.clean_json_response(response)
+            try:
+                satisfaction = json.loads(response)
+                satisfactions = satisfaction["current_satisfaction"]
+                await self.memory.status.update("hunger_satisfaction", satisfactions["hunger_satisfaction"])
+                await self.memory.status.update("energy_satisfaction", satisfactions["energy_satisfaction"])
+                await self.memory.status.update("safety_satisfaction", satisfactions["safety_satisfaction"])
+                await self.memory.status.update("social_satisfaction", satisfactions["social_satisfaction"])
+                self.alpha_H, self.alpha_D, self.alpha_P, self.alpha_C = satisfaction["decay_rates"].values()
+                self.T_H, self.T_D, self.T_P, self.T_C = satisfaction["thresholds"].values()
+            except json.JSONDecodeError:
+                logger.warning(f"初始化响应不是有效的JSON格式: {response}")
 
+            current_plan = await self.memory.status.get("current_plan")
+            history = await self.memory.status.get("plan_history")
+            history.append(current_plan)
+            await self.memory.status.update("plan_history", history)
+            await self.memory.status.update("current_plan", None)
+            await self.memory.status.update("current_step", {"intention": "", "type": ""})
+            await self.memory.status.update("execution_context", {})
+            self.initialized = True
+
+    async def time_decay(self):
         # 计算时间差
         time_now = await self.simulator.get_time()
         if self.last_evaluation_time is None:
@@ -153,103 +173,96 @@ class NeedsBlock(Block):
             time_diff = (time_now - self.last_evaluation_time)/3600
             self.last_evaluation_time = time_now
 
-        # 获取当前需求
-        needs = await self.memory.get("needs")
+        # 获取当前需求的满意度
+        hunger_satisfaction = await self.memory.status.get("hunger_satisfaction")
+        energy_satisfaction = await self.memory.status.get("energy_satisfaction")
+        safety_satisfaction = await self.memory.status.get("safety_satisfaction")
+        social_satisfaction = await self.memory.status.get("social_satisfaction")
         
         # 根据经过的时间计算饥饿与疲劳的衰减
         hungry_decay = self.alpha_H * time_diff
-        tired_decay = self.alpha_D * time_diff
-        safe_decay = self.alpha_P * time_diff
+        energy_decay = self.alpha_D * time_diff
+        safety_decay = self.alpha_P * time_diff
         social_decay = self.alpha_C * time_diff
-        hungry = max(0, needs["hungry"] - hungry_decay) 
-        tired = max(0, needs["tired"] - tired_decay)
-        safe = max(0, needs["safe"] - safe_decay)
-        social = max(0, needs["social"] - social_decay)
-        needs["hungry"] = hungry
-        needs["tired"] = tired
-        needs["safe"] = safe
-        needs["social"] = social
+        hunger_satisfaction = max(0, hunger_satisfaction - hungry_decay) 
+        energy_satisfaction = max(0, energy_satisfaction - energy_decay)
+        safety_satisfaction = max(0, safety_satisfaction - safety_decay)
+        social_satisfaction = max(0, social_satisfaction - social_decay)
+        
+        # 更新满意度
+        await self.memory.status.update("hunger_satisfaction", hunger_satisfaction)
+        await self.memory.status.update("energy_satisfaction", energy_satisfaction)
+        await self.memory.status.update("safety_satisfaction", safety_satisfaction)
+        await self.memory.status.update("social_satisfaction", social_satisfaction)
 
-        await self.memory.update("needs", needs)
-
+    async def update_when_plan_completed(self):
         # 判断当前是否有正在执行的plan
-        current_plan = await self.memory.get("current_plan")
-        if current_plan and current_plan.get("completed"):
+        current_plan = await self.memory.status.get("current_plan")
+        if current_plan and (current_plan.get("completed") or current_plan.get("failed")):
             # 评估计划执行过程并调整需求
             await self.evaluate_and_adjust_needs(current_plan)
             # 将完成的计划添加到历史记录
-            history = await self.memory.get("plan_history")
+            history = await self.memory.status.get("plan_history")
             history.append(current_plan)
-            await self.memory.update("plan_history", history)
-            await self.memory.update("current_plan", None)
-            await self.memory.update("current_step", {"intention": "", "type": ""})
-            await self.memory.update("execution_context", {})
-        
-        needs = await self.memory.get("needs")
-        hungry = needs["hungry"]
-        tired = needs["tired"]
-        safe = needs["safe"]
-        social = needs["social"]
-        logger.info(f"Time elapsed: {time_diff:.2f} hours")
-        logger.info(f"Current state - Hungry: {hungry:.2f}, Tired: {tired:.2f}, Safe: {safe:.2f}, Social: {social:.2f}")
+            await self.memory.status.update("plan_history", history)
+            await self.memory.status.update("current_plan", None)
+            await self.memory.status.update("current_step", {"intention": "", "type": ""})
+            await self.memory.status.update("execution_context", {})
+
+    async def determine_current_need(self):
+        hunger_satisfaction = await self.memory.status.get("hunger_satisfaction")
+        energy_satisfaction = await self.memory.status.get("energy_satisfaction")
+        safety_satisfaction = await self.memory.status.get("safety_satisfaction")
+        social_satisfaction = await self.memory.status.get("social_satisfaction")
 
         # 如果需要调整需求，更新当前需求
         # 调整方案为，如果当前的需求为空，或有更高级的需求出现，则调整需求
-        current_need = await self.memory.get("current_need")
+        current_plan = await self.memory.status.get("current_plan")
+        current_need = await self.memory.status.get("current_need")
         
         # 当前没有计划或计划已执行完毕，获取所有需求值，按优先级检查各需求是否达到阈值
         if not current_plan or current_plan.get("completed"):
             # 按优先级顺序检查需求
-            if hungry <= self.T_H:
-                await self.memory.update("current_need", "hungry")
-                logger.info("Needs adjusted: Hungry")
-            elif tired <= self.T_D:
-                await self.memory.update("current_need", "tired") 
-                logger.info("Needs adjusted: Tired")
-            elif safe <= self.T_P:
-                await self.memory.update("current_need", "safe")
-                logger.info("Needs adjusted: Safe")
-            elif social <= self.T_C:
-                await self.memory.update("current_need", "social")
-                logger.info("Needs adjusted: Social")
+            if hunger_satisfaction <= self.T_H:
+                await self.memory.status.update("current_need", "hungry")
+            elif energy_satisfaction <= self.T_D:
+                await self.memory.status.update("current_need", "tired") 
+            elif safety_satisfaction <= self.T_P:
+                await self.memory.status.update("current_need", "safe")
+            elif social_satisfaction <= self.T_C:
+                await self.memory.status.update("current_need", "social")
+            elif self.need_work:
+                await self.memory.status.update("current_need", "safe")
+                self.need_work = False
             else:
-                await self.memory.update("current_need", "whatever")
-                logger.info("Needs adjusted: Whatever")
+                await self.memory.status.update("current_need", "whatever")
         else:
             # 有正在执行的计划时,只在出现更高优先级需求时调整
             needs_changed = False
             new_need = None
-            if hungry <= self.T_H and current_need not in ["hungry", "tired"]:
+            if hunger_satisfaction <= self.T_H and current_need not in ["hungry", "tired"]:
                 new_need = "hungry"
-                logger.info("Higher priority need detected, adjusted to: Hungry")
                 needs_changed = True
-            elif tired <= self.T_D and current_need not in ["hungry", "tired"]:
+            elif energy_satisfaction <= self.T_D and current_need not in ["hungry", "tired"]:
                 new_need = "tired"
-                logger.info("Higher priority need detected, adjusted to: Tired")
                 needs_changed = True
-            elif safe <= self.T_P and current_need not in ["hungry", "tired", "safe"]:
+            elif safety_satisfaction <= self.T_P and current_need not in ["hungry", "tired", "safe"]:
                 new_need = "safe"
-                logger.info("Higher priority need detected, adjusted to: Safe")
                 needs_changed = True
-            elif social <= self.T_C and current_need not in ["hungry", "tired", "safe", "social"]:
+            elif social_satisfaction <= self.T_C and current_need not in ["hungry", "tired", "safe", "social"]:
                 new_need = "social"
-                logger.info("Higher priority need detected, adjusted to: Social")
                 needs_changed = True
                 
             # 如果需求发生变化,中断当前计划
             if needs_changed:
                 await self.evaluate_and_adjust_needs(current_plan)
-                history = await self.memory.get("plan_history")
+                history = await self.memory.status.get("plan_history")
                 history.append(current_plan)
-                await self.memory.update("current_need", new_need)
-                await self.memory.update("plan_history", history)
-                await self.memory.update("current_plan", None)
-                await self.memory.update("current_step", {"intention": "", "type": ""})
-                await self.memory.update("execution_context", {})
-                logger.info("----Agent's plan has been interrupted due to need change----")
-
-        consumption_end = self.llm.prompt_tokens_used + self.llm.completion_tokens_used
-        self.token_consumption += consumption_end - consumption_start
+                await self.memory.status.update("current_need", new_need)
+                await self.memory.status.update("plan_history", history)
+                await self.memory.status.update("current_plan", None)
+                await self.memory.status.update("current_step", {"intention": "", "type": ""})
+                await self.memory.status.update("execution_context", {})
 
     async def evaluate_and_adjust_needs(self, completed_plan):
         # 获取执行的计划和评估结果
@@ -258,41 +271,34 @@ class NeedsBlock(Block):
             if 'evaluation' in step['evaluation']:
                 eva_ = step['evaluation']['evaluation']
             else:
-                eva_ = 'Plan interrupted, not completed'
+                eva_ = 'Plan failed, not completed'
             evaluation_results.append(f"- {step['intention']} ({step['type']}): {eva_}")
         evaluation_results = "\n".join(evaluation_results)
 
         # 使用 LLM 进行评估
-        current_need = await self.memory.get("current_need")
+        current_need = await self.memory.status.get("current_need")
         self.evaluation_prompt.format(
             current_need=current_need,
             plan_target=completed_plan["target"],
             evaluation_results=evaluation_results,
-            current_needs=await self.memory.get("needs")
+            hunger_satisfaction=await self.memory.status.get("hunger_satisfaction"),
+            energy_satisfaction=await self.memory.status.get("energy_satisfaction"),
+            safety_satisfaction=await self.memory.status.get("safety_satisfaction"),
+            social_satisfaction=await self.memory.status.get("social_satisfaction"),
+            emotion_types=await self.memory.status.get("emotion_types"),
+            thought=await self.memory.status.get("thought")
         )
 
         response = await self.llm.atext_request(
             self.evaluation_prompt.to_dialog()
         )
 
-        try:
-            logger.info("\n=== Needs Evaluation ===")
-            logger.info(f"Evaluating need: {current_need}")
-            logger.info(f"Executing plan: {completed_plan['target']}")
-            logger.info("Execution results:")
-            logger.info(evaluation_results)
-            
-            new_needs = json.loads(self.clean_json_response(response)) # type: ignore
+        try:            
+            new_satisfaction = json.loads(self.clean_json_response(response)) # type: ignore
             # 更新所有需求的数值
-            needs = await self.memory.get("needs")
-            logger.info(f"\nNeeds value adjustment:")
-            for need_type, new_value in new_needs.items():
-                if need_type in needs:
-                    old_value = needs[need_type]
-                    needs[need_type] = new_value
-                    logger.info(f"- {need_type}: {old_value} -> {new_value}")
-            await self.memory.update("needs", needs)
-            logger.info("===============\n")
+            for need_type, new_value in new_satisfaction.items():
+                if need_type in ['hunger_satisfaction', 'energy_satisfaction', 'safety_satisfaction', 'social_satisfaction']:
+                    await self.memory.status.update(need_type, new_value)
         except json.JSONDecodeError:
             logger.warning(f"Evaluation response is not a valid JSON format: {response}")
         except Exception as e:
@@ -303,3 +309,15 @@ class NeedsBlock(Block):
         """清理LLM响应中的特殊字符"""
         response = response.replace('```json', '').replace('```', '')
         return response.strip() 
+
+    async def forward(self):
+        await self.initialize()
+
+        # satisfaction decay with time
+        await self.time_decay()
+
+        # update when plan completed
+        await self.update_when_plan_completed()
+        
+        # determine current need
+        await self.determine_current_need()

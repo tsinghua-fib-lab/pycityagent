@@ -8,6 +8,8 @@ Overall plan:
 
 Current action: {intention}
 
+Current emotion: {emotion_types}
+
 Examples:
 - "Learn programming": {{"time": 120}}
 - "Watch a movie": {{"time": 150}} 

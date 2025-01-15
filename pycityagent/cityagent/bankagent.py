@@ -53,14 +53,12 @@ class BankAgent(InstitutionAgent):
 
     async def forward(self):
         if await self.month_trigger():
-            citizens = await self.memory.get("citizens")
-            while True:
-                agents_forward = await self.gather_messages(citizens, "forward")
-                if np.all(np.array(agents_forward) > self.forward_times):
-                    break
-                await asyncio.sleep(1)
+            citizens = await self.memory.status.get("citizens")
+            agents_forward = []
+            if not np.all(np.array(agents_forward) > self.forward_times):
+                return
             self.forward_times += 1
             for uuid in citizens:
                 await self.send_message_to_agent(
-                    uuid, f"bank_forward@{self.forward_times}"
+                    uuid, f"bank_forward@{self.forward_times}", "economy"
                 )
