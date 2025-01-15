@@ -8,8 +8,8 @@ PACKAGE_NAME = "pycityagent"
 
 BIN_SOURCES = {
     "pycityagent-sim": {
-        "linux_x86_64": "https://git.fiblab.net/api/v4/projects/25/packages/generic/simulet-go/v1.3.1/simulet-go-noproj-linux-amd64",
-        "darwin_arm64": "https://git.fiblab.net/api/v4/projects/25/packages/generic/simulet-go/v1.3.1/simulet-go-noproj-darwin-arm64",
+        "linux_x86_64": "https://git.fiblab.net/api/v4/projects/195/packages/generic/socialcity-sim/v1.0.1/socialcity-sim-noproj-linux-amd64",
+        "darwin_arm64": "https://git.fiblab.net/api/v4/projects/195/packages/generic/socialcity-sim/v1.0.1/socialcity-sim-noproj-darwin-arm64",
     },
     "pycityagent-ui": {
         "linux_x86_64": "https://git.fiblab.net/api/v4/projects/188/packages/generic/socialcity-web/v0.2.3/socialcity-web-linux-amd64",
