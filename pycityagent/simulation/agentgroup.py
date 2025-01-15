@@ -16,11 +16,12 @@ from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, InstitutionAgent
 from ..economy.econ_client import EconomyClient
-from ..environment.simulator import Simulator
+from ..environment import Simulator
 from ..llm.llm import LLM
 from ..llm.llmconfig import LLMConfig
 from ..memory import FaissQuery, Memory
 from ..message import Messager
+from ..metrics import MlflowClient
 from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
                      STATUS_SCHEMA, SURVEY_SCHEMA)
 
@@ -38,11 +39,14 @@ class AgentGroup:
             list[Callable[[], tuple[dict, dict, dict]]],
         ],
         config: dict,
+        exp_name: str,
         exp_id: str | UUID,
         enable_avro: bool,
         avro_path: Path,
         enable_pgsql: bool,
         pgsql_writer: ray.ObjectRef,
+        message_interceptor: ray.ObjectRef,
+        mlflow_run_id: str,
         embedding_model: Embeddings,
         logging_level: int,
         agent_config_file: Optional[Union[str, list[str]]] = None,
@@ -77,6 +81,18 @@ class AgentGroup:
             }
         if self.enable_pgsql:
             pass
+        # Mlflow
+        _mlflow_config = config.get("metric_request", {}).get("mlflow")
+        if _mlflow_config:
+            logger.info(f"-----Creating Mlflow client in AgentGroup {self._uuid} ...")
+            self.mlflow_client = MlflowClient(
+                config=_mlflow_config,
+                mlflow_run_name=f"{exp_name}_{1000*int(time.time())}",
+                experiment_name=exp_name,
+                run_id=mlflow_run_id,
+            )
+        else:
+            self.mlflow_client = None
 
         # prepare Messager
         if "mqtt" in config["simulator_request"]:
@@ -91,6 +107,7 @@ class AgentGroup:
 
         self.message_dispatch_task = None
         self._pgsql_writer = pgsql_writer
+        self._message_interceptor = message_interceptor
         self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
         self.initialized = False
         self.id2agent = {}
@@ -126,13 +143,9 @@ class AgentGroup:
             for j in range(number_of_agents_i):
                 memory_config_function_group_i = memory_config_function_group[i]
                 extra_attributes, profile, base = memory_config_function_group_i()
-                memory = Memory(
-                    config=extra_attributes, 
-                    profile=profile, 
-                    base=base
-                )
+                memory = Memory(config=extra_attributes, profile=profile, base=base)
                 agent = agent_class_i(
-                    name=f"{agent_class_i.__name__}_{i}",
+                    name=f"{agent_class_i.__name__}_{i}",  # type: ignore
                     memory=memory,
                     llm_client=self.llm,
                     economy_client=self.economy_client,
@@ -141,12 +154,16 @@ class AgentGroup:
                 agent.set_exp_id(self.exp_id)  # type: ignore
                 if self.messager is not None:
                     agent.set_messager(self.messager)
+                if self.mlflow_client is not None:
+                    agent.set_mlflow_client(self.mlflow_client)  # type: ignore
                 if self.enable_avro:
                     agent.set_avro_file(self.avro_file)  # type: ignore
                 if self.enable_pgsql:
                     agent.set_pgsql_writer(self._pgsql_writer)
                 if self.agent_config_file is not None and self.agent_config_file[i]:
                     agent.load_from_file(self.agent_config_file[i])
+                if self._message_interceptor is not None:
+                    agent.set_message_interceptor(self._message_interceptor)
                 self.agents.append(agent)
                 self.id2agent[agent._uuid] = agent
 
@@ -287,11 +304,13 @@ class AgentGroup:
             embedding_tasks = []
             for agent in self.agents:
                 embedding_tasks.append(agent.memory.initialize_embeddings())
-                agent.memory.set_search_components(self.faiss_query, self.embedding_model)
+                agent.memory.set_search_components(
+                    self.faiss_query, self.embedding_model
+                )
                 agent.memory.set_simulator(self.simulator)
             await asyncio.gather(*embedding_tasks)
             logger.debug(f"-----Embedding initialized in AgentGroup {self._uuid} ...")
-        
+
         self.initialized = True
         logger.debug(f"-----AgentGroup {self._uuid} initialized")
 
@@ -324,7 +343,9 @@ class AgentGroup:
                     filtered_uuids.append(agent._uuid)
         return filtered_uuids
 
-    async def gather(self, content: str, target_agent_uuids: Optional[list[str]] = None):
+    async def gather(
+        self, content: str, target_agent_uuids: Optional[list[str]] = None
+    ):
         logger.debug(f"-----Gathering {content} from all agents in group {self._uuid}")
         results = {}
         if target_agent_uuids is None:
@@ -522,6 +543,11 @@ class AgentGroup:
                     ]:
                         if key not in _status_dict:
                             _status_dict[key] = ""
+                    for key in [
+                        "friend_ids",
+                    ]:
+                        if key not in _status_dict:
+                            _status_dict[key] = []
                     _status_dict["created_at"] = _date_time
             else:
                 if not issubclass(type(self.agents[0]), InstitutionAgent):
@@ -537,10 +563,19 @@ class AgentGroup:
                             parent_id = position["lane_position"]["lane_id"]
                         else:
                             parent_id = -1
-                        hunger_satisfaction = await agent.status.get("hunger_satisfaction")
-                        energy_satisfaction = await agent.status.get("energy_satisfaction")
-                        safety_satisfaction = await agent.status.get("safety_satisfaction")
-                        social_satisfaction = await agent.status.get("social_satisfaction")
+                        hunger_satisfaction = await agent.status.get(
+                            "hunger_satisfaction"
+                        )
+                        energy_satisfaction = await agent.status.get(
+                            "energy_satisfaction"
+                        )
+                        safety_satisfaction = await agent.status.get(
+                            "safety_satisfaction"
+                        )
+                        social_satisfaction = await agent.status.get(
+                            "social_satisfaction"
+                        )
+                        friend_ids = await agent.status.get("friends")
                         action = await agent.status.get("current_step")
                         action = action["intention"]
                         _status_dict = {
@@ -550,6 +585,9 @@ class AgentGroup:
                             "lng": lng,
                             "lat": lat,
                             "parent_id": parent_id,
+                            "friend_ids": [
+                                str(_friend_id) for _friend_id in friend_ids
+                            ],
                             "action": action,
                             "hungry": hunger_satisfaction,
                             "tired": energy_satisfaction,
@@ -612,6 +650,10 @@ class AgentGroup:
                             employees = await agent.status.get("employees")
                         except:
                             employees = []
+                        try:
+                            friend_ids = await agent.status.get("friends")
+                        except:
+                            friend_ids = []
                         _status_dict = {
                             "id": agent._uuid,
                             "day": _day,
@@ -619,6 +661,9 @@ class AgentGroup:
                             "lng": lng,
                             "lat": lat,
                             "parent_id": parent_id,
+                            "friend_ids": [
+                                str(_friend_id) for _friend_id in friend_ids
+                            ],
                             "action": "",
                             "type": await agent.status.get("type"),
                             "nominal_gdp": nominal_gdp,
@@ -644,6 +689,7 @@ class AgentGroup:
                     "lng",
                     "lat",
                     "parent_id",
+                    "friend_ids",
                     "action",
                     "created_at",
                 ]
@@ -668,6 +714,7 @@ class AgentGroup:
             await asyncio.gather(*tasks)
         except Exception as e:
             import traceback
+
             logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e
 
@@ -676,5 +723,6 @@ class AgentGroup:
             await self.save_status(day, t)
         except Exception as e:
             import traceback
+
             logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e

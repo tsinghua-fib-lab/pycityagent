@@ -1,11 +1,11 @@
 import asyncio
 import logging
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Coroutine, Sequence
 from copy import deepcopy
-from typing import Any, Literal, Optional, Union, Dict
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, Literal, Optional, Union
 
 from langchain_core.embeddings import Embeddings
 from pyparsing import deque
@@ -19,8 +19,10 @@ from .state import StateMemory
 
 logger = logging.getLogger("pycityagent")
 
+
 class MemoryTag(str, Enum):
     """记忆标签枚举类"""
+
     MOBILITY = "mobility"
     SOCIAL = "social"
     ECONOMY = "economy"
@@ -28,9 +30,11 @@ class MemoryTag(str, Enum):
     OTHER = "other"
     EVENT = "event"
 
+
 @dataclass
 class MemoryNode:
     """记忆节点"""
+
     tag: MemoryTag
     day: int
     t: int
@@ -39,8 +43,10 @@ class MemoryNode:
     cognition_id: Optional[int] = None  # 关联的认知记忆ID
     id: Optional[int] = None  # 记忆ID
 
+
 class StreamMemory:
     """用于存储时序性的流式信息"""
+
     def __init__(self, max_len: int = 1000):
         self._memories: deque = deque(maxlen=max_len)  # 限制最大存储量
         self._memory_id_counter: int = 0  # 用于生成唯一ID
@@ -49,6 +55,20 @@ class StreamMemory:
         self._agent_id = -1
         self._status_memory = None
         self._simulator = None
+
+    @property
+    def faiss_query(
+        self,
+    ) -> FaissQuery:
+        assert self._faiss_query is not None
+        return self._faiss_query
+
+    @property
+    def status_memory(
+        self,
+    ):
+        assert self._status_memory is not None
+        return self._status_memory
 
     def set_simulator(self, simulator):
         self._simulator = simulator
@@ -73,14 +93,14 @@ class StreamMemory:
         else:
             day = 1
             t = 1
-        position = await self._status_memory.get("position")
-        if 'aoi_position' in position:
-            location = position['aoi_position']['aoi_id']
-        elif 'lane_position' in position:
-            location = position['lane_position']['lane_id']
+        position = await self.status_memory.get("position")
+        if "aoi_position" in position:
+            location = position["aoi_position"]["aoi_id"]
+        elif "lane_position" in position:
+            location = position["lane_position"]["lane_id"]
         else:
             location = "unknown"
-            
+
         current_id = self._memory_id_counter
         self._memory_id_counter += 1
         memory_node = MemoryNode(
@@ -92,11 +112,10 @@ class StreamMemory:
             id=current_id,
         )
         self._memories.append(memory_node)
-        
 
         # 为新记忆创建 embedding
         if self._embedding_model and self._faiss_query:
-            await self._faiss_query.add_documents(
+            await self.faiss_query.add_documents(
                 agent_id=self._agent_id,
                 documents=description,
                 extra_tags={
@@ -106,29 +125,30 @@ class StreamMemory:
                     "time": t,
                 },
             )
-        
+
         return current_id
-    async def add_cognition(self, description: str) -> None:
+
+    async def add_cognition(self, description: str) -> int:
         """添加认知记忆 Add cognition memory"""
         return await self._add_memory(MemoryTag.COGNITION, description)
 
-    async def add_social(self, description: str) -> None:
+    async def add_social(self, description: str) -> int:
         """添加社交记忆 Add social memory"""
         return await self._add_memory(MemoryTag.SOCIAL, description)
 
-    async def add_economy(self, description: str) -> None:
+    async def add_economy(self, description: str) -> int:
         """添加经济记忆 Add economy memory"""
         return await self._add_memory(MemoryTag.ECONOMY, description)
 
-    async def add_mobility(self, description: str) -> None:
+    async def add_mobility(self, description: str) -> int:
         """添加移动记忆 Add mobility memory"""
         return await self._add_memory(MemoryTag.MOBILITY, description)
 
-    async def add_event(self, description: str) -> None:
+    async def add_event(self, description: str) -> int:
         """添加事件记忆 Add event memory"""
         return await self._add_memory(MemoryTag.EVENT, description)
 
-    async def add_other(self, description: str) -> None:
+    async def add_other(self, description: str) -> int:
         """添加其他记忆 Add other memory"""
         return await self._add_memory(MemoryTag.OTHER, description)
 
@@ -137,11 +157,13 @@ class StreamMemory:
         for memory in self._memories:
             if memory.cognition_id == memory_id:
                 for cognition_memory in self._memories:
-                    if (cognition_memory.tag == MemoryTag.COGNITION and 
-                        memory.cognition_id is not None):
+                    if (
+                        cognition_memory.tag == MemoryTag.COGNITION
+                        and memory.cognition_id is not None
+                    ):
                         return cognition_memory
         return None
-    
+
     async def format_memory(self, memories: list[MemoryNode]) -> str:
         """格式化记忆"""
         formatted_results = []
@@ -150,51 +172,51 @@ class StreamMemory:
             memory_day = memory.day
             memory_time_seconds = memory.t
             cognition_id = memory.cognition_id
-            
+
             # 格式化时间
-            if memory_time_seconds != 'unknown':
+            if memory_time_seconds != "unknown":
                 hours = memory_time_seconds // 3600
                 minutes = (memory_time_seconds % 3600) // 60
                 seconds = memory_time_seconds % 60
                 memory_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
             else:
-                memory_time = 'unknown'
-                
+                memory_time = "unknown"
+
             memory_location = memory.location
-            
+
             # 添加认知信息（如果存在）
             cognition_info = ""
             if cognition_id is not None:
                 cognition_memory = await self.get_related_cognition(cognition_id)
                 if cognition_memory:
-                    cognition_info = f"\n  Related cognition: {cognition_memory.description}"
-                    
+                    cognition_info = (
+                        f"\n  Related cognition: {cognition_memory.description}"
+                    )
+
             formatted_results.append(
                 f"- [{memory_tag}]: {memory.description} [day: {memory_day}, time: {memory_time}, "
                 f"location: {memory_location}]{cognition_info}"
             )
         return "\n".join(formatted_results)
 
-    async def get_by_ids(self, memory_ids: Union[int, list[int]]) -> str:
+    async def get_by_ids(
+        self, memory_ids: Union[int, list[int]]
+    ) -> Coroutine[Any, Any, str]:
         """获取指定ID的记忆"""
-        memories =  [memory for memory in self._memories if memory.id in memory_ids]
-        sorted_results = sorted(
-            memories, 
-            key=lambda x: (x.day, x.t), 
-            reverse=True
-        )
+        memories = [memory for memory in self._memories if memory.id in memory_ids]
+        sorted_results = sorted(memories, key=lambda x: (x.day, x.t), reverse=True)
         return self.format_memory(sorted_results)
 
     async def search(
-        self, 
-        query: str, 
+        self,
+        query: str,
         tag: Optional[MemoryTag] = None,
         top_k: int = 3,
         day_range: Optional[tuple[int, int]] = None,  # 新增参数
-        time_range: Optional[tuple[int, int]] = None  # 新增参数
+        time_range: Optional[tuple[int, int]] = None,  # 新增参数
     ) -> str:
         """Search stream memory
-        
+
         Args:
             query: Query text
             tag: Optional memory tag for filtering specific types of memories
@@ -205,60 +227,62 @@ class StreamMemory:
         if not self._embedding_model or not self._faiss_query:
             return "Search components not initialized"
 
-        filter_dict = {"type": "stream"}
-        
+        filter_dict: dict[str, Any] = {"type": "stream"}
+
         if tag:
             filter_dict["tag"] = tag
-            
+
         # 添加时间范围过滤
         if day_range:
             start_day, end_day = day_range
             filter_dict["day"] = lambda x: start_day <= x <= end_day
-            
+
         if time_range:
             start_time, end_time = time_range
             filter_dict["time"] = lambda x: start_time <= x <= end_time
 
-        top_results = await self._faiss_query.similarity_search(
+        top_results = await self.faiss_query.similarity_search(
             query=query,
             agent_id=self._agent_id,
             k=top_k,
             return_score_type="similarity_score",
-            filter=filter_dict
+            filter=filter_dict,
         )
 
         # 将结果按时间排序（先按天数，再按时间）
         sorted_results = sorted(
-            top_results, 
-            key=lambda x: (x[2].get('day', 0), x[2].get('time', 0)), 
-            reverse=True
+            top_results,
+            key=lambda x: (x[2].get("day", 0), x[2].get("time", 0)),  # type:ignore
+            reverse=True,
         )
-        
+
         formatted_results = []
-        for content, score, metadata in sorted_results:
-            memory_tag = metadata.get('tag', 'unknown')
-            memory_day = metadata.get('day', 'unknown')
-            memory_time_seconds = metadata.get('time', 'unknown')
-            cognition_id = metadata.get('cognition_id', None)
-            
+        for content, score, metadata in sorted_results:  # type:ignore
+            memory_tag = metadata.get("tag", "unknown")
+            memory_day = metadata.get("day", "unknown")
+            memory_time_seconds = metadata.get("time", "unknown")
+            cognition_id = metadata.get("cognition_id", None)
+
             # 格式化时间
-            if memory_time_seconds != 'unknown':
+            if memory_time_seconds != "unknown":
                 hours = memory_time_seconds // 3600
                 minutes = (memory_time_seconds % 3600) // 60
                 seconds = memory_time_seconds % 60
                 memory_time = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
             else:
-                memory_time = 'unknown'
-                
-            memory_location = metadata.get('location', 'unknown')
-            
+                memory_time = "unknown"
+
+            memory_location = metadata.get("location", "unknown")
+
             # 添加认知信息（如果存在）
             cognition_info = ""
             if cognition_id is not None:
                 cognition_memory = await self.get_related_cognition(cognition_id)
                 if cognition_memory:
-                    cognition_info = f"\n  Related cognition: {cognition_memory.description}"
-                    
+                    cognition_info = (
+                        f"\n  Related cognition: {cognition_memory.description}"
+                    )
+
             formatted_results.append(
                 f"- [{memory_tag}]: {content} [day: {memory_day}, time: {memory_time}, "
                 f"location: {memory_location}]{cognition_info}"
@@ -272,50 +296,49 @@ class StreamMemory:
         top_k: int = 100,  # 默认返回较大数量以确保获取当天所有记忆
     ) -> str:
         """Search all memory events from today
-        
+
         Args:
             query: Optional query text, returns all memories of the day if empty
             tag: Optional memory tag for filtering specific types of memories
             top_k: Number of most relevant memories to return, defaults to 100
-            
+
         Returns:
             str: Formatted text of today's memories
         """
         if self._simulator is None:
             return "Simulator not initialized"
-            
+
         current_day = int(await self._simulator.get_simulator_day())
-        
+
         # 使用 search 方法，设置 day_range 为当天
         return await self.search(
-            query=query,
-            tag=tag,
-            top_k=top_k,
-            day_range=(current_day, current_day)
+            query=query, tag=tag, top_k=top_k, day_range=(current_day, current_day)
         )
 
-    async def add_cognition_to_memory(self, memory_id: Union[int, list[int]], cognition: str) -> None:
+    async def add_cognition_to_memory(
+        self, memory_id: Union[int, list[int]], cognition: str
+    ) -> None:
         """为已存在的记忆添加认知
-        
+
         Args:
             memory_id: 要添加认知的记忆ID，可以是单个ID或ID列表
             cognition: 认知描述
         """
         # 将单个ID转换为列表以统一处理
         memory_ids = [memory_id] if isinstance(memory_id, int) else memory_id
-        
+
         # 找到所有对应的记忆
         target_memories = []
         for memory in self._memories:
             if id(memory) in memory_ids:
                 target_memories.append(memory)
-                
+
         if not target_memories:
             raise ValueError(f"No memories found with ids {memory_ids}")
-            
+
         # 添加认知记忆
         cognition_id = await self._add_memory(MemoryTag.COGNITION, cognition)
-        
+
         # 更新所有原记忆的认知ID
         for target_memory in target_memories:
             target_memory.cognition_id = cognition_id
@@ -324,9 +347,13 @@ class StreamMemory:
         """获取所有流式信息"""
         return list(self._memories)
 
+
 class StatusMemory:
     """组合现有的三种记忆类型"""
-    def __init__(self, profile: ProfileMemory, state: StateMemory, dynamic: DynamicMemory):
+
+    def __init__(
+        self, profile: ProfileMemory, state: StateMemory, dynamic: DynamicMemory
+    ):
         self.profile = profile
         self.state = state
         self.dynamic = dynamic
@@ -340,23 +367,32 @@ class StatusMemory:
         self.watchers = {}  # 新增
         self._lock = asyncio.Lock()  # 新增
 
+    @property
+    def faiss_query(
+        self,
+    ) -> FaissQuery:
+        assert self._faiss_query is not None
+        return self._faiss_query
+
     def set_simulator(self, simulator):
         self._simulator = simulator
 
     async def initialize_embeddings(self) -> None:
         """初始化所有需要 embedding 的字段"""
         if not self._embedding_model or not self._faiss_query:
-            logger.warning("Search components not initialized, skipping embeddings initialization")
+            logger.warning(
+                "Search components not initialized, skipping embeddings initialization"
+            )
             return
 
         # 获取所有状态信息
         profile, state, dynamic = await self.export()
-        
+
         # 为每个需要 embedding 的字段创建 embedding
         for key, value in profile[0].items():
             if self.should_embed(key):
                 semantic_text = self._generate_semantic_text(key, value)
-                doc_ids = await self._faiss_query.add_documents(
+                doc_ids = await self.faiss_query.add_documents(
                     agent_id=self._agent_id,
                     documents=semantic_text,
                     extra_tags={
@@ -369,7 +405,7 @@ class StatusMemory:
         for key, value in state[0].items():
             if self.should_embed(key):
                 semantic_text = self._generate_semantic_text(key, value)
-                doc_ids = await self._faiss_query.add_documents(
+                doc_ids = await self.faiss_query.add_documents(
                     agent_id=self._agent_id,
                     documents=semantic_text,
                     extra_tags={
@@ -378,11 +414,11 @@ class StatusMemory:
                     },
                 )
                 self._embedding_field_to_doc_id[key] = doc_ids[0]
-        
+
         for key, value in dynamic[0].items():
             if self.should_embed(key):
                 semantic_text = self._generate_semantic_text(key, value)
-                doc_ids = await self._faiss_query.add_documents(
+                doc_ids = await self.faiss_query.add_documents(
                     agent_id=self._agent_id,
                     documents=semantic_text,
                     extra_tags={
@@ -415,7 +451,7 @@ class StatusMemory:
 
     def set_semantic_templates(self, templates: Dict[str, str]):
         """设置语义模板
-        
+
         Args:
             templates: 键值对形式的模板字典，如 {"name": "my name is {}", "age": "I am {} years old"}
         """
@@ -423,14 +459,14 @@ class StatusMemory:
 
     def _generate_semantic_text(self, key: str, value: Any) -> str:
         """生成语义文本
-        
+
         如果key存在于模板中，使用自定义模板
         否则使用默认模板 "my {key} is {value}"
         """
         if key in self._semantic_templates:
             return self._semantic_templates[key].format(value)
         return f"Your {key} is {value}"
-    
+
     @lock_decorator
     async def search(
         self, query: str, top_k: int = 3, filter: Optional[dict] = None
@@ -447,12 +483,12 @@ class StatusMemory:
         """
         if not self._embedding_model:
             return "Embedding model not initialized"
-        
+
         filter_dict = {"type": "profile_state"}
         if filter is not None:
             filter_dict.update(filter)
         top_results: list[tuple[str, float, dict]] = (
-            await self._faiss_query.similarity_search(  # type:ignore
+            await self.faiss_query.similarity_search(  # type:ignore
                 query=query,
                 agent_id=self._agent_id,
                 k=top_k,
@@ -463,9 +499,7 @@ class StatusMemory:
         # 格式化输出
         formatted_results = []
         for content, score, metadata in top_results:
-            formatted_results.append(
-                f"- {content} "
-            )
+            formatted_results.append(f"- {content} ")
 
         return "\n".join(formatted_results)
 
@@ -478,8 +512,11 @@ class StatusMemory:
         return self._embedding_fields.get(key, False)
 
     @lock_decorator
-    async def get(self, key: Any, 
-                 mode: Union[Literal["read only"], Literal["read and write"]] = "read only") -> Any:
+    async def get(
+        self,
+        key: Any,
+        mode: Union[Literal["read only"], Literal["read and write"]] = "read only",
+    ) -> Any:
         """从记忆中获取值
 
         Args:
@@ -499,7 +536,7 @@ class StatusMemory:
             process_func = lambda x: x
         else:
             raise ValueError(f"Invalid get mode `{mode}`!")
-            
+
         for mem in [self.state, self.profile, self.dynamic]:
             try:
                 value = await mem.get(key)
@@ -509,16 +546,20 @@ class StatusMemory:
         raise KeyError(f"No attribute `{key}` in memories!")
 
     @lock_decorator
-    async def update(self, key: Any, value: Any,
-                    mode: Union[Literal["replace"], Literal["merge"]] = "replace",
-                    store_snapshot: bool = False,
-                    protect_llm_read_only_fields: bool = True) -> None:
+    async def update(
+        self,
+        key: Any,
+        value: Any,
+        mode: Union[Literal["replace"], Literal["merge"]] = "replace",
+        store_snapshot: bool = False,
+        protect_llm_read_only_fields: bool = True,
+    ) -> None:
         """更新记忆值并在必要时更新embedding"""
         if protect_llm_read_only_fields:
             if any(key in _attrs for _attrs in [STATE_ATTRIBUTES]):
                 logger.warning(f"Trying to write protected key `{key}`!")
                 return
-                
+
         for mem in [self.state, self.profile, self.dynamic]:
             try:
                 original_value = await mem.get(key)
@@ -526,16 +567,16 @@ class StatusMemory:
                     await mem.update(key, value, store_snapshot)
                     if self.should_embed(key) and self._embedding_model:
                         semantic_text = self._generate_semantic_text(key, value)
-                        
+
                         # 删除旧的 embedding
                         orig_doc_id = self._embedding_field_to_doc_id[key]
                         if orig_doc_id:
-                            await self._faiss_query.delete_documents(
+                            await self.faiss_query.delete_documents(
                                 to_delete_ids=[orig_doc_id],
                             )
-                        
+
                         # 添加新的 embedding
-                        doc_ids = await self._faiss_query.add_documents(
+                        doc_ids = await self.faiss_query.add_documents(
                             agent_id=self._agent_id,
                             documents=semantic_text,
                             extra_tags={
@@ -544,11 +585,11 @@ class StatusMemory:
                             },
                         )
                         self._embedding_field_to_doc_id[key] = doc_ids[0]
-                        
+
                     if key in self.watchers:
                         for callback in self.watchers[key]:
                             asyncio.create_task(callback())
-                            
+
                 elif mode == "merge":
                     if isinstance(original_value, set):
                         original_value.update(set(value))
@@ -565,7 +606,7 @@ class StatusMemory:
                         await mem.update(key, value, store_snapshot)
                     if self.should_embed(key) and self._embedding_model:
                         semantic_text = self._generate_semantic_text(key, value)
-                        doc_ids = await self._faiss_query.add_documents(
+                        doc_ids = await self.faiss_query.add_documents(
                             agent_id=self._agent_id,
                             documents=f"{key}: {str(original_value)}",
                             extra_tags={
@@ -634,6 +675,7 @@ class StatusMemory:
         ):
             if _snapshot:
                 await _mem.load(snapshots=_snapshot, reset_memory=reset_memory)
+
 
 class Memory:
     """
@@ -745,7 +787,6 @@ class Memory:
                 if k not in PROFILE_ATTRIBUTES:
                     logger.warning(f"key `{k}` is not a correct `profile` field!")
                     continue
-                
                 try:
                     # 处理配置元组格式
                     if isinstance(v, tuple):
@@ -787,7 +828,6 @@ class Memory:
         self._profile = ProfileMemory(
             msg=_profile_config, activate_timestamp=activate_timestamp
         )
-        
         if base is not None:
             for k, v in base.items():
                 if k not in STATE_ATTRIBUTES:
@@ -798,12 +838,10 @@ class Memory:
         self._state = StateMemory(
             msg=_state_config, activate_timestamp=activate_timestamp
         )
-        
+
         # 组合 StatusMemory，并传递 embedding_fields 信息
         self._status = StatusMemory(
-            profile=self._profile, 
-            state=self._state, 
-            dynamic=self._dynamic
+            profile=self._profile, state=self._state, dynamic=self._dynamic
         )
         self._status.set_embedding_fields(self._embedding_fields)
         self._status.set_search_components(self._faiss_query, self._embedding_model)
@@ -839,7 +877,7 @@ class Memory:
     @property
     def status(self) -> StatusMemory:
         return self._status
-    
+
     @property
     def stream(self) -> StreamMemory:
         return self._stream
@@ -872,7 +910,7 @@ class Memory:
                 f"FaissQuery access before assignment, please `set_faiss_query` first!"
             )
         return self._faiss_query
-    
+
     async def initialize_embeddings(self):
         """初始化embedding"""
         await self._status.initialize_embeddings()

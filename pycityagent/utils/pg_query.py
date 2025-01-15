@@ -54,6 +54,7 @@ PGSQL_DICT: dict[str, list[Any]] = {
         lng DOUBLE PRECISION,
         lat DOUBLE PRECISION,
         parent_id INT4,
+        friend_ids UUID[],
         action TEXT,
         status JSONB,
         created_at TIMESTAMPTZ

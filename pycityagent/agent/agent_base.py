@@ -13,14 +13,13 @@ from typing import Any, Optional, Union, get_type_hints
 import fastavro
 import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
-from pyparsing import Dict
 
 from ..economy import EconomyClient
 from ..environment import Simulator
 from ..environment.sim.person_service import PersonService
 from ..llm import LLM
 from ..memory import Memory
-from ..message.messager import Messager
+from ..message import MessageInterceptor, Messager
 from ..metrics import MlflowClient
 from ..utils import DIALOG_SCHEMA, SURVEY_SCHEMA, process_survey_for_llm
 from ..workflow import Block
@@ -56,7 +55,8 @@ class Agent(ABC):
         type: AgentType = AgentType.Unspecified,
         llm_client: Optional[LLM] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,  # type:ignore
+        messager: Optional[ray.ObjectRef] = None,
+        message_interceptor: Optional[ray.ObjectRef] = None,
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
         avro_file: Optional[dict[str, str]] = None,
@@ -82,6 +82,7 @@ class Agent(ABC):
         self._llm_client = llm_client
         self._economy_client = economy_client
         self._messager = messager
+        self._message_interceptor = message_interceptor
         self._simulator = simulator
         self._memory = memory
         self._exp_id = -1
@@ -102,12 +103,12 @@ class Agent(ABC):
         return state
 
     @classmethod
-    def export_class_config(cls) -> Dict[str, Dict]:
+    def export_class_config(cls) -> dict[str, dict]:
         result = {
             "agent_name": cls.__name__,
             "config": {},
             "description": {},
-            "blocks": []
+            "blocks": [],
         }
         config = {
             field: cls.default_values.get(field, "default_value")
@@ -123,16 +124,18 @@ class Agent(ABC):
         for attr_name, attr_type in hints.items():
             if inspect.isclass(attr_type) and issubclass(attr_type, Block):
                 block_config = attr_type.export_class_config()
-                result["blocks"].append({
-                    "name": attr_name,
-                    "config": block_config[0],
-                    "description": block_config[1],
-                    "children": cls._export_subblocks(attr_type)
-                })
+                result["blocks"].append(
+                    {
+                        "name": attr_name,
+                        "config": block_config[0],  # type:ignore
+                        "description": block_config[1],  # type:ignore
+                        "children": cls._export_subblocks(attr_type),
+                    }
+                )
         return result
 
     @classmethod
-    def _export_subblocks(cls, block_cls: type[Block]) -> list[Dict]:
+    def _export_subblocks(cls, block_cls: type[Block]) -> list[dict]:
         children = []
         hints = get_type_hints(block_cls)  # 获取类的注解
         for attr_name, attr_type in hints.items():
@@ -141,8 +144,8 @@ class Agent(ABC):
                 children.append(
                     {
                         "name": attr_name,
-                        "config": block_config[0],
-                    "description": block_config[1],
+                        "config": block_config[0],  # type:ignore
+                        "description": block_config[1],  # type:ignore
                         "children": cls._export_subblocks(attr_type),
                     }
                 )
@@ -253,6 +256,12 @@ class Agent(ABC):
         """
         self._pgsql_writer = pgsql_writer
 
+    def set_message_interceptor(self, message_interceptor: ray.ObjectRef):
+        """
+        Set the PostgreSQL copy writer of the agent.
+        """
+        self._message_interceptor = message_interceptor
+
     @property
     def uuid(self):
         """The Agent's UUID"""
@@ -289,24 +298,24 @@ class Agent(ABC):
                 f"Memory access before assignment, please `set_memory` first!"
             )
         return self._memory
-    
+
     @property
     def status(self):
         """The Agent's Status Memory"""
-        if self._memory.status is None:
+        if self.memory.status is None:
             raise RuntimeError(
                 f"Status access before assignment, please `set_memory` first!"
             )
-        return self._memory.status
-    
+        return self.memory.status
+
     @property
     def stream(self):
         """The Agent's Stream Memory"""
-        if self._memory.stream is None:
+        if self.memory.stream is None:
             raise RuntimeError(
                 f"Stream access before assignment, please `set_memory` first!"
             )
-        return self._memory.stream
+        return self.memory.stream
 
     @property
     def simulator(self):
@@ -335,7 +344,7 @@ class Agent(ABC):
     async def messager_ping(self):
         if self._messager is None:
             raise RuntimeError("Messager is not set")
-        return await self._messager.ping()
+        return await self._messager.ping.remote()  # type:ignore
 
     async def generate_user_survey_response(self, survey: dict) -> str:
         """生成回答 —— 可重写
@@ -421,7 +430,7 @@ class Agent(ABC):
                     _data_tuples
                 )
             )
-        await self.messager.send_message.remote(f"exps/{self._exp_id}/user_payback", {"count": 1})
+        await self.messager.send_message.remote(f"exps/{self._exp_id}/user_payback", {"count": 1})# type:ignore
 
     async def generate_user_chat_response(self, question: str) -> str:
         """生成回答 —— 可重写
@@ -508,7 +517,7 @@ class Agent(ABC):
                     _data
                 )
             )
-        await self.messager.send_message.remote(f"exps/{self._exp_id}/user_payback", {"count": 1})
+        await self.messager.send_message.remote(f"exps/{self._exp_id}/user_payback", {"count": 1})# type:ignore
         print(f"Sent payback message to {self._exp_id}")
 
     async def process_agent_chat_response(self, payload: dict) -> str:
@@ -579,7 +588,12 @@ class Agent(ABC):
         if self._messager is None:
             raise RuntimeError("Messager is not set")
         topic = f"exps/{self._exp_id}/agents/{to_agent_uuid}/{sub_topic}"
-        await self._messager.send_message.remote(topic, payload)
+        await self._messager.send_message.remote(  # type:ignore
+            topic,
+            payload,
+            self._uuid,
+            to_agent_uuid,
+        )
 
     async def send_message_to_agent(
         self, to_agent_uuid: str, content: str, type: str = "social"
@@ -643,6 +657,6 @@ class Agent(ABC):
         当_blocked为True时，不执行forward方法
         """
         if self._messager is not None:
-            await self._messager.ping.remote()
+            await self._messager.ping.remote()  # type:ignore
         if not self._blocked:
             await self.forward()

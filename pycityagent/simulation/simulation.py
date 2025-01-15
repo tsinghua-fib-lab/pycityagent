@@ -18,12 +18,15 @@ from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
                          memory_config_government, memory_config_nbs,
                          memory_config_societyagent)
 from ..cityagent.initial import bind_agent_info, initialize_social_network
-from ..environment.simulator import Simulator
-from ..llm import SimpleEmbedding
-from ..message.messager import Messager
-from ..metrics import MlflowClient, init_mlflow_connection
+from ..environment import Simulator
+from ..llm import LLM, LLMConfig, SimpleEmbedding
+from ..memory import Memory
+from ..message import (MessageBlockBase, MessageBlockListenerBase,
+                       MessageInterceptor, Messager)
+from ..metrics import init_mlflow_connection
+from ..metrics.mlflow_client import MlflowClient
 from ..survey import Survey
-from ..utils import TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+from ..utils import SURVEY_SENDER_UUID, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
 from .agentgroup import AgentGroup
 from .storage.pg import PgWriter, create_pg_tables
 
@@ -80,6 +83,15 @@ class AgentSimulation:
         self.config = config
         self.exp_name = exp_name
         self._simulator = Simulator(config["simulator_request"])
+        if enable_economy:
+            self._economy_env = self._simulator._sim_env
+            _req_dict = self.config["simulator_request"]
+            if "economy" in _req_dict:
+                _req_dict["economy"]["server"] = self._economy_env.sim_addr
+            else:
+                _req_dict["economy"] = {
+                    "server": self._economy_env.sim_addr,
+                }
         self.agent_prefix = agent_prefix
         self._groups: dict[str, AgentGroup] = {}  # type:ignore
         self._agent_uuid2group: dict[str, AgentGroup] = {}  # type:ignore
@@ -225,6 +237,7 @@ class AgentSimulation:
         agent_count.append(config["agent_config"]["number_of_government"])
         agent_count.append(config["agent_config"]["number_of_bank"])
         agent_count.append(config["agent_config"]["number_of_nbs"])
+        # TODO(yanjunbo): support MessageInterceptor
         await simulation.init_agents(
             agent_count=agent_count,
             group_size=config["agent_config"].get("group_size", 10000),
@@ -290,8 +303,12 @@ class AgentSimulation:
         return self._agent_uuid2group
 
     @property
-    def messager(self):
+    def messager(self) -> ray.ObjectRef:
         return self._messager
+
+    @property
+    def message_interceptor(self) -> ray.ObjectRef:
+        return self._message_interceptors[0]  # type:ignore
 
     async def _save_exp_info(self) -> None:
         """异步保存实验信息到YAML文件"""
@@ -371,6 +388,10 @@ class AgentSimulation:
         agent_count: Union[int, list[int]],
         group_size: int = 10000,
         pg_sql_writers: int = 32,
+        message_interceptors: int = 1,
+        message_interceptor_blocks: Optional[list[MessageBlockBase]] = None,
+        social_black_list: Optional[list[tuple[str, str]]] = None,
+        message_listener: Optional[MessageBlockListenerBase] = None,
         embedding_model: Embeddings = SimpleEmbedding(),
         memory_config_func: Optional[Union[Callable, list[Callable]]] = None,
     ) -> None:
@@ -379,6 +400,8 @@ class AgentSimulation:
         Args:
             agent_count: 要创建的总智能体数量, 如果为列表，则每个元素表示一个智能体类创建的智能体数量
             group_size: 每个组的智能体数量，每一个组为一个独立的ray actor
+            pg_sql_writers: 独立的PgSQL writer数量
+            message_interceptors: message拦截器数量
             memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组, 如果为列表，则每个元素表示一个智能体类创建的Memory配置函数
         """
         if not isinstance(agent_count, list):
@@ -499,7 +522,16 @@ class AgentSimulation:
                         config_files,
                     )
                 )
-
+        # 初始化mlflow连接
+        _mlflow_config = self.config.get("metric_request", {}).get("mlflow")
+        if _mlflow_config:
+            mlflow_run_id, _ = init_mlflow_connection(
+                config=_mlflow_config,
+                mlflow_run_name=f"{self.exp_name}_{1000*int(time.time())}",
+                experiment_name=self.exp_name,
+            )
+        else:
+            mlflow_run_id = None
         # 建表
         if self.enable_pgsql:
             _num_workers = min(1, pg_sql_writers)
@@ -514,7 +546,31 @@ class AgentSimulation:
         else:
             _num_workers = 1
             self._pgsql_writers = _workers = [None for _ in range(_num_workers)]
-
+        # message interceptor
+        if message_listener is not None:
+            self._message_abort_listening_queue = _queue = ray.util.queue.Queue()  # type: ignore
+            await message_listener.set_queue(_queue)
+        else:
+            self._message_abort_listening_queue = _queue = None
+        _interceptor_blocks = message_interceptor_blocks
+        _black_list = [] if social_black_list is None else social_black_list
+        _llm_config = self.config.get("llm_request", {})
+        if message_interceptor_blocks is not None:
+            _num_interceptors = min(1, message_interceptors)
+            self._message_interceptors = _interceptors = [
+                MessageInterceptor.remote(
+                    _interceptor_blocks,  # type:ignore
+                    _black_list,
+                    _llm_config,
+                    _queue,
+                )
+                for _ in range(_num_interceptors)
+            ]
+        else:
+            _num_interceptors = 1
+            self._message_interceptors = _interceptors = [
+                None for _ in range(_num_interceptors)
+            ]
         creation_tasks = []
         for i, (
             agent_class,
@@ -529,11 +585,14 @@ class AgentSimulation:
                 number_of_agents,
                 memory_config_function_group,
                 self.config,
+                self.exp_name,
                 self.exp_id,
                 self.enable_avro,
                 self.avro_path,
                 self.enable_pgsql,
                 _workers[i % _num_workers],  # type:ignore
+                self.message_interceptor,
+                mlflow_run_id,
                 embedding_model,
                 self.logging_level,
                 config_file,
@@ -564,11 +623,15 @@ class AgentSimulation:
         for group in self._groups.values():
             init_tasks.append(group.init_agents.remote())
         ray.get(init_tasks)
-        await self.messager.connect.remote()
-        await self.messager.subscribe.remote([(f"exps/{self.exp_id}/user_payback", 1)], [self.exp_id])
-        await self.messager.start_listening.remote()
+        await self.messager.connect.remote()  # type:ignore
+        await self.messager.subscribe.remote(  # type:ignore
+            [(f"exps/{self.exp_id}/user_payback", 1)], [self.exp_id]
+        )
+        await self.messager.start_listening.remote()  # type:ignore
 
-    async def gather(self, content: str, target_agent_uuids: Optional[list[str]] = None):
+    async def gather(
+        self, content: str, target_agent_uuids: Optional[list[str]] = None
+    ):
         """收集智能体的特定信息"""
         gather_tasks = []
         for group in self._groups.values():
@@ -612,12 +675,13 @@ class AgentSimulation:
         self, survey: Survey, agent_uuids: Optional[list[str]] = None
     ):
         """发送问卷"""
+        await self.messager.connect.remote()  # type:ignore
         survey_dict = survey.to_dict()
         if agent_uuids is None:
             agent_uuids = self._agent_uuids
         _date_time = datetime.now(timezone.utc)
         payload = {
-            "from": "none",
+            "from": SURVEY_SENDER_UUID,
             "survey_id": survey_dict["id"],
             "timestamp": int(_date_time.timestamp() * 1000),
             "data": survey_dict,
@@ -625,10 +689,10 @@ class AgentSimulation:
         }
         for uuid in agent_uuids:
             topic = self._user_survey_topics[uuid]
-            await self.messager.send_message.remote(topic, payload)
+            await self.messager.send_message.remote(topic, payload)  # type:ignore
         remain_payback = len(agent_uuids)
         while True:
-            messages = await self.messager.fetch_messages.remote()
+            messages = await self.messager.fetch_messages.remote()  # type:ignore
             logger.info(f"Received {len(messages)} payback messages [survey]")
             remain_payback -= len(messages)
             if remain_payback <= 0:
@@ -641,7 +705,7 @@ class AgentSimulation:
         """发送采访消息"""
         _date_time = datetime.now(timezone.utc)
         payload = {
-            "from": "none",
+            "from": SURVEY_SENDER_UUID,
             "content": content,
             "timestamp": int(_date_time.timestamp() * 1000),
             "_date_time": _date_time,
@@ -650,19 +714,19 @@ class AgentSimulation:
             agent_uuids = [agent_uuids]
         for uuid in agent_uuids:
             topic = self._user_chat_topics[uuid]
-            await self.messager.send_message.remote(topic, payload)
+            await self.messager.send_message.remote(topic, payload)  # type:ignore
         remain_payback = len(agent_uuids)
         while True:
-            messages = await self.messager.fetch_messages.remote()
+            messages = await self.messager.fetch_messages.remote()  # type:ignore
             logger.info(f"Received {len(messages)} payback messages [interview]")
             remain_payback -= len(messages)
             if remain_payback <= 0:
                 break
             await asyncio.sleep(3)
 
-    async def extract_metric(self, metric_extractor: list[Callable]):
+    async def extract_metric(self, metric_extractors: list[Callable]):
         """提取指标"""
-        for metric_extractor in metric_extractor:
+        for metric_extractor in metric_extractors:
             await metric_extractor(self)
 
     async def step(self):
@@ -670,7 +734,9 @@ class AgentSimulation:
         try:
             # check whether insert agents
             simulator_day = await self._simulator.get_simulator_day()
-            print(f"simulator_day: {simulator_day}, self._simulator_day: {self._simulator_day}")
+            print(
+                f"simulator_day: {simulator_day}, self._simulator_day: {self._simulator_day}"
+            )
             need_insert_agents = False
             if simulator_day > self._simulator_day:
                 need_insert_agents = True
@@ -698,11 +764,14 @@ class AgentSimulation:
             if self.metric_extractor is not None:
                 print(f"total_steps: {self._total_steps}, excute metric")
                 to_excute_metric = [
-                    metric[1] for metric in self.metric_extractor if self._total_steps % metric[0] == 0
+                    metric[1]
+                    for metric in self.metric_extractor
+                    if self._total_steps % metric[0] == 0
                 ]
                 await self.extract_metric(to_excute_metric)
         except Exception as e:
             import traceback
+
             logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e
 
@@ -721,10 +790,12 @@ class AgentSimulation:
             monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
 
             try:
-                end_time = await self._simulator.get_time() + day * 24 * 3600
+                end_time = (
+                    await self._simulator.get_time() + day * 24 * 3600
+                )  # type:ignore
                 while True:
                     current_time = await self._simulator.get_time()
-                    if current_time >= end_time:
+                    if current_time >= end_time:  # type:ignore
                         break
                     await self.step()
             finally:

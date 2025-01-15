@@ -60,11 +60,11 @@ class Simulator:
                     total_step=2147000000,
                     log_dir=config["simulator"].get("log_dir", "./log"),
                     min_step_time=config["simulator"].get("min_step_time", 1000),
-                    simuletgo_addr=config["simulator"].get("server", None),
+                    sim_addr=config["simulator"].get("server", None),
                 )
 
                 # using local client
-                self._client = CityClient(sim_env.simuletgo_addr, secure=False)
+                self._client = CityClient(sim_env.sim_addr, secure=False)
                 """
                 - 模拟器grpc客户端
                 - grpc client of simulator
@@ -173,7 +173,6 @@ class Simulator:
             return formatted_time
         else:
             return int(now["t"])
-        
     async def pause(self):
         await self._client.pause_service.pause()
 

@@ -71,11 +71,11 @@ class PgWriter:
 
     @lock_decorator
     async def async_write_status(self, rows: list[tuple]):
-        _tuple_types = [str, int, float, float, float, int, str, str, None]
+        _tuple_types = [str, int, float, float, float, int, list, str, str, None]
         table_name = f"socialcity_{self.exp_id.replace('-', '_')}_agent_status"
         async with await psycopg.AsyncConnection.connect(self._dsn) as aconn:
             copy_sql = psycopg.sql.SQL(
-                "COPY {} (id, day, t, lng, lat, parent_id, action, status, created_at) FROM STDIN"
+                "COPY {} (id, day, t, lng, lat, parent_id, friend_ids, action, status, created_at) FROM STDIN"
             ).format(psycopg.sql.Identifier(table_name))
             _rows: list[Any] = []
             async with aconn.cursor() as cur:

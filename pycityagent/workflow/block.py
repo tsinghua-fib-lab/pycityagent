@@ -187,7 +187,7 @@ class Block:
 
     @classmethod
     def import_config(cls, config: dict[str, Union[str, dict]]) -> Block:
-        instance = cls(name=config["name"])
+        instance = cls(name=config["name"])  # type: ignore
         assert isinstance(config["config"], dict)
         for field, value in config["config"].items():
             if field in cls.configurable_fields:
@@ -195,12 +195,12 @@ class Block:
 
         # 递归创建子Block
         for child_config in config.get("children", []):
-            child_block = Block.import_config(child_config)
+            child_block = Block.import_config(child_config)  # type: ignore
             setattr(instance, child_block.name.lower(), child_block)
 
         return instance
 
-    def load_from_config(self, config: dict[str, list[Dict]]) -> None:
+    def load_from_config(self, config: dict[str, list[dict]]) -> None:
         """
         使用配置更新当前Block实例的参数，并递归更新子Block。
         """

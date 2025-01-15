@@ -6,6 +6,7 @@ import signal
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent_dir = os.path.dirname(_script_dir)
 
+
 def wrapper(bin: str):
     binary_path = os.path.join(_parent_dir, bin)
     if not os.path.exists(binary_path):
@@ -21,12 +22,14 @@ def wrapper(bin: str):
         stdout=sys.stdout,
         stderr=sys.stderr,
     )
+
     # register signal handler
     def signal_handler(sig, frame):
         if p.poll() is None:
             p.send_signal(sig)
         else:
             sys.exit(p.poll())
+
     signals = [signal.SIGINT, signal.SIGTERM, signal.SIGHUP]
     for sig in signals:
         signal.signal(sig, signal_handler)
@@ -39,6 +42,7 @@ def wrapper(bin: str):
 
 def pycityagent_sim():
     wrapper("pycityagent-sim")
+
 
 def pycityagent_ui():
     wrapper("pycityagent-ui")

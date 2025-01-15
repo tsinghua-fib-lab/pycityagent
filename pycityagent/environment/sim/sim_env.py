@@ -1,7 +1,8 @@
+import atexit
 import logging
 import os
 import time
-import atexit
+import warnings
 from subprocess import DEVNULL, Popen
 from typing import Optional
 
@@ -51,7 +52,7 @@ class ControlSimEnv:
         log_dir: str,
         min_step_time: int = 1000,
         timeout: int = 5,
-        simuletgo_addr: Optional[str] = None,
+        sim_addr: Optional[str] = None,
     ):
         self._task_name = task_name
         self._map_file = map_file
@@ -66,47 +67,38 @@ class ControlSimEnv:
         地图数据
         """
 
-        # 检查二进制文件是否存在
-        # simulet-go: ~/.local/bin/simulet-go
-        self._simuletgo_path = os.path.expanduser("~/.local/bin/simulet-go")
-        if not os.path.exists(os.path.expanduser(self._simuletgo_path)):
-            raise FileNotFoundError("simulet-go not found, please install it first")
-
-        self._simuletgo_config = _generate_yaml_config(map_file, start_step, total_step)
-        self.simuletgo_port = None
-        self._simuletgo_proc = None
-        self._traffic_client = None
-
+        self._sim_config = _generate_yaml_config(map_file, start_step, total_step)
+        # sim
+        self.sim_port = None
+        self._sim_proc = None
         os.makedirs(log_dir, exist_ok=True)
 
-        self.simuletgo_addr = self.reset(simuletgo_addr)
+        self.sim_addr = self.reset(sim_addr)
 
     def reset(
         self,
-        simuletgo_addr: Optional[str] = None,
+        sim_addr: Optional[str] = None,
     ):
         """
         Args:
-        - simuletgo_addr: str, simulet-go的地址。如果为None，则启动一个新的simulet-go
+        - sim_addr: str, pycityagent-sim的地址。如果为None，则启动一个新的pycityagent-sim
         """
-
-        # 三个地址必须同时为None或者同时不为None
-        if simuletgo_addr is None:
-            # 1. 启动simulet-go
-            # ./simulet-go -config-data configbase64 -job test -syncer http://localhost:53001 -listen :51102
-            assert self.simuletgo_port is None
-            assert self._simuletgo_proc is None
-            self.simuletgo_port = find_free_port()
-            config_base64 = encode_to_base64(self._simuletgo_config)
-            self._simuletgo_proc = Popen(
+        if sim_addr is None:
+            # 启动pycityagent-sim
+            # pycityagent-sim -config-data configbase64 -job test -listen :51102
+            assert self.sim_port is None
+            assert self._sim_proc is None
+            self.sim_port = find_free_port()
+            config_base64 = encode_to_base64(self._sim_config)
+            self._sim_proc = Popen(
                 [
-                    self._simuletgo_path,
+                    "pycityagent-sim",
                     "-config-data",
                     config_base64,
                     "-job",
                     self._task_name,
                     "-listen",
-                    f":{self.simuletgo_port}",
+                    f":{self.sim_port}",
                     "-run.min_step_time",
                     f"{self._min_step_time}",
                     "-output",
@@ -120,26 +112,22 @@ class ControlSimEnv:
                 # stdout=DEVNULL,
             )
             logging.info(
-                f"start simulet-go at localhost:{self.simuletgo_port}, PID={self._simuletgo_proc.pid}"
+                f"start pycityagent-sim at localhost:{self.sim_port}, PID={self._sim_proc.pid}"
             )
-            simuletgo_addr = f"http://localhost:{self.simuletgo_port}"
+            sim_addr = f"http://localhost:{self.sim_port}"
             atexit.register(self.close)
-            time.sleep(1)
-        elif simuletgo_addr is not None:
-            pass
+            time.sleep(0.3)
         else:
-            # raise ValueError(
-            #     "simuletgo_addr, syncer_addr, routing_addr must be all None or all not None"
-            # )
-            pass
-        return simuletgo_addr
+            warnings.warn("单独启动模拟器模拟将被弃用", DeprecationWarning)
+
+        return sim_addr
 
     def close(self):
-        if self._simuletgo_proc is not None:
-            self._simuletgo_proc.terminate()
-            simuletgo_code = self._simuletgo_proc.wait()
-            logging.info(f"simulet-go exit with code {simuletgo_code}")
+        if self._sim_proc is not None:
+            self._sim_proc.terminate()
+            sim_code = self._sim_proc.wait()
+            logging.info(f"pycityagent-sim exit with code {sim_code}")
 
-        self.simuletgo_port = None
-        self._simuletgo_proc = None
-        self._traffic_client = None
+        # sim
+        self.sim_port = None
+        self._sim_proc = None

@@ -1,24 +1,26 @@
 """UrbanLLM: 智能能力类及其定义"""
 
 import json
-from openai import OpenAI, AsyncOpenAI, APIConnectionError, OpenAIError
-from zhipuai import ZhipuAI
 import logging
+
+from openai import APIConnectionError, AsyncOpenAI, OpenAI, OpenAIError
+from zhipuai import ZhipuAI
 
 logging.getLogger("zhipuai").setLevel(logging.WARNING)
 
 import asyncio
+import os
 from http import HTTPStatus
+from io import BytesIO
+from typing import Any, Optional, Union
+
 import dashscope
 import requests
 from dashscope import ImageSynthesis
 from PIL import Image
-from io import BytesIO
-from typing import Any, Optional, Union
+
 from .llmconfig import *
 from .utils import *
-
-import os
 
 os.environ["GRPC_VERBOSITY"] = "ERROR"
 
@@ -38,13 +40,13 @@ class LLM:
         self.request_number = 0
         self.semaphore = None
         self._current_client_index = 0
-        
+
         api_keys = self.config.text["api_key"]
         if not isinstance(api_keys, list):
             api_keys = [api_keys]
-            
+
         self._aclients = []
-        
+
         for api_key in api_keys:
             if self.config.text["request_type"] == "openai":
                 client = AsyncOpenAI(api_key=api_key, timeout=300)
@@ -62,6 +64,10 @@ class LLM:
                 )
             elif self.config.text["request_type"] == "zhipuai":
                 client = ZhipuAI(api_key=api_key, timeout=300)
+            else:
+                raise ValueError(
+                    f"Unsupported `request_type` {self.config.text['request_type']}!"
+                )
             self._aclients.append(client)
 
     def set_semaphore(self, number_of_coroutine: int):
@@ -118,7 +124,9 @@ Token Usage:
     def _get_next_client(self):
         """获取下一个要使用的客户端"""
         client = self._aclients[self._current_client_index]
-        self._current_client_index = (self._current_client_index + 1) % len(self._aclients)
+        self._current_client_index = (self._current_client_index + 1) % len(
+            self._aclients
+        )
         return client
 
     async def atext_request(

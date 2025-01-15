@@ -13,7 +13,8 @@ from ..economy import EconomyClient
 from ..environment import Simulator
 from ..llm import LLM
 from ..memory import Memory
-from ..message.messager import Messager
+from ..message import MessageInterceptor, Messager
+from ..metrics import MlflowClient
 from .agent_base import Agent, AgentType
 
 logger = logging.getLogger("pycityagent")
@@ -32,6 +33,7 @@ class CitizenAgent(Agent):
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
         messager: Optional[Messager] = None,  # type:ignore
+        message_interceptor: Optional[MessageInterceptor] = None,  # type:ignore
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
@@ -40,10 +42,12 @@ class CitizenAgent(Agent):
             llm_client=llm_client,
             economy_client=economy_client,
             messager=messager,
+            message_interceptor=message_interceptor,
             simulator=simulator,
             memory=memory,
             avro_file=avro_file,
         )
+        self._mlflow_client = None
 
     async def bind_to_simulator(self):
         await self._bind_to_simulator()
@@ -78,9 +82,7 @@ class CitizenAgent(Agent):
                     dict_person[_key] = _value
             except KeyError as e:
                 continue
-        resp = await simulator.add_person(
-            dict2pb(dict_person, person_pb2.Person())
-        )
+        resp = await simulator.add_person(dict2pb(dict_person, person_pb2.Person()))
         person_id = resp["person_id"]
         await status.update("id", person_id, protect_llm_read_only_fields=False)
         logger.debug(f"Binding to Person `{person_id}` just added to Simulator")
@@ -123,6 +125,21 @@ class CitizenAgent(Agent):
         }
         await self._send_message(sender_id, payload, "gather")
 
+    @property
+    def mlflow_client(self) -> MlflowClient:
+        """The Agent's MlflowClient"""
+        if self._mlflow_client is None:
+            raise RuntimeError(
+                f"MlflowClient access before assignment, please `set_mlflow_client` first!"
+            )
+        return self._mlflow_client
+
+    def set_mlflow_client(self, mlflow_client: MlflowClient):
+        """
+        Set the mlflow_client of the agent.
+        """
+        self._mlflow_client = mlflow_client
+
 
 class InstitutionAgent(Agent):
     """
@@ -137,6 +154,7 @@ class InstitutionAgent(Agent):
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
         messager: Optional[Messager] = None,  # type:ignore
+        message_interceptor: Optional[MessageInterceptor] = None,  # type:ignore
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
@@ -145,10 +163,12 @@ class InstitutionAgent(Agent):
             llm_client=llm_client,
             economy_client=economy_client,
             messager=messager,
+            message_interceptor=message_interceptor,
             simulator=simulator,
             memory=memory,
             avro_file=avro_file,
         )
+        self._mlflow_client = None
         # 添加响应收集器
         self._gather_responses: dict[str, asyncio.Future] = {}
 
@@ -308,3 +328,18 @@ class InstitutionAgent(Agent):
             # 清理Future
             for key in futures:
                 self._gather_responses.pop(key, None)
+
+    @property
+    def mlflow_client(self) -> MlflowClient:
+        """The Agent's MlflowClient"""
+        if self._mlflow_client is None:
+            raise RuntimeError(
+                f"MlflowClient access before assignment, please `set_mlflow_client` first!"
+            )
+        return self._mlflow_client
+
+    def set_mlflow_client(self, mlflow_client: MlflowClient):
+        """
+        Set the mlflow_client of the agent.
+        """
+        self._mlflow_client = mlflow_client

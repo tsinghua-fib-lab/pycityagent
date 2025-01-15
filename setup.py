@@ -80,7 +80,7 @@ class DownloadBin(build_ext):
             raise Exception(f"No binary found for {binary_name}")
 
 setup(
-    ext_modules=[BinExtension("pycityagent-sim"), BinExtension("pycityagent-ui")],
+    ext_modules=[BinExtension("pycityagent-sim"), BinExtension("pycityagent-ui"),],
     cmdclass=dict(build_ext=DownloadBin),
 )
 
