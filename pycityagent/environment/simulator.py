@@ -70,6 +70,9 @@ class Simulator:
                 - grpc client of simulator
                 """
             else:
+                raise ValueError(
+                    f"Passing Traffic Simulation address is not supported!"
+                )
                 self._client = CityClient(config["simulator"]["server"], secure=False)
         else:
             logger.warning(
@@ -173,6 +176,7 @@ class Simulator:
             return formatted_time
         else:
             return int(now["t"])
+
     async def pause(self):
         await self._client.pause_service.pause()
 

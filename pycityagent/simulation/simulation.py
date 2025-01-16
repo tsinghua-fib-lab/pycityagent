@@ -85,9 +85,14 @@ class AgentSimulation:
         self._simulator = Simulator(config["simulator_request"])
         if enable_economy:
             self._economy_env = self._simulator._sim_env
-            _req_dict = self.config["simulator_request"]
+            _req_dict: dict = self.config["simulator_request"]
             if "economy" in _req_dict:
-                _req_dict["economy"]["server"] = self._economy_env.sim_addr
+                if "server" in _req_dict["economy"]:
+                    raise ValueError(
+                        f"Passing Economy Simulation address is not supported!"
+                    )
+                else:
+                    _req_dict["economy"]["server"] = self._economy_env.sim_addr
             else:
                 _req_dict["economy"] = {
                     "server": self._economy_env.sim_addr,
