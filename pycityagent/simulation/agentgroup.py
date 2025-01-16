@@ -34,10 +34,7 @@ class AgentGroup:
         self,
         agent_class: Union[type[Agent], list[type[Agent]]],
         number_of_agents: Union[int, list[int]],
-        memory_config_function_group: Union[
-            Callable[[], tuple[dict, dict, dict]],
-            list[Callable[[], tuple[dict, dict, dict]]],
-        ],
+        memory_config_function_group: dict[type[Agent], Callable],
         config: dict,
         exp_name: str,
         exp_id: str | UUID,
@@ -49,14 +46,12 @@ class AgentGroup:
         mlflow_run_id: str,
         embedding_model: Embeddings,
         logging_level: int,
-        agent_config_file: Optional[Union[str, list[str]]] = None,
+        agent_config_file: Optional[dict[type[Agent], str]] = None,
     ):
         logger.setLevel(logging_level)
         self._uuid = str(uuid.uuid4())
         if not isinstance(agent_class, list):
             agent_class = [agent_class]
-        if not isinstance(memory_config_function_group, list):
-            memory_config_function_group = [memory_config_function_group]
         if not isinstance(number_of_agents, list):
             number_of_agents = [number_of_agents]
         self.agent_class = agent_class
@@ -123,13 +118,10 @@ class AgentGroup:
         self.projector = pyproj.Proj(self.simulator.map.header["projection"])
 
         # prepare Economy client
-        if "economy" in config["simulator_request"]:
-            logger.info(f"-----Creating Economy client in AgentGroup {self._uuid} ...")
-            self.economy_client = EconomyClient(
-                config["simulator_request"]["economy"]["server"]
-            )
-        else:
-            self.economy_client = None
+        logger.info(f"-----Creating Economy client in AgentGroup {self._uuid} ...")
+        self.economy_client = EconomyClient(
+            config["simulator_request"]["simulator"]["server"]
+        )
 
         # set FaissQuery
         if self.embedding_model is not None:
@@ -142,7 +134,7 @@ class AgentGroup:
             agent_class_i = agent_class[i]
             number_of_agents_i = number_of_agents[i]
             for j in range(number_of_agents_i):
-                memory_config_function_group_i = memory_config_function_group[i]
+                memory_config_function_group_i = memory_config_function_group[agent_class_i]
                 extra_attributes, profile, base = memory_config_function_group_i()
                 memory = Memory(config=extra_attributes, profile=profile, base=base)
                 agent = agent_class_i(
@@ -161,8 +153,8 @@ class AgentGroup:
                     agent.set_avro_file(self.avro_file)  # type: ignore
                 if self.enable_pgsql:
                     agent.set_pgsql_writer(self._pgsql_writer)
-                if self.agent_config_file is not None and self.agent_config_file[i]:
-                    agent.load_from_file(self.agent_config_file[i])
+                if self.agent_config_file is not None and self.agent_config_file[agent_class_i]:
+                    agent.load_from_file(self.agent_config_file[agent_class_i])
                 if self._message_interceptor is not None:
                     agent.set_message_interceptor(self._message_interceptor)
                 self.agents.append(agent)

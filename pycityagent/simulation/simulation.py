@@ -3,24 +3,24 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional, Type, Union
+from typing import Any, Literal, Optional, Type, Union
 
 import ray
 import yaml
 from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, InstitutionAgent
-from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
-                         SocietyAgent, memory_config_bank, memory_config_firm,
+from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,SocietyAgent, 
+                         memory_config_bank, memory_config_firm,
                          memory_config_government, memory_config_nbs,
                          memory_config_societyagent)
 from ..cityagent.initial import bind_agent_info, initialize_social_network
 from ..environment import Simulator
-from ..llm import LLM, LLMConfig, SimpleEmbedding
-from ..memory import Memory
+from ..economy.econ_client import EconomyClient
+from ..llm import SimpleEmbedding
 from ..message import (MessageBlockBase, MessageBlockListenerBase,
                        MessageInterceptor, Messager)
 from ..metrics import init_mlflow_connection
@@ -42,7 +42,7 @@ class AgentSimulation:
         agent_class: Union[None, type[Agent], list[type[Agent]]] = None,
         agent_config_file: Optional[dict] = None,
         metric_extractor: Optional[list[tuple[int, Callable]]] = None,
-        enable_economy: bool = True,
+        enable_institution: bool = True,
         agent_prefix: str = "agent_",
         exp_name: str = "default_experiment",
         logging_level: int = logging.WARNING,
@@ -58,7 +58,7 @@ class AgentSimulation:
         if isinstance(agent_class, list):
             self.agent_class = agent_class
         elif agent_class is None:
-            if enable_economy:
+            if enable_institution:
                 self.agent_class = [
                     SocietyAgent,
                     FirmAgent,
@@ -66,27 +66,30 @@ class AgentSimulation:
                     NBSAgent,
                     GovernmentAgent,
                 ]
-                self.default_memory_config_func = [
-                    memory_config_societyagent,
-                    memory_config_firm,
-                    memory_config_bank,
-                    memory_config_nbs,
-                    memory_config_government,
-                ]
+                self.default_memory_config_func = {
+                    SocietyAgent: memory_config_societyagent,
+                    FirmAgent: memory_config_firm,
+                    BankAgent: memory_config_bank,
+                    NBSAgent: memory_config_nbs,
+                    GovernmentAgent: memory_config_government,
+                }
             else:
                 self.agent_class = [SocietyAgent]
-                self.default_memory_config_func = [memory_config_societyagent]
+                self.default_memory_config_func = {SocietyAgent: memory_config_societyagent}
         else:
             self.agent_class = [agent_class]
         self.agent_config_file = agent_config_file
         self.logging_level = logging_level
         self.config = config
         self.exp_name = exp_name
-        self._simulator = Simulator(config["simulator_request"])
         _simulator_config = config["simulator_request"].get("simulator", {})
         if "server" in _simulator_config:
             raise ValueError(f"Passing Traffic Simulation address is not supported!")
-        if enable_economy:
+        self._simulator = Simulator(config["simulator_request"])
+        self._economy_client = EconomyClient(
+            config["simulator_request"]["simulator"]["server"]
+        )
+        if enable_institution:
             self._economy_addr = economy_addr = self._simulator.server_addr
             if economy_addr is None:
                 raise ValueError(
@@ -205,9 +208,11 @@ class AgentSimulation:
         """Directly run from config file
         Basic config file should contain:
         - simulation_config: file_path
+        - enable_institution: bool, default is True
         - agent_config:
-            - agent_config_file: Optional[dict]
-            - memory_config_func: Optional[Union[Callable, list[Callable]]]
+            - agent_config_file: Optional[dict[type[Agent], str]]
+            - memory_config_func: Optional[dict[type[Agent], Callable]]
+            - metric_extractor: Optional[list[tuple[int, Callable]]]
             - init_func: Optional[list[Callable[AgentSimulation, None]]]
             - group_size: Optional[int]
             - embedding_model: Optional[EmbeddingModel]
@@ -220,7 +225,7 @@ class AgentSimulation:
             - list[Step]
             - Step:
                 - type: str, "step", "run", "interview", "survey", "intervene", "pause", "resume"
-                - day: int if type is "run", else None
+                - days: int if type is "run", else None
                 - times: int if type is "step", else None
                 - description: Optional[str], description of the step
                 - func: Optional[Callable[AgentSimulation, None]], only used when type is "interview", "survey" and "intervene"
@@ -243,6 +248,8 @@ class AgentSimulation:
         simulation = cls(
             config=simulation_config,
             agent_config_file=config["agent_config"].get("agent_config_file", None),
+            metric_extractor=config["agent_config"].get("metric_extractor", None),
+            enable_institution=config.get("enable_institution", True),
             exp_name=config.get("exp_name", "default_experiment"),
             logging_level=config.get("logging_level", logging.WARNING),
         )
@@ -275,7 +282,7 @@ class AgentSimulation:
             if step["type"] not in ["run", "step", "interview", "survey", "intervene"]:
                 raise ValueError(f"Invalid step type: {step['type']}")
             if step["type"] == "run":
-                await simulation.run(step.get("day", 1))
+                await simulation.run(step.get("days", 1))
             elif step["type"] == "step":
                 times = step.get("times", 1)
                 for _ in range(times):
@@ -305,6 +312,10 @@ class AgentSimulation:
         self,
     ) -> Path:
         return self._avro_path  # type:ignore
+    
+    @property
+    def economy_client(self):
+        return self._economy_client
 
     @property
     def groups(self):
@@ -409,7 +420,7 @@ class AgentSimulation:
         social_black_list: Optional[list[tuple[str, str]]] = None,
         message_listener: Optional[MessageBlockListenerBase] = None,
         embedding_model: Embeddings = SimpleEmbedding(),
-        memory_config_func: Optional[Union[Callable, list[Callable]]] = None,
+        memory_config_func: Optional[dict[type[Agent], Callable]] = None,
     ) -> None:
         """初始化智能体
 
@@ -418,7 +429,7 @@ class AgentSimulation:
             group_size: 每个组的智能体数量，每一个组为一个独立的ray actor
             pg_sql_writers: 独立的PgSQL writer数量
             message_interceptors: message拦截器数量
-            memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组, 如果为列表，则每个元素表示一个智能体类创建的Memory配置函数
+            memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组, 每个元素表示一个智能体类创建的Memory配置函数
         """
         if not isinstance(agent_count, list):
             agent_count = [agent_count]
@@ -429,17 +440,6 @@ class AgentSimulation:
         if memory_config_func is None:
             memory_config_func = self.default_memory_config_func
 
-        elif not isinstance(memory_config_func, list):
-            logger.warning(
-                "memory_config_func is not a list, using specific memory config function"
-            )
-            memory_config_func = [memory_config_func]
-
-        if len(memory_config_func) != len(agent_count):
-            logger.warning(
-                "The length of memory_config_func and agent_count does not match, using default memory_config"
-            )
-            memory_config_func = self.default_memory_config_func
         # 使用线程池并行创建 AgentGroup
         group_creation_params = []
 
@@ -451,7 +451,7 @@ class AgentSimulation:
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
             agent_count_i = agent_count[i]
-            memory_config_func_i = memory_config_func[i]
+            memory_config_func_i = memory_config_func.get(agent_class, self.default_memory_config_func[agent_class])
 
             if self.agent_config_file is not None:
                 config_file = self.agent_config_file.get(agent_class, None)
@@ -481,8 +481,8 @@ class AgentSimulation:
 
                 agent_classes = []
                 agent_counts = []
-                memory_config_funcs = []
-                config_files = []
+                memory_config_funcs = {}
+                config_files = {}
 
                 # 分配每种类型的机构智能体到当前组
                 curr_start = start_idx
@@ -490,8 +490,8 @@ class AgentSimulation:
                     if curr_start < count:
                         agent_classes.append(agent_class)
                         agent_counts.append(min(count - curr_start, number_of_agents))
-                        memory_config_funcs.append(mem_func)
-                        config_files.append(conf_file)
+                        memory_config_funcs[agent_class] = mem_func
+                        config_files[agent_class] = conf_file
                     curr_start = max(0, curr_start - count)
 
                 group_creation_params.append(
@@ -516,8 +516,8 @@ class AgentSimulation:
 
                 agent_classes = []
                 agent_counts = []
-                memory_config_funcs = []
-                config_files = []
+                memory_config_funcs = {}
+                config_files = {}
 
                 # 分配每种类型的普通智能体到当前组
                 curr_start = start_idx
@@ -525,8 +525,8 @@ class AgentSimulation:
                     if curr_start < count:
                         agent_classes.append(agent_class)
                         agent_counts.append(min(count - curr_start, number_of_agents))
-                        memory_config_funcs.append(mem_func)
-                        config_files.append(conf_file)
+                        memory_config_funcs[agent_class] = mem_func
+                        config_files[agent_class] = conf_file
                     curr_start = max(0, curr_start - count)
 
                 group_creation_params.append(
@@ -688,14 +688,20 @@ class AgentSimulation:
         group = self._agent_uuid2group[target_agent_uuid]
         await group.update.remote(target_agent_uuid, target_key, content)
 
+    async def economy_update(self, target_agent_id: int, target_key: str, content: Any, mode: Literal["replace", "merge"] = "replace"):
+        """更新指定智能体的经济数据"""
+        self.economy_client.update(
+            id = target_agent_id, 
+            key = target_key, 
+            value=content,
+            mode=mode
+        )
+
     async def send_survey(
-        self, survey: Survey, agent_uuids: Optional[list[str]] = None
+        self, survey: Survey, agent_uuids: list[str] = None
     ):
         """发送问卷"""
-        await self.messager.connect.remote()  # type:ignore
         survey_dict = survey.to_dict()
-        if agent_uuids is None:
-            agent_uuids = self._agent_uuids
         _date_time = datetime.now(timezone.utc)
         payload = {
             "from": SURVEY_SENDER_UUID,
