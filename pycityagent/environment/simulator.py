@@ -65,6 +65,7 @@ class Simulator:
                     sim_addr=config["simulator"].get("server", None),
                 )
                 self.server_addr = sim_env.sim_addr
+                config["simulator"]["server"] = self.server_addr
                 # using local client
                 self._client = CityClient(sim_env.sim_addr, secure=False)
                 """
@@ -72,10 +73,8 @@ class Simulator:
                 - grpc client of simulator
                 """
             else:
-                raise ValueError(
-                    f"Passing Traffic Simulation address is not supported!"
-                )
                 self._client = CityClient(config["simulator"]["server"], secure=False)
+                self.server_addr = config["simulator"]["server"]
         else:
             self.server_addr = None
             logger.warning(

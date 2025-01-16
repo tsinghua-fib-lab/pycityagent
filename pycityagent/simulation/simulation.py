@@ -83,6 +83,9 @@ class AgentSimulation:
         self.config = config
         self.exp_name = exp_name
         self._simulator = Simulator(config["simulator_request"])
+        _simulator_config = config["simulator_request"].get("simulator", {})
+        if "server" in _simulator_config:
+            raise ValueError(f"Passing Traffic Simulation address is not supported!")
         if enable_economy:
             self._economy_addr = economy_addr = self._simulator.server_addr
             if economy_addr is None:
