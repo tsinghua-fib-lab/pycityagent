@@ -87,6 +87,7 @@ class AgentGroup:
             logger.info(f"-----Creating Mlflow client in AgentGroup {self._uuid} ...")
             self.mlflow_client = MlflowClient(
                 config=_mlflow_config,
+                experiment_uuid=self.exp_id,  # type:ignore
                 mlflow_run_name=f"{exp_name}_{1000*int(time.time())}",
                 experiment_name=exp_name,
                 run_id=mlflow_run_id,

@@ -52,6 +52,8 @@ class Simulator:
                 f.write(_map_pb.SerializeToString())
 
         if "simulator" in config:
+            if config["simulator"] is None:
+                config["simulator"] = {}
             if "server" not in config["simulator"]:
                 self._sim_env = sim_env = ControlSimEnv(
                     task_name=config["simulator"].get("task", "citysim"),
@@ -62,7 +64,7 @@ class Simulator:
                     min_step_time=config["simulator"].get("min_step_time", 1000),
                     sim_addr=config["simulator"].get("server", None),
                 )
-
+                self.server_addr = sim_env.sim_addr
                 # using local client
                 self._client = CityClient(sim_env.sim_addr, secure=False)
                 """
@@ -75,6 +77,7 @@ class Simulator:
                 )
                 self._client = CityClient(config["simulator"]["server"], secure=False)
         else:
+            self.server_addr = None
             logger.warning(
                 "No simulator config found, no simulator client will be used"
             )
