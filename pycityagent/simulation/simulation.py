@@ -129,15 +129,17 @@ class AgentSimulation:
 
         # mlflow
         _mlflow_config: dict[str, Any] = config.get("metric_request", {}).get("mlflow")
-        mlflow_run_id, _ = init_mlflow_connection(
-            config=_mlflow_config,
-            mlflow_run_name=f"EXP_{self.exp_name}_{1000*int(time.time())}",
-            experiment_name=self.exp_name,
-        )
         if _mlflow_config:
             logger.info(f"-----Creating Mlflow client...")
+            mlflow_run_id, _ = init_mlflow_connection(
+                config=_mlflow_config,
+                experiment_uuid=self.exp_id,
+                mlflow_run_name=f"EXP_{self.exp_name}_{1000*int(time.time())}",
+                experiment_name=self.exp_name,
+            )
             self.mlflow_client = MlflowClient(
                 config=_mlflow_config,
+                experiment_uuid=self.exp_id,
                 mlflow_run_name=f"EXP_{exp_name}_{1000*int(time.time())}",
                 experiment_name=exp_name,
                 run_id=mlflow_run_id,
@@ -526,6 +528,7 @@ class AgentSimulation:
         _mlflow_config = self.config.get("metric_request", {}).get("mlflow")
         if _mlflow_config:
             mlflow_run_id, _ = init_mlflow_connection(
+                experiment_uuid=self.exp_id,
                 config=_mlflow_config,
                 mlflow_run_name=f"{self.exp_name}_{1000*int(time.time())}",
                 experiment_name=self.exp_name,

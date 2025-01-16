@@ -20,6 +20,7 @@ logger = logging.getLogger("mlflow")
 
 def init_mlflow_connection(
     config: dict,
+    experiment_uuid: str,
     mlflow_run_name: Optional[str] = None,
     experiment_name: Optional[str] = None,
     experiment_description: Optional[str] = None,
@@ -43,6 +44,7 @@ def init_mlflow_connection(
         experiment_tags = {}
     if experiment_description is not None:
         experiment_tags["mlflow.note.content"] = experiment_description
+        experiment_tags["experiment_id"] = experiment_uuid
 
     uri = config["mlflow_uri"]
     client = mlflow.MlflowClient(tracking_uri=uri)
@@ -75,6 +77,7 @@ class MlflowClient:
     def __init__(
         self,
         config: dict,
+        experiment_uuid: str,
         mlflow_run_name: Optional[str] = None,
         experiment_name: Optional[str] = None,
         experiment_description: Optional[str] = None,
@@ -89,6 +92,7 @@ class MlflowClient:
                 self._run_uuid,
             ) = init_mlflow_connection(
                 config=config,
+                experiment_uuid=experiment_uuid,
                 mlflow_run_name=mlflow_run_name,
                 experiment_name=experiment_name,
                 experiment_description=experiment_description,
