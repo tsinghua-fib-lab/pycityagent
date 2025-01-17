@@ -55,6 +55,10 @@ class EdgeMessageBlock(MessageBlockBase):
 
 
 class PointMessageBlock(MessageBlockBase):
+    def __init__(self, name: str = "", max_violation_time: int = 3) -> None:
+        super().__init__(name)
+        self.max_violation_time = max_violation_time
+
     async def forward(  # type:ignore
         self,
         from_uuid: str,
@@ -74,7 +78,10 @@ class PointMessageBlock(MessageBlockBase):
                 llm_client=self.llm,
                 content=msg,
             )
-            if not is_valid and violation_counts[from_uuid] >= 3 - 1:
+            if (
+                not is_valid
+                and violation_counts[from_uuid] >= self.max_violation_time - 1
+            ):
                 # 直接添加即可 在框架内部的异步锁保证不会冲突
                 black_list.append((from_uuid, to_uuid))
             return is_valid

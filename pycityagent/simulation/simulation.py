@@ -13,13 +13,16 @@ import yaml
 from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, InstitutionAgent
-from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,SocietyAgent, 
-                         memory_config_bank, memory_config_firm,
+from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
+                         SocietyAgent, memory_config_bank, memory_config_firm,
                          memory_config_government, memory_config_nbs,
                          memory_config_societyagent)
 from ..cityagent.initial import bind_agent_info, initialize_social_network
-from ..environment import Simulator
+from ..cityagent.message_intercept import (EdgeMessageBlock,
+                                           MessageBlockListener,
+                                           PointMessageBlock)
 from ..economy.econ_client import EconomyClient
+from ..environment import Simulator
 from ..llm import SimpleEmbedding
 from ..message import (MessageBlockBase, MessageBlockListenerBase,
                        MessageInterceptor, Messager)
@@ -75,7 +78,9 @@ class AgentSimulation:
                 }
             else:
                 self.agent_class = [SocietyAgent]
-                self.default_memory_config_func = {SocietyAgent: memory_config_societyagent}
+                self.default_memory_config_func = {
+                    SocietyAgent: memory_config_societyagent
+                }
         else:
             self.agent_class = [agent_class]
         self.agent_config_file = agent_config_file
@@ -229,6 +234,9 @@ class AgentSimulation:
                 - times: int if type is "step", else None
                 - description: Optional[str], description of the step
                 - func: Optional[Callable[AgentSimulation, None]], only used when type is "interview", "survey" and "intervene"
+        - message_intercept
+            - mode: "point"|"edge"
+            - max_violation_time: Optional[int], default to 3. The maximum time for someone to send bad message before banned. Used only in `point` mode.
         - logging_level: Optional[int]
         - exp_name: Optional[str]
         """
@@ -260,7 +268,31 @@ class AgentSimulation:
         agent_count.append(config["agent_config"]["number_of_government"])
         agent_count.append(config["agent_config"]["number_of_bank"])
         agent_count.append(config["agent_config"]["number_of_nbs"])
-        # TODO(yanjunbo): support MessageInterceptor
+        # support MessageInterceptor
+        if "message_intercept" in config:
+            _intercept_config = config["message_intercept"]
+            _mode = _intercept_config.get("mode", "point")
+            if _mode == "point":
+                _kwargs = {
+                    k: v
+                    for k, v in _intercept_config.items()
+                    if k
+                    in {
+                        "max_violation_time",
+                    }
+                }
+                _interceptor_blocks = [PointMessageBlock(**_kwargs)]
+            elif _mode == "edge":
+                _kwargs = {}
+                _interceptor_blocks = [EdgeMessageBlock(**_kwargs)]
+            else:
+                raise ValueError(f"Unsupported interception mode `{_mode}!`")
+            _message_intercept_kwargs = {
+                "message_interceptor_blocks": _interceptor_blocks,
+                "message_listener": MessageBlockListener(),
+            }
+        else:
+            _message_intercept_kwargs = {}
         await simulation.init_agents(
             agent_count=agent_count,
             group_size=config["agent_config"].get("group_size", 10000),
@@ -268,6 +300,7 @@ class AgentSimulation:
                 "embedding_model", SimpleEmbedding()
             ),
             memory_config_func=config["agent_config"].get("memory_config_func", None),
+            **_message_intercept_kwargs,
         )
         logger.info("Running Init Functions...")
         for init_func in config["agent_config"].get(
@@ -312,7 +345,7 @@ class AgentSimulation:
         self,
     ) -> Path:
         return self._avro_path  # type:ignore
-    
+
     @property
     def economy_client(self):
         return self._economy_client
@@ -438,7 +471,7 @@ class AgentSimulation:
             raise ValueError("agent_class和agent_count的长度不一致")
 
         if memory_config_func is None:
-            memory_config_func = self.default_memory_config_func
+            memory_config_func = self.default_memory_config_func  # type:ignore
 
         # 使用线程池并行创建 AgentGroup
         group_creation_params = []
@@ -451,7 +484,10 @@ class AgentSimulation:
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
             agent_count_i = agent_count[i]
-            memory_config_func_i = memory_config_func.get(agent_class, self.default_memory_config_func[agent_class])
+            assert memory_config_func is not None
+            memory_config_func_i = memory_config_func.get(
+                agent_class, self.default_memory_config_func[agent_class]  # type:ignore
+            )
 
             if self.agent_config_file is not None:
                 config_file = self.agent_config_file.get(agent_class, None)
@@ -564,6 +600,7 @@ class AgentSimulation:
             _num_workers = 1
             self._pgsql_writers = _workers = [None for _ in range(_num_workers)]
         # message interceptor
+        self.message_listener = message_listener
         if message_listener is not None:
             self._message_abort_listening_queue = _queue = ray.util.queue.Queue()  # type: ignore
             await message_listener.set_queue(_queue)
@@ -688,18 +725,19 @@ class AgentSimulation:
         group = self._agent_uuid2group[target_agent_uuid]
         await group.update.remote(target_agent_uuid, target_key, content)
 
-    async def economy_update(self, target_agent_id: int, target_key: str, content: Any, mode: Literal["replace", "merge"] = "replace"):
+    async def economy_update(
+        self,
+        target_agent_id: int,
+        target_key: str,
+        content: Any,
+        mode: Literal["replace", "merge"] = "replace",
+    ):
         """更新指定智能体的经济数据"""
-        self.economy_client.update(
-            id = target_agent_id, 
-            key = target_key, 
-            value=content,
-            mode=mode
+        await self.economy_client.update(
+            id=target_agent_id, key=target_key, value=content, mode=mode
         )
 
-    async def send_survey(
-        self, survey: Survey, agent_uuids: list[str] = None
-    ):
+    async def send_survey(self, survey: Survey, agent_uuids: list[str] = []):
         """发送问卷"""
         survey_dict = survey.to_dict()
         _date_time = datetime.now(timezone.utc)
