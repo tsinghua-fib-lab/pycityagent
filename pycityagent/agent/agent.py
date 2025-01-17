@@ -94,24 +94,19 @@ class CitizenAgent(Agent):
             logger.warning("Economy client is not set")
             return
         if not self._has_bound_to_economy:
-            if self._has_bound_to_simulator:
-                try:
-                    await self._economy_client.remove_agents([self._agent_id])
-                except:
-                    pass
-                person_id = await self.status.get("id")
-                currency = await self.status.get("currency")
-                await self._economy_client.add_agents(
-                    {
-                        "id": person_id,
-                        "currency": currency,
-                    }
-                )
-                self._has_bound_to_economy = True
-            else:
-                logger.debug(
-                    f"Binding to Economy before binding to Simulator, skip binding to Economy Simulator"
-                )
+            try:
+                await self._economy_client.remove_agents([self._agent_id])
+            except:
+                pass
+            person_id = await self.status.get("id")
+            currency = await self.status.get("currency")
+            await self._economy_client.add_agents(
+                {
+                    "id": person_id,
+                    "currency": currency,
+                }
+            )
+            self._has_bound_to_economy = True
 
     async def handle_gather_message(self, payload: dict):
         """处理收到的消息，识别发送者"""
@@ -176,7 +171,6 @@ class InstitutionAgent(Agent):
         await self._bind_to_economy()
 
     async def _bind_to_economy(self):
-        print("Debug:", self._economy_client, self._has_bound_to_economy)
         if self._economy_client is None:
             logger.debug("Economy client is not set")
             return
