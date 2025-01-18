@@ -196,6 +196,9 @@ def memory_config_societyagent():
 def memory_config_firm():
     EXTRA_ATTRIBUTES = {
         "type": (int, economyv2.ORG_TYPE_FIRM),
+        "location": {
+            "aoi_position": {"aoi_id": AOI_START_ID + random.randint(1000, 10000)}
+        },
         "price": (float, float(np.mean(agent_skills))),
         "inventory": (int, 0),
         "employees": (list, []),

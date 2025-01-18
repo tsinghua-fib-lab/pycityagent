@@ -121,7 +121,6 @@ class PlanAndActionBlock(Block):
             elif step_type == "other":
                 result = await self.otherBlock.forward(current_step, execution_context)
             if result != None:
-                logger.warning(f"Execution result: {result}")
                 current_step["evaluation"] = result
 
             # Update current_step, plan, and execution_context information
@@ -210,7 +209,7 @@ class SocietyAgent(CitizenAgent):
         self.enable_mobility = True
         self.enable_social = True
         self.enable_economy = True
-        
+
         self.mindBlock = MindBlock(
             llm=self.llm, memory=self.memory, simulator=self.simulator
         )
@@ -231,7 +230,6 @@ class SocietyAgent(CitizenAgent):
     # Main workflow
     async def forward(self):
         self.step_count += 1
-        logger.info(f"Agent {self._uuid} forward [step_count: {self.step_count}]")
         # sync agent status with simulator
         await self.update_with_sim()
 

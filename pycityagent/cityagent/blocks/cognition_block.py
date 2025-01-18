@@ -207,10 +207,6 @@ class CognitionBlock(Block):
 
     async def emotion_update(self, incident):
         """Cognition - emotion update workflow"""
-        whether_trigger = await self.check_trigger()
-        if not whether_trigger:
-            return
-        print(f"Updating emotion for {incident}")
         description_prompt = """
         You are a {gender}, aged {age}, belonging to the {race} race and identifying as {religion}. 
         Your marital status is {marital_status}, and you currently reside in a {residence} area. 
@@ -228,7 +224,7 @@ class CognitionBlock(Block):
         question_prompt = """
             Please reconsider your emotion intensities: 
             sadness, joy, fear, disgust, anger, surprise (0 meaning not at all, 10 meaning very much).
-            Return in JSON format, e.g. {{"sadness": 5, "joy": 5, "fear": 5, "disgust": 5, "anger": 5, "surprise": 5, "conclusion": "I feel ..."}}"""
+            Return in JSON format, e.g. {{"sadness": 5, "joy": 5, "fear": 5, "disgust": 5, "anger": 5, "surprise": 5, "conclusion": "I feel ...", "word": "Relief"}}"""
         question_prompt = description_prompt + incident_prompt + question_prompt
         question_prompt = FormatPrompt(question_prompt)
         emotion = await self.memory.status.get("emotion")

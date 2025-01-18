@@ -33,6 +33,8 @@ Your output must be a single selection from ['home', 'workplace', 'other'] witho
 
 RADIUS_PROMPT = """As an intelligent decision system, please determine the maximum travel radius (in meters) based on the current emotional state.
 
+Current weather: {weather}
+Current temperature: {temperature}
 Your current emotion: {emotion_types}
 Your current thought: {thought}
 
@@ -82,7 +84,9 @@ class PlaceSelectionBlock(Block):
         center = (center['xy_position']['x'], center['xy_position']['y'])
         self.radiusPrompt.format(
             emotion_types=await self.memory.status.get("emotion_types"),
-            thought=await self.memory.status.get("thought")
+            thought=await self.memory.status.get("thought"),
+            weather=self.simulator.sence("weather"),
+            temperature=self.simulator.sence("temperature")
         )
         radius = int(await self.llm.atext_request(self.radiusPrompt.to_dialog())) # type: ignore
         try:
@@ -158,7 +162,6 @@ class MoveBlock(Block):
                 return {
                     'success': True,
                     'evaluation': f'Successfully returned home (already at home)',
-                    'from_place': home,
                     'to_place': home,
                     'consumed_time': 0,
                     'node_id': node_id
@@ -170,7 +173,6 @@ class MoveBlock(Block):
             return {
                 'success': True,
                 'evaluation': f'Successfully returned home',
-                'from_place': nowPlace['aoi_position']['aoi_id'],
                 'to_place': home,
                 'consumed_time': 45,
                 'node_id': node_id
@@ -185,7 +187,6 @@ class MoveBlock(Block):
                 return {
                     'success': True,
                     'evaluation': f'Successfully reached the workplace (already at the workplace)',
-                    'from_place': work,
                     'to_place': work,
                     'consumed_time': 0,
                     'node_id': node_id
@@ -197,7 +198,6 @@ class MoveBlock(Block):
             return {
                 'success': True,
                 'evaluation': f'Successfully reached the workplace',
-                'from_place': nowPlace['aoi_position']['aoi_id'],
                 'to_place': work,
                 'consumed_time': 45,
                 'node_id': node_id
@@ -227,7 +227,6 @@ class MoveBlock(Block):
             return {
                 'success': True,
                 'evaluation': f'Successfully reached the destination: {next_place}',
-                'from_place': nowPlace['aoi_position']['aoi_id'],
                 'to_place': next_place[1],
                 'consumed_time': 45,
                 'node_id': node_id

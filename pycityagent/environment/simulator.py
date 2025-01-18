@@ -105,6 +105,20 @@ class Simulator:
         self.poi_id_2_aoi_id: dict[int, int] = {
             poi["id"]: poi["aoi_id"] for _, poi in self.map.pois.items()
         }
+        self._environment_prompt:dict[str, str] = {}
+
+    @property
+    def environment(self):
+        return self._environment_prompt
+    
+    def set_environment(self, environment: dict[str, str]):
+        self._environment_prompt = environment
+
+    def sence(self, key: str):
+        return self._environment_prompt.get(key, "")
+    
+    def update_environment(self, key: str, value: str):
+        self._environment_prompt[key] = value
 
     # * Agent相关
     def find_agents_by_area(self, req: dict, status=None):

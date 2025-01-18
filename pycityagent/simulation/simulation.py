@@ -226,6 +226,8 @@ class AgentSimulation:
             - number_of_government: required, int
             - number_of_bank: required, int
             - number_of_nbs: required, int
+        - environment: Optional[dict[str, str]]
+            - default: {'weather': 'The weather is normal', 'crime': 'The crime rate is low', 'pollution': 'The pollution level is low', 'temperature': 'The temperature is normal'}
         - workflow:
             - list[Step]
             - Step:
@@ -261,6 +263,16 @@ class AgentSimulation:
             exp_name=config.get("exp_name", "default_experiment"),
             logging_level=config.get("logging_level", logging.WARNING),
         )
+        environment = config.get(
+            "environment", 
+            {
+                "weather": "The weather is normal", 
+                "crime": "The crime rate is low", 
+                "pollution": "The pollution level is low", 
+                "temperature": "The temperature is normal"
+            }
+        )
+        simulation._simulator.set_environment(environment)
         logger.info("Initializing Agents...")
         agent_count = []
         agent_count.append(config["agent_config"]["number_of_citizen"])
@@ -308,6 +320,7 @@ class AgentSimulation:
             ),
             memory_config_func=config["agent_config"].get("memory_config_func", None),
             **_message_intercept_kwargs,
+            environment=environment,
         )
         logger.info("Running Init Functions...")
         for init_func in config["agent_config"].get(
@@ -461,6 +474,7 @@ class AgentSimulation:
         message_listener: Optional[MessageBlockListenerBase] = None,
         embedding_model: Embeddings = SimpleEmbedding(),
         memory_config_func: Optional[dict[type[Agent], Callable]] = None,
+        environment: Optional[dict[str, str]] = None,
     ) -> None:
         """初始化智能体
 
@@ -470,6 +484,7 @@ class AgentSimulation:
             pg_sql_writers: 独立的PgSQL writer数量
             message_interceptors: message拦截器数量
             memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组, 每个元素表示一个智能体类创建的Memory配置函数
+            environment: 环境变量，用于更新模拟器的环境变量
         """
         if not isinstance(agent_count, list):
             agent_count = [agent_count]
@@ -657,6 +672,7 @@ class AgentSimulation:
                 embedding_model,
                 self.logging_level,
                 config_file,
+                environment,
             )
             creation_tasks.append((group_name, group))
 
@@ -726,6 +742,11 @@ class AgentSimulation:
             for group in group_to_filter:
                 filtered_uuids.extend(await group.filter.remote(types))
             return filtered_uuids
+
+    async def update_environment(self, key: str, value: str):
+        self._simulator.update_environment(key, value)
+        for group in self._groups.values():
+            await group.update_environment.remote(key, value)
 
     async def update(self, target_agent_uuid: str, target_key: str, content: Any):
         """更新指定智能体的记忆"""
@@ -802,9 +823,6 @@ class AgentSimulation:
         try:
             # check whether insert agents
             simulator_day = await self._simulator.get_simulator_day()
-            print(
-                f"simulator_day: {simulator_day}, self._simulator_day: {self._simulator_day}"
-            )
             need_insert_agents = False
             if simulator_day > self._simulator_day:
                 need_insert_agents = True
@@ -817,6 +835,9 @@ class AgentSimulation:
                 await asyncio.gather(*insert_tasks)
 
             # step
+            simulator_day = await self._simulator.get_simulator_day()
+            simulator_time = int(await self._simulator.get_time())
+            logger.info(f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}")
             tasks = []
             for group in self._groups.values():
                 tasks.append(group.step.remote())

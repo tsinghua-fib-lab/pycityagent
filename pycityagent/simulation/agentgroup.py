@@ -47,6 +47,7 @@ class AgentGroup:
         embedding_model: Embeddings,
         logging_level: int,
         agent_config_file: Optional[dict[type[Agent], str]] = None,
+        environment: Optional[dict[str, str]] = None,
     ):
         logger.setLevel(logging_level)
         self._uuid = str(uuid.uuid4())
@@ -116,7 +117,7 @@ class AgentGroup:
         logger.info(f"-----Creating Simulator in AgentGroup {self._uuid} ...")
         self.simulator = Simulator(config["simulator_request"])
         self.projector = pyproj.Proj(self.simulator.map.header["projection"])
-
+        self.simulator.set_environment(environment)
         # prepare Economy client
         logger.info(f"-----Creating Economy client in AgentGroup {self._uuid} ...")
         self.economy_client = EconomyClient(
@@ -354,6 +355,9 @@ class AgentGroup:
         )
         agent = self.id2agent[target_agent_uuid]
         await agent.status.update(target_key, content)
+
+    async def update_environment(self, key: str, value: str):
+        self.simulator.update_environment(key, value)
 
     async def message_dispatch(self):
         logger.debug(f"-----Starting message dispatch for group {self._uuid}")

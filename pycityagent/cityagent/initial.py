@@ -73,16 +73,22 @@ async def bind_agent_info(simulation):
     infos = await simulation.gather("id")
     citizen_uuids = await simulation.filter(types=[SocietyAgent])
     firm_uuids = await simulation.filter(types=[FirmAgent])
+    locations = await simulation.gather("location", firm_uuids)
+    locations_plain = {}
+    for info in locations:
+        for k, v in info.items():
+            locations_plain[k] = v
     government_uuids = await simulation.filter(types=[GovernmentAgent])
     bank_uuids = await simulation.filter(types=[BankAgent])
     nbs_uuids = await simulation.filter(types=[NBSAgent])
     citizen_agent_ids = []
+    firm_ids = []
     for info in infos:
         for k, v in info.items():
             if k in citizen_uuids:
                 citizen_agent_ids.append(v)
             elif k in firm_uuids:
-                firm_id = v
+                firm_ids.append(v)
             elif k in government_uuids:
                 government_id = v
             elif k in bank_uuids:
@@ -90,7 +96,10 @@ async def bind_agent_info(simulation):
             elif k in nbs_uuids:
                 nbs_id = v
     for citizen_uuid in citizen_uuids:
-        await simulation.update(citizen_uuid, "firm_id", firm_id)
+        random_firm_id = random.choice(firm_ids)
+        location = locations_plain[random_firm_id]
+        await simulation.update(citizen_uuid, "firm_id", random_firm_id)
+        await simulation.update(citizen_uuid, "work", location)
         await simulation.update(citizen_uuid, "government_id", government_id)
         await simulation.update(citizen_uuid, "bank_id", bank_id)
         await simulation.update(citizen_uuid, "nbs_id", nbs_id)
@@ -104,5 +113,5 @@ async def bind_agent_info(simulation):
         await simulation.update(bank_uuid, "citizens", citizen_uuids)
         await simulation.update(bank_uuid, "citizens_agent_id", citizen_agent_ids)
     for nbs_uuid in nbs_uuids:
-        await simulation.update(nbs_uuid, "firm_id", firm_id)
+        await simulation.update(nbs_uuid, "firm_id", random.choice(firm_ids))
     print("Agent info binding completed!")

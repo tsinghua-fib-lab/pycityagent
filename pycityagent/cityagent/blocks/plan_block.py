@@ -13,11 +13,13 @@ logger = logging.getLogger("pycityagent")
 GUIDANCE_SELECTION_PROMPT = """As an intelligent agent's decision system, please select the most suitable option from the following choices to satisfy the current need.
 The Environment will influence the choice of steps.
 
+Current weather: {weather}
+Current temperature: {temperature}
+
 Current need: Need to satisfy {current_need}
 Available options: {options}
 Current location: {current_location}
 Current time: {current_time}
-Current Environment: {environment}
 Your emotion: {emotion_types}
 Your thought: {thought}
 
@@ -40,10 +42,12 @@ Please return the evaluation results in JSON format (Do not return any other tex
 
 DETAILED_PLAN_PROMPT = """Generate specific execution steps based on the selected guidance plan. The Environment will influence the choice of steps.
 
+Current weather: {weather}
+Current temperature: {temperature}
+
 Selected plan: {selected_option}
 Current location: {current_location} 
 Current time: {current_time}
-Current Environment: {environment}
 Your emotion: {emotion_types}
 Your thought: {thought}
 
@@ -191,6 +195,8 @@ class PlanBlock(Block):
         environment = await self.memory.status.get("environment")
         options = self.guidance_options.get(current_need, [])
         self.guidance_prompt.format(
+            weather=self.simulator.sence("weather"),
+            temperature=self.simulator.sence("temperature"),
             current_need=current_need,
             options=options,
             current_location=current_location,
@@ -224,6 +230,8 @@ class PlanBlock(Block):
         current_time = await self.simulator.get_time(format_time=True)
         environment = await self.memory.status.get("environment")
         self.detail_prompt.format(
+            weather=self.simulator.sence("weather"),
+            temperature=self.simulator.sence("temperature"),
             selected_option=selected_option,
             current_location=current_location,
             current_time=current_time,
