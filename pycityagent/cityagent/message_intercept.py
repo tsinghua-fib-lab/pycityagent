@@ -42,14 +42,23 @@ async def check_message(
 
 
 class EdgeMessageBlock(MessageBlockBase):
+    def __init__(self, name: str = "", max_violation_time: int = 3) -> None:
+        super().__init__(name)
+        self.max_violation_time = max_violation_time
+
     async def forward(  # type:ignore
         self,
         from_uuid: str,
         to_uuid: str,
         msg: str,
+        violation_counts: dict[str, int],
         black_list: list[tuple[str, str]],
     ):
-        if (from_uuid, to_uuid) in set(black_list):
+        if (
+            (from_uuid, to_uuid) in set(black_list)
+            or (None, to_uuid) in set(black_list)
+            or (from_uuid, None) in set(black_list)
+        ):
             # 可选同时返回入队的信息(False,err) 如果只返回bool值则默认报错信息入队
             return False
         else:
@@ -59,7 +68,10 @@ class EdgeMessageBlock(MessageBlockBase):
                 llm_client=self.llm,
                 content=msg,
             )
-            if not is_valid:
+            if (
+                not is_valid
+                and violation_counts[from_uuid] >= self.max_violation_time - 1
+            ):
                 # 直接添加即可 在框架内部的异步锁保证不会冲突
                 black_list.append((from_uuid, to_uuid))
             return is_valid
@@ -78,7 +90,11 @@ class PointMessageBlock(MessageBlockBase):
         violation_counts: dict[str, int],
         black_list: list[tuple[str, str]],
     ):
-        if (from_uuid, to_uuid) in set(black_list):
+        if (
+            (from_uuid, to_uuid) in set(black_list)
+            or (None, to_uuid) in set(black_list)
+            or (from_uuid, None) in set(black_list)
+        ):
             # 可选同时返回入队的信息(False,err) 如果只返回bool值则默认报错信息入队
             return False
         else:
@@ -94,7 +110,7 @@ class PointMessageBlock(MessageBlockBase):
                 and violation_counts[from_uuid] >= self.max_violation_time - 1
             ):
                 # 直接添加即可 在框架内部的异步锁保证不会冲突
-                black_list.append((from_uuid, to_uuid))
+                black_list.append((from_uuid, None))  # type:ignore
             return is_valid
 
 

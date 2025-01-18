@@ -283,7 +283,14 @@ class AgentSimulation:
                 }
                 _interceptor_blocks = [PointMessageBlock(**_kwargs)]
             elif _mode == "edge":
-                _kwargs = {}
+                _kwargs = {
+                    k: v
+                    for k, v in _intercept_config.items()
+                    if k
+                    in {
+                        "max_violation_time",
+                    }
+                }
                 _interceptor_blocks = [EdgeMessageBlock(**_kwargs)]
             else:
                 raise ValueError(f"Unsupported interception mode `{_mode}!`")
