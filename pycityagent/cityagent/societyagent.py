@@ -36,11 +36,19 @@ class PlanAndActionBlock(Block):
         memory: Memory,
         simulator: Simulator,
         economy_client: EconomyClient,
+        enable_mobility: bool = True,
+        enable_social: bool = True,
+        enable_economy: bool = True,
+        enable_cognition: bool = True,
     ):
         super().__init__(
             name="plan_and_action_block", llm=llm, memory=memory, simulator=simulator
         )
         self._agent = agent
+        self.enable_mobility = enable_mobility
+        self.enable_social = enable_social
+        self.enable_economy = enable_economy
+        self.enable_cognition = enable_cognition
         self.longTermDecisionBlock = MonthPlanBlock(
             llm=llm, memory=memory, simulator=simulator, economy_client=economy_client
         )
@@ -73,9 +81,6 @@ class PlanAndActionBlock(Block):
             if "aoi_position" in position:
                 current_step["position"] = position["aoi_position"]["aoi_id"]
             current_step["start_time"] = int(await self.simulator.get_time())
-            logger.info(
-                f"Executing step: {current_step['intention']} - Type: {step_type}"
-            )
             result = None
             if step_type == "mobility":
                 if self.enable_mobility:  # type:ignore
@@ -116,7 +121,7 @@ class PlanAndActionBlock(Block):
             elif step_type == "other":
                 result = await self.otherBlock.forward(current_step, execution_context)
             if result != None:
-                logger.info(f"Execution result: {result}")
+                logger.warning(f"Execution result: {result}")
                 current_step["evaluation"] = result
 
             # Update current_step, plan, and execution_context information
@@ -199,6 +204,13 @@ class SocietyAgent(CitizenAgent):
             memory=memory,
             economy_client=economy_client,
         )
+
+        # config
+        self.enable_cognition = True
+        self.enable_mobility = True
+        self.enable_social = True
+        self.enable_economy = True
+        
         self.mindBlock = MindBlock(
             llm=self.llm, memory=self.memory, simulator=self.simulator
         )
@@ -208,15 +220,13 @@ class SocietyAgent(CitizenAgent):
             memory=self.memory,
             simulator=self.simulator,
             economy_client=self.economy_client,
+            enable_mobility=self.enable_mobility,
+            enable_social=self.enable_social,
+            enable_economy=self.enable_economy,
+            enable_cognition=self.enable_cognition,
         )
         self.step_count = -1
         self.cognition_update = -1
-
-        # config
-        self.enable_cognition = True
-        self.enable_mobility = True
-        self.enable_social = True
-        self.enable_economy = True
 
     # Main workflow
     async def forward(self):
@@ -239,92 +249,6 @@ class SocietyAgent(CitizenAgent):
         status = await self.memory.status.get("status")
         if status == 2:
             # Agent is moving
-            logger.info("Agent is moving")
-            await asyncio.sleep(1)
-            return False
-
-        # Get the previous step information
-        current_step = await self.memory.status.get("current_step")
-        if current_step["intention"] == "" or current_step["type"] == "":
-            # No previous step, return directly
-            return True
-        time_now = int(await self.simulator.get_time())
-        step_start_time = current_step["start_time"]
-        step_consumed_time = current_step["evaluation"]["consumed_time"]
-        time_end_plan = step_start_time + int(step_consumed_time) * 60
-        if time_now >= time_end_plan:
-            # The previous step has been completed
-            current_plan = await self.memory.status.get("current_plan")
-            current_step["evaluation"]["consumed_time"] = (
-                time_now - step_start_time
-            ) / 60
-            current_plan["stream_nodes"].append(current_step["evaluation"]["node_id"])
-            if current_step["evaluation"]["success"]:
-                # Last step is completed
-                current_step_index = next(
-                    (
-                        i
-                        for i, step in enumerate(current_plan["steps"])
-                        if step["intention"] == current_step["intention"]
-                        and step["type"] == current_step["type"]
-                    ),
-                    None,
-                )
-                current_plan["steps"][current_step_index] = current_step
-                await self.memory.status.update("current_plan", current_plan)
-                if current_step_index is not None and current_step_index + 1 < len(
-                    current_plan["steps"]
-                ):
-                    next_step = current_plan["steps"][current_step_index + 1]
-                    await self.memory.status.update("current_step", next_step)
-                else:
-                    # Whole plan is completed
-                    current_plan["completed"] = True
-                    current_plan["end_time"] = await self.simulator.get_time(
-                        format_time=True
-                    )
-                    if self.enable_cognition:
-                        # Update emotion for the plan
-                        related_memories = await self.memory.stream.get_by_ids(current_plan["stream_nodes"])
-                        incident = f"You have successfully completed the plan: {related_memories}"
-                        conclusion = await self.mindBlock.cognitionBlock.emotion_update(incident)
-                        await self.memory.stream.add_cognition(description=conclusion)
-                        await self.memory.stream.add_cognition_to_memory(current_plan["stream_nodes"], conclusion)
-                    await self.memory.status.update("current_plan", current_plan)
-                    await self.memory.status.update("current_step", {"intention": "", "type": ""})
-                return True
-            else:
-                current_plan["failed"] = True
-                current_plan["end_time"] = await self.simulator.get_time(
-                    format_time=True
-                )
-                if self.enable_cognition:
-                    # Update emotion for the plan
-                    related_memories = await self.memory.stream.get_by_ids(current_plan["stream_nodes"])
-                    incident = f"You have failed to complete the plan: {related_memories}"
-                    conclusion = await self.mindBlock.cognitionBlock.emotion_update(incident)
-                    await self.memory.stream.add_cognition(description=conclusion)
-                    await self.memory.stream.add_cognition_to_memory(current_plan["stream_nodes"], conclusion)
-                await self.memory.status.update("current_plan", current_plan)
-                await self.memory.status.update("current_step", {"intention": "", "type": ""})
-        # The previous step has not been completed
-        return False
-
-        # check last step
-        if not await self.check_and_update_step():
-            return
-
-        await self.planAndActionBlock.forward()
-
-        if self.enable_cognition:
-            await self.mindBlock.forward()
-
-    async def check_and_update_step(self):
-        """Check if the previous step has been completed"""
-        status = await self.memory.status.get("status")
-        if status == 2:
-            # Agent is moving
-            logger.info("Agent is moving")
             await asyncio.sleep(1)
             return False
 
@@ -420,7 +344,6 @@ class SocietyAgent(CitizenAgent):
     async def process_agent_chat_response(self, payload: dict) -> str:  # type:ignore
         if payload["type"] == "social":
             resp = f"Agent {self._uuid} received agent chat response: {payload}"
-            logger.info(resp)
             try:
                 # Extract basic info
                 sender_id = payload.get("from")
@@ -463,9 +386,6 @@ class SocietyAgent(CitizenAgent):
                 # Check propagation limit
                 if propagation_count > 5:
                     await self.memory.status.update("chat_histories", chat_histories)
-                    logger.info(
-                        f"Message propagation limit reached ({propagation_count} > 5), stopping propagation"
-                    )
                     return ""
 
                 # Get relationship score
@@ -550,8 +470,6 @@ class SocietyAgent(CitizenAgent):
                         ensure_ascii=False,
                     )
                     await self.send_message_to_agent(sender_id, serialized_response)
-                    logger.info("sender_id", sender_id)
-                    logger.info("message", serialized_response)
                 return response  # type:ignore
 
             except Exception as e:
