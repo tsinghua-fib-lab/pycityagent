@@ -1,5 +1,5 @@
-import re
 import ast
+import re
 
 TIME_ESTIMATE_PROMPT = """As an intelligent agent's time estimation system, please estimate the time needed to complete the current action based on the overall plan and current intention.
 
@@ -36,18 +36,24 @@ tao = 1
 period = 3
 UBI = 0
 
+
 def prettify_document(document: str) -> str:
     # Remove sequences of whitespace characters (including newlines)
-    cleaned = re.sub(r'\s+', ' ', document).strip()
+    cleaned = re.sub(r"\s+", " ", document).strip()
     return cleaned
+
 
 def extract_dict_from_string(input_string):
     """
     提取输入字符串中的字典。支持跨行字典和嵌套字典。
     """
     # 正则表达式查找所有可能的字典部分，允许多行
-    dict_pattern = r'\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}'  # 匹配字典的正则表达式，支持嵌套
-    matches = re.findall(dict_pattern, input_string, re.DOTALL)  # re.DOTALL允许匹配换行符
+    dict_pattern = (
+        r"\{(?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*\}"  # 匹配字典的正则表达式，支持嵌套
+    )
+    matches = re.findall(
+        dict_pattern, input_string, re.DOTALL
+    )  # re.DOTALL允许匹配换行符
 
     dicts = []
 
@@ -62,7 +68,8 @@ def extract_dict_from_string(input_string):
 
     return dicts
 
+
 def clean_json_response(response: str) -> str:
     """清理LLM响应中的特殊字符"""
-    response = response.replace('```json', '').replace('```', '')
-    return response.strip() 
+    response = response.replace("```json", "").replace("```", "")
+    return response.strip()

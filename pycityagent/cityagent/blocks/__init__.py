@@ -14,5 +14,4 @@ __all__ = [
     "SocialBlock",
     "EconomyBlock",
     "OtherBlock",
-    "LongTermDecisionBlock",    
 ]

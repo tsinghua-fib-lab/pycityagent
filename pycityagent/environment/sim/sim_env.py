@@ -3,7 +3,7 @@ import logging
 import os
 import time
 import warnings
-from subprocess import DEVNULL, Popen
+from subprocess import Popen
 from typing import Optional
 
 from pycitydata.map import Map
@@ -46,7 +46,6 @@ class ControlSimEnv:
         self,
         task_name: str,
         map_file: str,
-        # person_file,
         start_step: int,
         total_step: int,
         log_dir: str,
@@ -54,9 +53,15 @@ class ControlSimEnv:
         timeout: int = 5,
         sim_addr: Optional[str] = None,
     ):
+        """
+        A control environment for managing a pycityagent-sim process.
+
+        - **Description**:
+            - This class sets up and manages a simulation environment using the specified parameters.
+            - It can start a new simulation process or connect to an existing one.
+        """
         self._task_name = task_name
         self._map_file = map_file
-        # self._person_file = person_file
         self._start_step = start_step
         self._total_step = total_step
         self._log_dir = log_dir
@@ -80,8 +85,16 @@ class ControlSimEnv:
         sim_addr: Optional[str] = None,
     ):
         """
-        Args:
-        - sim_addr: str, pycityagent-sim的地址。如果为None，则启动一个新的pycityagent-sim
+        Reset the simulation environment by either starting a new simulation process or connecting to an existing one.
+
+        - **Args**:
+            - `sim_addr` (`Optional[str]`): Address of an existing simulation to connect to. If `None`, a new simulation is started.
+
+        - **Returns**:
+            - `str`: The address of the simulation server.
+
+        - **Raises**:
+            - `AssertionError`: If trying to start a new simulation when one is already running.
         """
         if sim_addr is None:
             # 启动pycityagent-sim
@@ -123,6 +136,9 @@ class ControlSimEnv:
         return sim_addr
 
     def close(self):
+        """
+        Terminate the simulation process if it's running.
+        """
         if self._sim_proc is not None:
             self._sim_proc.terminate()
             sim_code = self._sim_proc.wait()

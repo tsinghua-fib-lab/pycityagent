@@ -15,6 +15,14 @@ __all__ = [
 
 
 class SentenceEmbedding(Embeddings):
+    """
+    Main class for generating sentence embeddings using a pre-trained language model.
+
+    - **Description**:
+        - This class initializes a tokenizer and a pre-trained model to generate embeddings for input texts.
+        - It supports automatic CUDA device allocation and handles caching of models locally.
+    """
+
     def __init__(
         self,
         pretrained_model_name_or_path: Union[str, os.PathLike] = "BAAI/bge-m3",
@@ -24,6 +32,17 @@ class SentenceEmbedding(Embeddings):
         cache_dir: str = "./cache",
         proxies: Optional[dict] = None,
     ):
+        """
+        Initializes the SentenceEmbedding instance.
+
+        - **Parameters**:
+            - `pretrained_model_name_or_path`: Name or path of the pre-trained model. Default is "BAAI/bge-m3".
+            - `max_seq_len`: Maximum sequence length for inputs. Default is 8192.
+            - `auto_cuda`: Automatically move the model to available CUDA device if True. Default is False.
+            - `local_files_only`: Only try to load model from local files if True. Default is False.
+            - `cache_dir`: Directory to cache models. Default is "./cache".
+            - `proxies`: Proxy settings for HTTP/HTTPS. Default is None.
+        """
         os.makedirs(cache_dir, exist_ok=True)
         self.tokenizer = AutoTokenizer.from_pretrained(
             pretrained_model_name_or_path,
@@ -46,6 +65,15 @@ class SentenceEmbedding(Embeddings):
         self.max_seq_len = max_seq_len
 
     def _embed(self, texts: list[str]) -> list[list[float]]:
+        """
+        Internal method to compute embeddings for a list of input texts.
+
+        - **Parameters**:
+            - `texts`: A list of strings representing the input texts.
+
+        - **Returns**:
+            - A list of lists containing floating-point numbers representing the embeddings.
+        """
         # Tokenize sentences
         encoded_input = self.tokenizer(
             texts, padding=True, truncation=True, return_tensors="pt"
@@ -73,27 +101,46 @@ class SentenceEmbedding(Embeddings):
         return sentence_embeddings.tolist()
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        """Embed documents."""
+        """
+        Embeds a list of documents.
+
+        - **Parameters**:
+            - `texts`: The documents to embed.
+
+        - **Returns**:
+            - A list of document embeddings.
+        """
         return self._embed(texts)
 
     def embed_query(self, text: str) -> list[float]:
-        """Embed query text."""
+        """
+        Embeds a single query text.
+
+        - **Parameters**:
+            - `text`: The query text to embed.
+
+        - **Returns**:
+            - The embedding of the query text.
+        """
         return self._embed([text])[0]
 
 
 class SimpleEmbedding(Embeddings):
-    """简单的基于内存的embedding实现
+    """
+    A simple in-memory embedding implementation using Bag of Words and TF-IDF for generating text vectors.
 
-    使用简单的词袋模型(Bag of Words)和TF-IDF来生成文本的向量表示。
-    所有向量都保存在内存中，适用于小规模应用。
+    - **Description**:
+        - This class provides a basic approach to creating text embeddings based on term frequency-inverse document frequency (TF-IDF).
+        - It maintains an in-memory cache of computed embeddings and updates its vocabulary dynamically as new texts are processed.
     """
 
     def __init__(self, vector_dim: int = 128, cache_size: int = 1000):
-        """初始化
+        """
+        Initializes the SimpleEmbedding instance.
 
-        Args:
-            vector_dim: 向量维度
-            cache_size: 缓存大小，超过此大小将清除最早的缓存
+        - **Parameters**:
+            - `vector_dim`: Dimensionality of the vectors. Default is 128.
+            - `cache_size`: Cache size; oldest entries are removed when exceeded. Default is 1000.
         """
         self.vector_dim = vector_dim
         self.cache_size = cache_size
@@ -103,29 +150,73 @@ class SimpleEmbedding(Embeddings):
         self._doc_count = 0  # 文档总数
 
     def _text_to_hash(self, text: str) -> str:
-        """将文本转换为hash值"""
+        """
+        Converts text into a hash value.
+
+        - **Parameters**:
+            - `text`: The input text to hash.
+
+        - **Returns**:
+            - A string representing the MD5 hash of the input text.
+        """
         return hashlib.md5(text.encode()).hexdigest()
 
     def _tokenize(self, text: str) -> list[str]:
-        """简单的分词"""
+        """
+        Performs simple tokenization on the input text.
+
+        - **Parameters**:
+            - `text`: The input text to tokenize.
+
+        - **Returns**:
+            - A list of tokens extracted from the input text.
+        """
         # 这里使用简单的空格分词，实际应用中可以使用更复杂的分词方法
         return text.lower().split()
 
     def _update_vocab(self, tokens: list[str]):
-        """更新词汇表"""
+        """
+        Updates the vocabulary with new tokens.
+
+        - **Description**:
+            - This method adds unique tokens from the input list to the vocabulary.
+            - It ensures that each token is only added once using a set for deduplication.
+
+        - **Parameters**:
+            - `tokens`: A list of strings representing the tokens to add to the vocabulary.
+        """
         for token in set(tokens):  # 使用set去重
             if token not in self._vocab:
                 self._vocab[token] = len(self._vocab)
 
     def _update_idf(self, tokens: list[str]):
-        """更新IDF值"""
+        """
+        Updates the IDF values based on the tokens.
+
+        - **Description**:
+            - Increases the document count and updates the inverse document frequency (IDF) for each unique token.
+
+        - **Parameters**:
+            - `tokens`: A list of strings representing the tokens from a single document.
+        """
         self._doc_count += 1
         unique_tokens = set(tokens)
         for token in unique_tokens:
             self._idf[token] = self._idf.get(token, 0) + 1
 
     def _calculate_tf(self, tokens: list[str]) -> dict[str, float]:
-        """计算词频(TF)"""
+        """
+        Calculates term frequency (TF) for the tokens.
+
+        - **Description**:
+            - Computes the frequency of each token within the provided list and normalizes it by the total number of tokens.
+
+        - **Parameters**:
+            - `tokens`: A list of strings representing the tokens to calculate TF for.
+
+        - **Returns**:
+            - A dictionary mapping each token to its normalized term frequency.
+        """
         tf = {}
         total_tokens = len(tokens)
         for token in tokens:
@@ -136,7 +227,18 @@ class SimpleEmbedding(Embeddings):
         return tf
 
     def _calculate_tfidf(self, tokens: list[str]) -> list[float]:
-        """计算TF-IDF向量"""
+        """
+        Calculates the TF-IDF vector for the tokens.
+
+        - **Description**:
+            - Generates a vector representation of the input tokens using the Term Frequency-Inverse Document Frequency (TF-IDF) weighting scheme.
+
+        - **Parameters**:
+            - `tokens`: A list of strings representing the tokens to generate the TF-IDF vector for.
+
+        - **Returns**:
+            - A list of floating-point numbers representing the TF-IDF vector.
+        """
         vector = np.zeros(self.vector_dim)
         tf = self._calculate_tf(tokens)
 
@@ -154,13 +256,19 @@ class SimpleEmbedding(Embeddings):
         return list(vector)
 
     def _embed(self, text: str) -> list[float]:
-        """生成文本的向量表示
+        """
+        Generates a vector representation for the input text.
 
-        Args:
-            text: 输入文本
+        - **Description**:
+            - Creates an embedding for the given text by first checking if it's already cached,
+              then tokenizing, updating the vocabulary and IDF, calculating the TF-IDF vector,
+              and finally caching the result.
 
-        Returns:
-            np.ndarray: 文本的向量表示
+        - **Parameters**:
+            - `text`: The input text to generate the vector for.
+
+        - **Returns**:
+            - A list of floating-point numbers representing the vector of the input text.
         """
         # 检查缓存
         text_hash = self._text_to_hash(text)
@@ -189,19 +297,30 @@ class SimpleEmbedding(Embeddings):
         return list(vector)
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        """Embed documents."""
+        """
+        Embeds a list of documents.
+
+        - **Parameters**:
+            - `texts`: A list of strings representing the documents to embed.
+
+        - **Returns**:
+            - A list of lists containing the embeddings of the documents.
+        """
         return [self._embed(text) for text in texts]
 
     def embed_query(self, text: str) -> list[float]:
-        """Embed query text."""
+        """
+        Embeds a single query text.
+
+        - **Parameters**:
+            - `text`: The query text to embed.
+
+        - **Returns**:
+            - A list of floating-point numbers representing the embedding of the query text.
+        """
         return self._embed(text)
 
+
 if __name__ == "__main__":
-    # se = SentenceEmbedding(
-    #     pretrained_model_name_or_path="ignore/BAAI--bge-m3", cache_dir="ignore"
-    # )
     se = SimpleEmbedding()
-    print(se.embed_query("hello world"))
-    print(se.embed_query("hello world"))
-    print(se.embed_query("hello world"))
     print(se.embed_query("hello world"))

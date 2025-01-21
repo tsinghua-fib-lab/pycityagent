@@ -1,16 +1,16 @@
 import asyncio
+import logging
 from typing import Optional
 
 import numpy as np
-from pycityagent import Simulator, InstitutionAgent
-from pycityagent.llm.llm import LLM
+
+from pycityagent import InstitutionAgent, Simulator
 from pycityagent.economy import EconomyClient
-from pycityagent.message import Messager
+from pycityagent.llm.llm import LLM
 from pycityagent.memory import Memory
-import logging
+from pycityagent.message import Messager
 
 logger = logging.getLogger("pycityagent")
-
 
 class BankAgent(InstitutionAgent):
     def __init__(
@@ -20,7 +20,7 @@ class BankAgent(InstitutionAgent):
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,
+        messager: Optional[Messager] = None,  # type:ignore
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
@@ -38,7 +38,7 @@ class BankAgent(InstitutionAgent):
         self.forward_times = 0
 
     async def month_trigger(self):
-        now_time = await self.simulator.get_time()
+        now_time: int = await self.simulator.get_time()  # type:ignore
         if self.last_time_trigger is None:
             self.last_time_trigger = now_time
             return False
@@ -47,7 +47,7 @@ class BankAgent(InstitutionAgent):
             return True
         return False
 
-    async def gather_messages(self, agent_ids, content):
+    async def gather_messages(self, agent_ids, content):  # type:ignore
         infos = await super().gather_messages(agent_ids, content)
         return [info["content"] for info in infos]
 

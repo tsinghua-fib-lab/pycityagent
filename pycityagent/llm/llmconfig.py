@@ -1,3 +1,8 @@
+__all__ = [
+    "LLMConfig",
+]
+
+
 class LLMConfig:
     """
     大语言模型相关配置

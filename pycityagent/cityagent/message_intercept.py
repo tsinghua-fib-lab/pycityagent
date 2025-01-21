@@ -8,10 +8,6 @@ from pycityagent.message import MessageBlockBase, MessageBlockListenerBase
 async def check_message(
     from_uuid: str, to_uuid: str, llm_client: LLM, content: str
 ) -> bool:
-    """
-    使用LLM检查消息是否合规
-    返回: (是否合规, from_uuid, to_uuid)
-    """
     print(f"\n检查消息: {from_uuid} -> {to_uuid}: {content}")
     is_valid = True
     prompt = f"""

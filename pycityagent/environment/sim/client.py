@@ -1,14 +1,12 @@
 import warnings
 import grpc
 
-from ..sidecar import OnlyClientSidecar
 from .clock_service import ClockService
 from .person_service import PersonService
 from .aoi_service import AoiService
 from .lane_service import LaneService
 from .road_service import RoadService
 from .social_service import SocialService
-from .economy_services import EconomyPersonService, EconomyOrgService
 from .light_service import LightService
 from .pause_service import PauseService
 from ..utils.grpc import create_aio_channel
@@ -30,9 +28,9 @@ class CityClient:
         secure: bool = False,
     ):
         """
-        Args:
-        - url (str): 模拟器server的地址。The address of the emulator server.
-        - secure (bool, optional): 是否使用安全连接. Defaults to False. Whether to use a secure connection. Defaults to False.
+        - **Args**:
+            - `url` (`str`): 模拟器server的地址。The address of the emulator server.
+            - `secure` (`bool`, `optional`): 是否使用安全连接. Defaults to False. Whether to use a secure connection. Defaults to False.
         """
         aio_channel = create_aio_channel(url, secure)
         self._clock_service = ClockService(aio_channel)
@@ -41,18 +39,8 @@ class CityClient:
         self._aoi_service = AoiService(aio_channel)
         self._road_service = RoadService(aio_channel)
         self._social_service = SocialService(aio_channel)
-        self._economy_person_service = EconomyPersonService(aio_channel)
-        self._economy_org_service = EconomyOrgService(aio_channel)
         self._light_service = LightService(aio_channel)
         self._pause_service = PauseService(aio_channel)
-
-    @staticmethod
-    def from_sidecar(sidecar: OnlyClientSidecar, name: str = NAME):
-        """
-        从sidecar中创建CityClient
-        Create CityClient from sidecar
-        """
-        return CityClient(sidecar.wait_url(name))
 
     @property
     def clock_service(self):
@@ -109,22 +97,6 @@ class CityClient:
         Simulator social service submodule
         """
         return self._social_service
-
-    @property
-    def economy_person_service(self):
-        """
-        模拟器经济服务（个人）子模块
-        Simulator economic service (personal) submodule
-        """
-        return self._economy_person_service
-
-    @property
-    def economy_org_service(self):
-        """
-        模拟器经济服务（组织）子模块
-        Simulator economic service (organizational) submodule
-        """
-        return self._economy_org_service
 
     @property
     def light_service(self):

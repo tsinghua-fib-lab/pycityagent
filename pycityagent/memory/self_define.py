@@ -107,19 +107,19 @@ class DynamicMemory(MemoryBase):
 
         return _latest_memory[key]
 
-    @lock_decorator
-    async def get_top_k(
-        self,
-        key: Any,
-        metric: Callable[[Any], Any],
-        top_k: Optional[int] = None,
-        preserve_order: bool = True,
-    ) -> Union[Sequence[Any], Any]:
-        _latest_memories = self._fetch_recent_memory()
-        _latest_memory: DynamicMemoryUnit = _latest_memories[-1]
-        _top_k = await _latest_memory.top_k_values(key, metric, top_k, preserve_order)
+    # @lock_decorator
+    # async def get_top_k(
+    #     self,
+    #     key: Any,
+    #     metric: Callable[[Any], Any],
+    #     top_k: Optional[int] = None,
+    #     preserve_order: bool = True,
+    # ) -> Union[Sequence[Any], Any]:
+    #     _latest_memories = self._fetch_recent_memory()
+    #     _latest_memory: DynamicMemoryUnit = _latest_memories[-1]
+    #     _top_k = await _latest_memory.top_k_values(key, metric, top_k, preserve_order)
 
-        return _top_k
+    #     return _top_k
 
     @lock_decorator
     async def update(self, key: Any, value: Any, store_snapshot: bool = False):

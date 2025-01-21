@@ -1,12 +1,13 @@
 import json
+import logging
 import random
 from typing import Dict, List
+
 from pycityagent.environment.simulator import Simulator
-from pycityagent.workflow import Block
 from pycityagent.llm import LLM
 from pycityagent.memory import Memory
+from pycityagent.workflow import Block
 from pycityagent.workflow.prompt import FormatPrompt
-import logging
 
 logger = logging.getLogger("pycityagent")
 
@@ -155,14 +156,11 @@ Example outputs (Do not return any other text):
 }}
 """
 
+
 class PlanBlock(Block):
     configurable_fields: List[str] = ["max_plan_steps"]
-    default_values = {
-        "max_plan_steps": 6
-    }
-    fields_description = {
-        "max_plan_steps": "The maximum number of steps in a plan"
-    }
+    default_values = {"max_plan_steps": 6}
+    fields_description = {"max_plan_steps": "The maximum number of steps in a plan"}
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__("PlanBlock", llm=llm, memory=memory, simulator=simulator)
@@ -171,11 +169,11 @@ class PlanBlock(Block):
         self.trigger_time = 0
         self.token_consumption = 0
         self.guidance_options = {
-            "hungry": ['Eat at home', 'Eat outside'],
-            "tired": ['Sleep', 'Take a nap'],
-            "safe": ['Work'],
-            "social": ['Online social', 'Shopping'],
-            "whatever": ['Learning', 'Entertainment', 'Hang out', 'Exercise']
+            "hungry": ["Eat at home", "Eat outside"],
+            "tired": ["Sleep", "Take a nap"],
+            "safe": ["Work"],
+            "social": ["Online social", "Shopping"],
+            "whatever": ["Learning", "Entertainment", "Hang out", "Exercise"],
         }
 
         # configurable fields
@@ -187,9 +185,15 @@ class PlanBlock(Block):
         home_location = await self.memory.status.get("home")
         work_location = await self.memory.status.get("work")
         current_location = "Out"
-        if 'aoi_position' in position_now and position_now['aoi_position'] == home_location['aoi_position']:
+        if (
+            "aoi_position" in position_now
+            and position_now["aoi_position"] == home_location["aoi_position"]
+        ):
             current_location = "At home"
-        elif 'aoi_position' in position_now and position_now['aoi_position'] == work_location['aoi_position']:
+        elif (
+            "aoi_position" in position_now
+            and position_now["aoi_position"] == work_location["aoi_position"]
+        ):
             current_location = "At workplace"
         current_time = await self.simulator.get_time(format_time=True)
         environment = await self.memory.status.get("environment")
@@ -203,29 +207,37 @@ class PlanBlock(Block):
             current_time=current_time,
             environment=environment,
             emotion_types=await self.memory.status.get("emotion_types"),
-            thought=await self.memory.status.get("thought")
+            thought=await self.memory.status.get("thought"),
         )
 
         response = await self.llm.atext_request(
             self.guidance_prompt.to_dialog()
-        ) # type: ignore
+        )  # type: ignore
 
         try:
-            result = json.loads(self.clean_json_response(response)) # type: ignore
+            result = json.loads(self.clean_json_response(response))  # type: ignore
             return result
         except Exception as e:
             logger.warning(f"Error parsing guidance selection response: {str(e)}")
-            return None # type: ignore
+            return None  # type: ignore
 
-    async def generate_detailed_plan(self, current_need: str, selected_option: str) -> Dict:
+    async def generate_detailed_plan(
+        self, current_need: str, selected_option: str
+    ) -> Dict:
         """Generate detailed execution plan"""
         position_now = await self.memory.status.get("position")
         home_location = await self.memory.status.get("home")
         work_location = await self.memory.status.get("work")
         current_location = "Out"
-        if 'aoi_position' in position_now and position_now['aoi_position'] == home_location['aoi_position']:
+        if (
+            "aoi_position" in position_now
+            and position_now["aoi_position"] == home_location["aoi_position"]
+        ):
             current_location = "At home"
-        elif 'aoi_position' in position_now and position_now['aoi_position'] == work_location['aoi_position']:
+        elif (
+            "aoi_position" in position_now
+            and position_now["aoi_position"] == work_location["aoi_position"]
+        ):
             current_location = "At workplace"
         current_time = await self.simulator.get_time(format_time=True)
         environment = await self.memory.status.get("environment")
@@ -238,24 +250,24 @@ class PlanBlock(Block):
             environment=environment,
             emotion_types=await self.memory.status.get("emotion_types"),
             thought=await self.memory.status.get("thought"),
-            max_plan_steps=self.max_plan_steps
+            max_plan_steps=self.max_plan_steps,
         )
 
-        response = await self.llm.atext_request(
-            self.detail_prompt.to_dialog()
-        )
+        response = await self.llm.atext_request(self.detail_prompt.to_dialog())
 
         try:
-            result = json.loads(self.clean_json_response(response)) # type: ignore
+            result = json.loads(self.clean_json_response(response))  # type: ignore
             return result
         except Exception as e:
             logger.warning(f"Error parsing detailed plan: {str(e)}")
-            return None # type: ignore
+            return None  # type: ignore
 
     async def forward(self):
         self.trigger_time += 1
-        consumption_start = self.llm.prompt_tokens_used + self.llm.completion_tokens_used
-        
+        consumption_start = (
+            self.llm.prompt_tokens_used + self.llm.completion_tokens_used
+        )
+
         # Step 1: Select guidance plan
         current_need = await self.memory.status.get("current_need")
         guidance_result = await self.select_guidance(current_need)
@@ -264,15 +276,16 @@ class PlanBlock(Block):
 
         # Step 2: Generate detailed plan
         detailed_plan = await self.generate_detailed_plan(
-            current_need, 
-            guidance_result["selected_option"]
+            current_need, guidance_result["selected_option"]
         )
-        
+
         if not detailed_plan or "plan" not in detailed_plan:
             await self.memory.status.update("current_plan", [])
-            await self.memory.status.update("current_step", {"intention": "", "type": ""})
+            await self.memory.status.update(
+                "current_step", {"intention": "", "type": ""}
+            )
             return
-        
+
         # Step 3: Update plan and current step
         steps = detailed_plan["plan"]["steps"]
         for step in steps:
@@ -284,22 +297,26 @@ class PlanBlock(Block):
             "completed": False,
             "failed": False,
             "stream_nodes": [],
-            "guidance": guidance_result  # Save the evaluation result of the plan selection
+            "guidance": guidance_result,  # Save the evaluation result of the plan selection
         }
-        formated_steps = "\n".join([f"{i}. {step['intention']}" for i, step in enumerate(plan['steps'], 1)])
+        formated_steps = "\n".join(
+            [f"{i}. {step['intention']}" for i, step in enumerate(plan["steps"], 1)]
+        )
         formated_plan = f"""
 Overall Target: {plan['target']}
 Execution Steps: \n{formated_steps}
         """
-        plan['start_time'] = await self.simulator.get_time(format_time=True)
+        plan["start_time"] = await self.simulator.get_time(format_time=True)
         await self.memory.status.update("current_plan", plan)
-        await self.memory.status.update("current_step", steps[0] if steps else {"intention": "", "type": ""})
-        await self.memory.status.update("execution_context", {'plan': formated_plan})
+        await self.memory.status.update(
+            "current_step", steps[0] if steps else {"intention": "", "type": ""}
+        )
+        await self.memory.status.update("execution_context", {"plan": formated_plan})
 
         consumption_end = self.llm.prompt_tokens_used + self.llm.completion_tokens_used
         self.token_consumption += consumption_end - consumption_start
 
     def clean_json_response(self, response: str) -> str:
         """Clean special characters in LLM response"""
-        response = response.replace('```json', '').replace('```', '')
-        return response.strip() 
+        response = response.replace("```json", "").replace("```", "")
+        return response.strip()

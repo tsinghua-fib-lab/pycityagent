@@ -1,7 +1,7 @@
 import os
-import sys
-import subprocess
 import signal
+import subprocess
+import sys
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 _parent_dir = os.path.dirname(_script_dir)

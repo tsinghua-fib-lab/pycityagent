@@ -20,11 +20,18 @@ from .utils.const import *
 
 logger = logging.getLogger("pycityagent")
 
+__all__ = [
+    "Simulator",
+]
+
 
 class Simulator:
     """
-    - 模拟器主类
-    - Simulator Class
+    Main class of the simulator.
+
+    - **Description**:
+        - This class is the core of the simulator, responsible for initializing and managing the simulation environment.
+        - It reads parameters from a configuration dictionary, initializes map data, and starts or connects to a simulation server as needed.
     """
 
     def __init__(self, config: dict, secure: bool = False) -> None:
@@ -105,33 +112,61 @@ class Simulator:
         self.poi_id_2_aoi_id: dict[int, int] = {
             poi["id"]: poi["aoi_id"] for _, poi in self.map.pois.items()
         }
-        self._environment_prompt:dict[str, str] = {}
+        self._environment_prompt: dict[str, str] = {}
 
     @property
-    def environment(self):
+    def environment(self) -> dict[str, str]:
+        """
+        Get the current state of environment variables.
+        """
         return self._environment_prompt
-    
+
     def set_environment(self, environment: dict[str, str]):
+        """
+        Set the entire dictionary of environment variables.
+
+        - **Args**:
+            - `environment` (`Dict[str, str]`): Key-value pairs of environment variables.
+        """
         self._environment_prompt = environment
 
-    def sence(self, key: str):
+    def sence(self, key: str) -> str:
+        """
+        Retrieve the value of an environment variable by its key.
+
+        - **Args**:
+            - `key` (`str`): The key of the environment variable.
+
+        - **Returns**:
+            - `str`: The value of the corresponding key, or an empty string if not found.
+        """
         return self._environment_prompt.get(key, "")
-    
+
     def update_environment(self, key: str, value: str):
+        """
+        Update the value of a single environment variable.
+
+        - **Args**:
+            - `key` (`str`): The key of the environment variable.
+            - `value` (`str`): The new value to set.
+        """
         self._environment_prompt[key] = value
 
     # * Agent相关
     def find_agents_by_area(self, req: dict, status=None):
         """
-        通过区域范围查找agent/person
-        Get agents/persons in the provided area
+        Find agents/persons within a specified area.
 
         Args:
-        - req (dict): 用于描述区域的请求 https://cityproto.sim.fiblab.net/#city.person.1.GetPersonByLongLatBBoxRequest
-        - status (int): 用于限制agent/person状态 if 'status' is not None, then you get those persons in 'status' https://cityproto.sim.fiblab.net/#city.agent.v2.Status
+            - `req` (`dict`): A dictionary that describes the area. Refer to
+              https://cityproto.sim.fiblab.net/#city.person.1.GetPersonByLongLatBBoxRequest.
+            - `status` (`Optional[int]`): An integer representing the status of the agents/persons to filter by.
+              If provided, only persons with the given status will be returned.
+              Refer to https://cityproto.sim.fiblab.net/#city.agent.v2.Status.
 
         Returns:
-        - https://cityproto.sim.fiblab.net/#city.person.1.GetPersonByLongLatBBoxResponse
+            - The response from the GetPersonByLongLatBBox method, possibly filtered by status.
+              Refer to https://cityproto.sim.fiblab.net/#city.person.1.GetPersonByLongLatBBoxResponse.
         """
         loop = asyncio.get_event_loop()
         resp = loop.run_until_complete(
@@ -153,6 +188,17 @@ class Simulator:
         center: Optional[Union[tuple[float, float], Point]] = None,
         radius: Optional[float] = None,
     ) -> list[str]:
+        """
+        Retrieve unique categories of Points of Interest (POIs) around a central point.
+
+        Args:
+            - `center` (`Optional[Union[Tuple[float, float], Point]]`): The central point as a tuple or Point object.
+              Defaults to (0, 0) if not provided.
+            - `radius` (`Optional[float]`): The search radius in meters. If not provided, all POIs are considered.
+
+        Returns:
+            - `List[str]`: A list of unique POI category names.
+        """
         categories: list[str] = []
         if center is None:
             center = (0, 0)
@@ -170,16 +216,16 @@ class Simulator:
         self, format_time: bool = False, format: str = "%H:%M:%S"
     ) -> Union[int, str]:
         """
-        获取模拟器当前时间 Get current time of simulator
-        默认返回以00:00:00为始的, 以s为单位的时间(int)
-        支持格式化时间
+        Get the current time of the simulator.
+
+        By default, returns the number of seconds since midnight. Supports formatted output.
 
         Args:
-        - format_time (bool): 是否格式化 format or not
-        - format (str): 格式化模板，默认为"Hour:Minute:Second" the formation
+            - `format_time` (`bool`): Whether to return the time in a formatted string. Defaults to `False`.
+            - `format` (`str`): The format string for formatting the time. Defaults to "%H:%M:%S".
 
         Returns:
-        - time Union[int, str]: 时间 time in second(int) or formatted time(str)
+            - `Union[int, str]`: The current simulation time either as an integer representing seconds since midnight or as a formatted string.
         """
         now = await self._client.clock_service.Now({})
         now = cast(dict[str, int], now)
@@ -194,14 +240,27 @@ class Simulator:
             return int(now["t"])
 
     async def pause(self):
+        """
+        Pause the simulation.
+
+        This method sends a request to the simulator's pause service to pause the simulation.
+        """
         await self._client.pause_service.pause()
 
     async def resume(self):
+        """
+        Resume the simulation.
+
+        This method sends a request to the simulator's pause service to resume the simulation.
+        """
         await self._client.pause_service.resume()
 
     async def get_simulator_day(self) -> int:
         """
-        获取模拟器到第几日
+        Get the current day of the simulation.
+
+        Returns:
+            - `int`: The day number since the start of the simulation.
         """
         now = await self._client.clock_service.Now({})
         now = cast(dict[str, int], now)
@@ -210,18 +269,40 @@ class Simulator:
 
     async def get_simulator_second_from_start_of_day(self) -> int:
         """
-        获取模拟器从00:00:00到当前的秒数
+        Get the number of seconds elapsed from the start of the current day in the simulation.
+
+        Returns:
+            - `int`: The number of seconds from 00:00:00 of the current day.
         """
         now = await self._client.clock_service.Now({})
         now = cast(dict[str, int], now)
         return now["t"] % 86400
 
     async def get_person(self, person_id: int) -> dict:
+        """
+        Retrieve information about a specific person by ID.
+
+        Args:
+            - `person_id` (`int`): The ID of the person to retrieve information for.
+
+        Returns:
+            - `Dict`: Information about the specified person.
+        """
         return await self._client.person_service.GetPerson(
             req={"person_id": person_id}
         )  # type:ignore
 
     async def add_person(self, person: Any) -> dict:
+        """
+        Add a new person to the simulation.
+
+        Args:
+            - `person` (`Any`): The person object to add. If it's an instance of `person_pb2.Person`,
+              it will be wrapped in an `AddPersonRequest`. Otherwise, `person` is expected to already be a valid request object.
+
+        Returns:
+            - `Dict`: Response from adding the person.
+        """
         if isinstance(person, person_pb2.Person):
             req = person_service.AddPersonRequest(person=person)
         else:
@@ -237,6 +318,18 @@ class Simulator:
         departure_times: Optional[list[float]] = None,
         modes: Optional[list[TripMode]] = None,
     ):
+        """
+        Set schedules for a person to visit Areas of Interest (AOIs).
+
+        Args:
+            - `person_id` (`int`): The ID of the person whose schedule is being set.
+            - `target_positions` (`Union[List[Union[int, Tuple[int, int]]], Union[int, Tuple[int, int]]]`):
+              A list of AOI or POI IDs or tuples of (AOI ID, POI ID) that the person will visit.
+            - `departure_times` (`Optional[List[float]]`): Departure times for each trip in the schedule.
+              If not provided, current time will be used for all trips.
+            - `modes` (`Optional[List[TripMode]]`): Travel modes for each trip.
+              Defaults to `TRIP_MODE_DRIVE_ONLY` if not specified.
+        """
         cur_time = float(await self.get_time())
         if not isinstance(target_positions, list):
             target_positions = [target_positions]
@@ -295,6 +388,16 @@ class Simulator:
         lane_id: Optional[int] = None,
         s: Optional[float] = None,
     ):
+        """
+        Reset the position of a person within the simulation.
+
+        Args:
+            - `person_id` (`int`): The ID of the person whose position is being reset.
+            - `aoi_id` (`Optional[int]`): The ID of the Area of Interest (AOI) where the person should be placed.
+            - `poi_id` (`Optional[int]`): The ID of the Point of Interest (POI) within the AOI.
+            - `lane_id` (`Optional[int]`): The ID of the lane on which the person should be placed.
+            - `s` (`Optional[float]`): The longitudinal position along the lane.
+        """
         reset_position = {}
         if aoi_id is not None:
             reset_position["aoi_position"] = {"aoi_id": aoi_id}
@@ -330,9 +433,20 @@ class Simulator:
         radius: float,
         poi_type: Union[str, list[str]],
     ) -> list[dict]:
+        """
+        Get Points of Interest (POIs) around a central point based on type.
+
+        Args:
+            - `center` (`Union[Tuple[float, float], Point]`): The central point as a tuple or Point object.
+            - `radius` (`float`): The search radius in meters.
+            - `poi_type` (`Union[str, List[str]]`): The category or categories of POIs to filter by.
+
+        Returns:
+            - `List[Dict]`: A list of dictionaries containing information about the POIs found.
+        """
         if isinstance(poi_type, str):
             poi_type = [poi_type]
-        transformed_poi_type = []
+        transformed_poi_type: list[str] = []
         for t in poi_type:
             if t not in self.poi_cate:
                 transformed_poi_type.append(t)

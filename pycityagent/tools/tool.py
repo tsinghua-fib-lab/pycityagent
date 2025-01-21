@@ -7,10 +7,17 @@ from typing import Any, Optional, Union
 from mlflow.entities import Metric
 
 from ..agent import Agent
-from ..environment import (LEVEL_ONE_PRE, POI_TYPE_DICT, AoiService,
-                           PersonService)
+from ..environment import AoiService, PersonService
 from ..utils.decorators import lock_decorator
 from ..workflow import Block
+
+__all__ = [
+    "Tool",
+    "ExportMlflowMetrics",
+    "GetMap",
+    "UpdateWithSimulator",
+    "ResetAgentPosition",
+]
 
 
 class Tool:
@@ -18,9 +25,27 @@ class Tool:
 
     This class serves as a base for creating various tools that can perform different operations.
     It is intended to be subclassed by specific tool implementations.
+
+    - **Attributes**:
+        - `_instance`: A reference to the instance (`Agent` or `Block`) this tool is bound to.
     """
 
     def __get__(self, instance, owner):
+        """
+        Descriptor method for binding the tool to an instance.
+
+        - **Args**:
+            - `instance`: The instance that the tool is being accessed through.
+            - `owner`: The type of the owner class.
+
+        - **Returns**:
+            - `Tool`: An instance of the tool bound to the given instance.
+
+        - **Description**:
+            - If accessed via the class rather than an instance, returns the descriptor itself.
+            - Otherwise, it checks if the tool has already been instantiated for this instance,
+              and if not, creates and stores a new tool instance specifically for this instance.
+        """
         if instance is None:
             return self
         subclass = type(self)
@@ -36,11 +61,23 @@ class Tool:
         """Invoke the tool's functionality.
 
         This method must be implemented by subclasses to provide specific behavior.
+
+        - **Raises**:
+            - `NotImplementedError`: When called directly on the base class.
         """
         raise NotImplementedError
 
     @property
     def agent(self) -> Agent:
+        """
+        Access the `Agent` this tool is bound to.
+
+        - **Returns**:
+            - `Agent`: The agent instance.
+
+        - **Raises**:
+            - `RuntimeError`: If the tool is not bound to an `Agent`.
+        """
         instance = self._instance  # type:ignore
         if not isinstance(instance, Agent):
             raise RuntimeError(
@@ -50,6 +87,15 @@ class Tool:
 
     @property
     def block(self) -> Block:
+        """
+        Access the `Block` this tool is bound to.
+
+        - **Returns**:
+            - `Block`: The block instance.
+
+        - **Raises**:
+            - `RuntimeError`: If the tool is not bound to a `Block`.
+        """
         instance = self._instance  # type:ignore
         if not isinstance(instance, Block):
             raise RuntimeError(
@@ -71,72 +117,9 @@ class GetMap(Tool):
         return agent.simulator.map
 
 
-class SencePOI(Tool):
-    """Retrieve the Point of Interest (POI) of the current scene.
-
-    This tool computes the POI based on the current `position` stored in memory and returns
-    points of interest (POIs) within a specified radius. Can be bound only to an `Agent` instance.
-
-    Attributes:
-        radius (int): The radius within which to search for POIs.
-        category_prefix (str): The prefix for the categories of POIs to consider.
-        variables (list[str]): A list of variables relevant to the tool's operation.
-
-    Args:
-        radius (int, optional): The circular search radius. Defaults to 100.
-        category_prefix (str, optional): The category prefix to filter POIs. Defaults to LEVEL_ONE_PRE.
-
-    Methods:
-        __call__(radius: Optional[int] = None, category_prefix: Optional[str] = None) -> Union[Any, Callable]:
-            Executes the AOI retrieval operation, returning POIs based on the current state of memory and simulator.
-    """
-
-    def __init__(self, radius: int = 100, category_prefix=LEVEL_ONE_PRE) -> None:
-        self.radius = radius
-        self.category_prefix = category_prefix
-        self.variables = ["position"]
-
-    async def __call__(
-        self, radius: Optional[int] = None, category_prefix: Optional[str] = None
-    ) -> Union[Any, Callable]:
-        """Retrieve the POIs within the specified radius and category prefix.
-
-        If both `radius` and `category_prefix` are None, the method will use the current position
-        from memory to query POIs using the simulator. Otherwise, it will return a new instance
-        of SenceAoi with the specified parameters.
-
-        Args:
-            radius (Optional[int]): A specific radius for the AOI query. If not provided, defaults to the instance's radius.
-            category_prefix (Optional[str]): A specific category prefix to filter POIs. If not provided, defaults to the instance's category_prefix.
-
-        Raises:
-            ValueError: If memory or simulator is not set.
-
-        Returns:
-            Union[Any, Callable]: The query results or a callable for a new SenceAoi instance.
-        """
-        agent = self.agent
-        if agent.memory is None or agent.simulator is None:
-            raise ValueError("Memory or Simulator is not set.")
-        if radius is None and category_prefix is None:
-            position = await agent.status.get("position")
-            resp = []
-            for prefix in self.category_prefix:
-                resp += agent.simulator.map.query_pois(
-                    center=(position["xy_position"]["x"], position["xy_position"]["y"]),
-                    radius=self.radius,
-                    category_prefix=prefix,
-                )
-            # * Map six-digit codes to specific types
-            for poi in resp:
-                cate_str = poi[0]["category"]
-                poi[0]["category"] = POI_TYPE_DICT[cate_str]
-        else:
-            radius_ = radius if radius else self.radius
-            return SencePOI(radius_, category_prefix)
-
-
 class UpdateWithSimulator(Tool):
+    """Automatically update status memory from simulator"""
+
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
 
@@ -180,6 +163,18 @@ class ResetAgentPosition(Tool):
         lane_id: Optional[int] = None,
         s: Optional[float] = None,
     ):
+        """
+        Reset the position of the agent associated with this tool.
+
+        - **Args**:
+            - `aoi_id` (Optional[int], optional): Area of interest ID. Defaults to None.
+            - `poi_id` (Optional[int], optional): Point of interest ID. Defaults to None.
+            - `lane_id` (Optional[int], optional): Lane ID. Defaults to None.
+            - `s` (Optional[float], optional): Position along the lane. Defaults to None.
+
+        - **Description**:
+            - Resets the agent's position based on the provided parameters using the simulator.
+        """
         agent = self.agent
         status = agent.status
         await agent.simulator.reset_person_position(
@@ -192,7 +187,22 @@ class ResetAgentPosition(Tool):
 
 
 class ExportMlflowMetrics(Tool):
+    """
+    A tool for exporting metrics to MLflow in batches.
+
+    - **Attributes**:
+        - `_log_batch_size` (int): The number of metrics to log in each batch.
+        - `metric_log_cache` (Dict[str, List[Metric]]): Cache for storing metrics before batching.
+        - `_lock` (asyncio.Lock): Ensures thread-safe operations when logging metrics.
+    """
+
     def __init__(self, log_batch_size: int = 100) -> None:
+        """
+        Initialize the ExportMlflowMetrics tool with a specified batch size and an asynchronous lock.
+
+        - **Args**:
+            - `log_batch_size` (int, optional): Number of metrics per batch. Defaults to 100.
+        """
         self._log_batch_size = log_batch_size
         # TODO: support other log types
         self.metric_log_cache: dict[str, list[Metric]] = defaultdict(list)
@@ -204,6 +214,17 @@ class ExportMlflowMetrics(Tool):
         metric: Union[Sequence[Union[Metric, dict]], Union[Metric, dict]],
         clear_cache: bool = False,
     ):
+        """
+        Add metrics to the cache and export them to MLflow in batches if the batch size limit is reached.
+
+        - **Args**:
+            - `metric` (Union[Sequence[Union[Metric, dict]], Union[Metric, dict]]): A single metric or a sequence of metrics.
+            - `clear_cache` (bool, optional): Flag indicating whether to clear the cache after logging. Defaults to False.
+
+        - **Description**:
+            - Adds metrics to the cache. If the cache exceeds the batch size, logs a batch of metrics to MLflow.
+            - Optionally clears the entire cache.
+        """
         agent = self.agent
         batch_size = self._log_batch_size
         if not isinstance(metric, Sequence):
@@ -223,7 +244,7 @@ class ExportMlflowMetrics(Tool):
             self.metric_log_cache[metric_key].append(item)
         for metric_key, _cache in self.metric_log_cache.items():
             if len(_cache) > batch_size:
-                client = agent.mlflow_client
+                client = agent.mlflow_client  # type:ignore
                 await client.log_batch(
                     metrics=_cache[:batch_size],
                 )
@@ -234,8 +255,11 @@ class ExportMlflowMetrics(Tool):
     async def _clear_cache(
         self,
     ):
+        """
+        Log any remaining metrics from the cache to MLflow and then clear the cache.
+        """
         agent = self.agent
-        client = agent.mlflow_client
+        client = agent.mlflow_client  # type:ignore
         for metric_key, _cache in self.metric_log_cache.items():
             if len(_cache) > 0:
                 await client.log_batch(

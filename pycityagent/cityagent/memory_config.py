@@ -27,20 +27,17 @@ def memory_config_societyagent():
     EXTRA_ATTRIBUTES = {
         "type": (str, "citizen"),
         "city": (str, "New York", True),
-
         # Needs Model
         "hunger_satisfaction": (float, random.random(), True),  # hunger satisfaction
         "energy_satisfaction": (float, random.random(), True),  # energy satisfaction  
         "safety_satisfaction": (float, random.random(), True),  # safety satisfaction
         "social_satisfaction": (float, random.random(), True),  # social satisfaction
         "current_need": (str, "none", True),
-
         # Plan Behavior Model
         "current_plan": (list, [], True),
         "current_step": (dict, {"intention": "", "type": ""}, True),
         "execution_context": (dict, {}, True),
         "plan_history": (list, [], True),
-
         # cognition
         "emotion": (
             dict,
@@ -57,7 +54,6 @@ def memory_config_societyagent():
         "attitude": (dict, {}, True),
         "thought": (str, "Currently nothing good or bad is happening", True),
         "emotion_types": (str, "Relief", True),
-
         # economy
         "work_skill": (
             float,
@@ -88,7 +84,6 @@ def memory_config_societyagent():
         "working_experience": (list, [], True),
         "work_hour_month": (float, 160, True),
         "work_hour_finish": (float, 0, True),
-
         # social
         "friends": (list, [], True),  # friends list
         "relationships": (dict, {}, True),  # relationship strength with each friend
@@ -96,97 +91,126 @@ def memory_config_societyagent():
         "chat_histories": (dict, {}, True),  # all chat histories
         "interactions": (dict, {}, True),  # all interaction records
         "to_discuss": (dict, {}, True),
-
         # mobility
         "environment": (str, "The environment outside is good", True),
         "number_poi_visited": (int, 1, True),
     }
 
     PROFILE = {
-        "name": (str,random.choice(
-            [
-                "Alice",
-                "Bob",
-                "Charlie",
-                "David",
-                "Eve",
-                "Frank",
-                "Grace",
-                "Helen",
-                "Ivy",
-                "Jack",
-                "Kelly",
-                "Lily",
-                "Mike",
-                "Nancy",
-                "Oscar",
-                "Peter",
-                "Queen",
-                "Rose",
-                "Sam",
-                "Tom",
-                "Ulysses",
-                "Vicky",
-                "Will",
-                "Xavier",
-                "Yvonne",
-                "Zack",
-            ]
-        ), True),
+        "name": (
+            str,
+            random.choice(
+                [
+                    "Alice",
+                    "Bob",
+                    "Charlie",
+                    "David",
+                    "Eve",
+                    "Frank",
+                    "Grace",
+                    "Helen",
+                    "Ivy",
+                    "Jack",
+                    "Kelly",
+                    "Lily",
+                    "Mike",
+                    "Nancy",
+                    "Oscar",
+                    "Peter",
+                    "Queen",
+                    "Rose",
+                    "Sam",
+                    "Tom",
+                    "Ulysses",
+                    "Vicky",
+                    "Will",
+                    "Xavier",
+                    "Yvonne",
+                    "Zack",
+                ]
+            ),
+            True,
+        ),
         "gender": (str, random.choice(["male", "female"]), True),
         "age": (int, random.randint(18, 65), True),
-        "education": (str, random.choice(
-            ["Doctor", "Master", "Bachelor", "College", "High School"]
-        ), True),
-        "skill": (str, random.choice(
-            [
-                "Good at problem-solving",
-                "Good at communication",
-                "Good at creativity",
-                "Good at teamwork",
-                "Other",
-            ]
-        ), True),
-        "occupation": (str, random.choice(
-            [
-                "Student",
-                "Teacher",
-                "Doctor",
-                "Engineer",
-                "Manager",
-                "Businessman",
-                "Artist",
-                "Athlete",
-                "Other",
-            ]
-        ), True),
+        "education": (
+            str,
+            random.choice(["Doctor", "Master", "Bachelor", "College", "High School"]),
+            True,
+        ),
+        "skill": (
+            str,
+            random.choice(
+                [
+                    "Good at problem-solving",
+                    "Good at communication",
+                    "Good at creativity",
+                    "Good at teamwork",
+                    "Other",
+                ]
+            ),
+            True,
+        ),
+        "occupation": (
+            str,
+            random.choice(
+                [
+                    "Student",
+                    "Teacher",
+                    "Doctor",
+                    "Engineer",
+                    "Manager",
+                    "Businessman",
+                    "Artist",
+                    "Athlete",
+                    "Other",
+                ]
+            ),
+            True,
+        ),
         "family_consumption": (str, random.choice(["low", "medium", "high"]), True),
-        "consumption": (str, random.choice(["sightly low", "low", "medium", "high"]), True),
-        "personality": (str, random.choice(
-            ["outgoint", "introvert", "ambivert", "extrovert"]
-        ), True),
+        "consumption": (
+            str,
+            random.choice(["sightly low", "low", "medium", "high"]),
+            True,
+        ),
+        "personality": (
+            str,
+            random.choice(["outgoint", "introvert", "ambivert", "extrovert"]),
+            True,
+        ),
         "income": "0",
         "currency": random.randint(1000, 100000),
         "residence": (str, random.choice(["city", "suburb", "rural"]), True),
-        "race": (str, random.choice(
-            [
-                "Chinese",
-                "American",
-                "British",
-                "French",
-                "German",
-                "Japanese",
-                "Korean",
-                "Russian",
-                "Other",
-            ]
-        ), True),
-        "religion": (str, random.choice(
-            ["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]
-        ), True),
-        "marital_status": (str, random.choice(
-            ["not married", "married", "divorced", "widowed"]
-        ), True),
+        "race": (
+            str,
+            random.choice(
+                [
+                    "Chinese",
+                    "American",
+                    "British",
+                    "French",
+                    "German",
+                    "Japanese",
+                    "Korean",
+                    "Russian",
+                    "Other",
+                ]
+            ),
+            True,
+        ),
+        "religion": (
+            str,
+            random.choice(
+                ["none", "Christian", "Muslim", "Buddhist", "Hindu", "Other"]
+            ),
+            True,
+        ),
+        "marital_status": (
+            str,
+            random.choice(["not married", "married", "divorced", "widowed"]),
+            True,
+        ),
     }
 
     BASE = {

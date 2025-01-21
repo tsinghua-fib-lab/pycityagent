@@ -1,8 +1,7 @@
 from collections.abc import Awaitable, Coroutine
-from typing import Any, Dict, Union, cast
+from typing import Any, Union, cast
 
 import grpc
-from google.protobuf.json_format import ParseDict
 from pycityproto.city.pause.v1 import pause_service_pb2 as pause_service
 from pycityproto.city.pause.v1 import pause_service_pb2_grpc as pause_grpc
 
@@ -22,7 +21,7 @@ class PauseService:
 
     async def pause(
         self,
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], pause_service.PauseResponse]]:
+    ) -> Awaitable[Union[dict[str, Any], pause_service.PauseResponse]]:
         """
         暂停模拟
         Pause the simulation
@@ -38,11 +37,11 @@ class PauseService:
             Awaitable[pause_service.PauseResponse],
             self._aio_stub.Pause(req),
         )
-        return
+        return res
     
     async def resume(
         self,
-    ) -> Coroutine[Any, Any, Union[Dict[str, Any], pause_service.ResumeResponse]]:
+    ) -> Awaitable[Union[dict[str, Any], pause_service.ResumeResponse]]:
         """
         恢复模拟
         Resume the simulation
@@ -58,4 +57,4 @@ class PauseService:
             Awaitable[pause_service.ResumeResponse],
             self._aio_stub.Resume(req),
         )
-        return
+        return res

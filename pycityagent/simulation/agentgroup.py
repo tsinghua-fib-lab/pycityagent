@@ -26,6 +26,7 @@ from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
                      STATUS_SCHEMA, SURVEY_SCHEMA)
 
 logger = logging.getLogger("pycityagent")
+__all__ = ["AgentGroup"]
 
 
 @ray.remote
@@ -49,6 +50,33 @@ class AgentGroup:
         agent_config_file: Optional[dict[type[Agent], str]] = None,
         environment: Optional[dict[str, str]] = None,
     ):
+        """
+        Represents a group of agents that can be deployed in a Ray distributed environment.
+
+        - **Description**:
+            - Manages the creation and initialization of multiple agents, each potentially of different types,
+            with associated memory configurations, and connects them to various services such as MLflow, MQTT messager,
+            PostgreSQL writer, message interceptor, and LLM client. It also sets up an economy client and simulator for
+            agent interaction within a simulated environment.
+
+        - **Args**:
+            - `agent_class` (Union[Type[Agent], List[Type[Agent]]]): A single or list of agent classes to instantiate.
+            - `number_of_agents` (Union[int, List[int]]): Number of instances to create for each agent class.
+            - `memory_config_function_group` (Dict[Type[Agent], Callable]): Functions to configure memory for each agent type.
+            - `config` (dict): Configuration settings for the agent group.
+            - `exp_name` (str): Name of the experiment.
+            - `exp_id` (str | UUID): Identifier for the experiment.
+            - `enable_avro` (bool): Flag to enable AVRO file support.
+            - `avro_path` (Path): Path where AVRO files will be stored.
+            - `enable_pgsql` (bool): Flag to enable PostgreSQL support.
+            - `pgsql_writer` (ray.ObjectRef): Reference to a PostgreSQL writer object.
+            - `message_interceptor` (ray.ObjectRef): Reference to a message interceptor object.
+            - `mlflow_run_id` (str): Run identifier for MLflow tracking.
+            - `embedding_model` (Embeddings): Model used for generating embeddings.
+            - `logging_level` (int): Logging level for the agent group.
+            - `agent_config_file` (Optional[Dict[Type[Agent], str]], optional): File paths for loading agent configurations. Defaults to None.
+            - `environment` (Optional[Dict[str, str]], optional): Environment variables for the simulator. Defaults to None.
+        """
         logger.setLevel(logging_level)
         self._uuid = str(uuid.uuid4())
         if not isinstance(agent_class, list):
@@ -117,7 +145,7 @@ class AgentGroup:
         logger.info(f"-----Creating Simulator in AgentGroup {self._uuid} ...")
         self.simulator = Simulator(config["simulator_request"])
         self.projector = pyproj.Proj(self.simulator.map.header["projection"])
-        self.simulator.set_environment(environment)
+        self.simulator.set_environment(environment)  # type:ignore
         # prepare Economy client
         logger.info(f"-----Creating Economy client in AgentGroup {self._uuid} ...")
         self.economy_client = EconomyClient(
@@ -135,7 +163,9 @@ class AgentGroup:
             agent_class_i = agent_class[i]
             number_of_agents_i = number_of_agents[i]
             for j in range(number_of_agents_i):
-                memory_config_function_group_i = memory_config_function_group[agent_class_i]
+                memory_config_function_group_i = memory_config_function_group[
+                    agent_class_i
+                ]
                 extra_attributes, profile, base = memory_config_function_group_i()
                 memory = Memory(config=extra_attributes, profile=profile, base=base)
                 agent = agent_class_i(
@@ -154,7 +184,10 @@ class AgentGroup:
                     agent.set_avro_file(self.avro_file)  # type: ignore
                 if self.enable_pgsql:
                     agent.set_pgsql_writer(self._pgsql_writer)
-                if self.agent_config_file is not None and self.agent_config_file[agent_class_i]:
+                if (
+                    self.agent_config_file is not None
+                    and self.agent_config_file[agent_class_i]
+                ):
                     agent.load_from_file(self.agent_config_file[agent_class_i])
                 if self._message_interceptor is not None:
                     agent.set_message_interceptor(self._message_interceptor)
@@ -314,6 +347,17 @@ class AgentGroup:
         keys: Optional[list[str]] = None,
         values: Optional[list[Any]] = None,
     ) -> list[str]:
+        """
+        Filters agents based on type and/or key-value pairs in their status.
+
+        - **Args**:
+            - `types` (Optional[List[Type[Agent]]]): A list of agent types to filter by.
+            - `keys` (Optional[List[str]]): A list of keys to check in the agent's status.
+            - `values` (Optional[List[Any]]): The corresponding values for each key in the `keys` list.
+
+        - **Returns**:
+            - `List[str]`: A list of UUIDs for agents that match the filter criteria.
+        """
         filtered_uuids = []
         for agent in self.agents:
             add = True
@@ -340,6 +384,16 @@ class AgentGroup:
     async def gather(
         self, content: str, target_agent_uuids: Optional[list[str]] = None
     ):
+        """
+        Gathers specific content from all or targeted agents within the group.
+
+        - **Args**:
+            - `content` (str): The key of the status content to gather from the agents.
+            - `target_agent_uuids` (Optional[List[str]]): A list of agent UUIDs to target. If None, targets all agents.
+
+        - **Returns**:
+            - `Dict[str, Any]`: A dictionary mapping agent UUIDs to the gathered content.
+        """
         logger.debug(f"-----Gathering {content} from all agents in group {self._uuid}")
         results = {}
         if target_agent_uuids is None:
@@ -350,6 +404,14 @@ class AgentGroup:
         return results
 
     async def update(self, target_agent_uuid: str, target_key: str, content: Any):
+        """
+        Updates a specific key in the status of a targeted agent.
+
+        - **Args**:
+            - `target_agent_uuid` (str): The UUID of the agent to update.
+            - `target_key` (str): The key in the agent's status to update.
+            - `content` (Any): The new value for the specified key.
+        """
         logger.debug(
             f"-----Updating {target_key} for agent {target_agent_uuid} in group {self._uuid}"
         )
@@ -357,9 +419,25 @@ class AgentGroup:
         await agent.status.update(target_key, content)
 
     async def update_environment(self, key: str, value: str):
+        """
+        Updates the environment with a given key-value pair.
+
+        - **Args**:
+            - `key` (str): The key to update in the environment.
+            - `value` (str): The value to set for the specified key.
+        """
         self.simulator.update_environment(key, value)
 
     async def message_dispatch(self):
+        """
+        Dispatches messages received via MQTT to the appropriate agents.
+
+        - **Description**:
+            - Continuously listens for incoming MQTT messages and dispatches them to the relevant agents based on the topic.
+            - Messages are expected to have a topic formatted as "exps/{exp_id}/agents/{agent_uuid}/{topic_type}".
+            - The payload is decoded from bytes to string and then parsed as JSON.
+            - Depending on the `topic_type`, different handler methods on the agent are called to process the message.
+        """
         logger.debug(f"-----Starting message dispatch for group {self._uuid}")
         while True:
             assert self.messager is not None
@@ -402,6 +480,13 @@ class AgentGroup:
     async def save_status(
         self, simulator_day: Optional[int] = None, simulator_t: Optional[int] = None
     ):
+        """
+        Saves the current status of the agents at a given point in the simulation.
+
+        - **Args**:
+            - `simulator_day` (Optional[int]): The day number in the simulation time.
+            - `simulator_t` (Optional[int]): The tick or time unit in the simulation day.
+        """
         _statuses_time_list: list[tuple[dict, datetime]] = []
         if self.enable_avro:
             logger.debug(f"-----Saving status for group {self._uuid} with Avro")
@@ -603,54 +688,18 @@ class AgentGroup:
                         lng, lat = self.projector(x, y, inverse=True)
                         # ATTENTION: no valid position for an institution
                         parent_id = -1
-                        try:
-                            nominal_gdp = await agent.status.get("nominal_gdp")
-                        except:
-                            nominal_gdp = []
-                        try:
-                            real_gdp = await agent.status.get("real_gdp")
-                        except:
-                            real_gdp = []
-                        try:
-                            unemployment = await agent.status.get("unemployment")
-                        except:
-                            unemployment = []
-                        try:
-                            wages = await agent.status.get("wages")
-                        except:
-                            wages = []
-                        try:
-                            prices = await agent.status.get("prices")
-                        except:
-                            prices = []
-                        try:
-                            inventory = await agent.status.get("inventory")
-                        except:
-                            inventory = 0
-                        try:
-                            price = await agent.status.get("price")
-                        except:
-                            price = 0.0
-                        try:
-                            interest_rate = await agent.status.get("interest_rate")
-                        except:
-                            interest_rate = 0.0
-                        try:
-                            bracket_cutoffs = await agent.status.get("bracket_cutoffs")
-                        except:
-                            bracket_cutoffs = []
-                        try:
-                            bracket_rates = await agent.status.get("bracket_rates")
-                        except:
-                            bracket_rates = []
-                        try:
-                            employees = await agent.status.get("employees")
-                        except:
-                            employees = []
-                        try:
-                            friend_ids = await agent.status.get("friends")
-                        except:
-                            friend_ids = []
+                        nominal_gdp = await agent.status.get("nominal_gdp", [])
+                        real_gdp = await agent.status.get("real_gdp", [])
+                        unemployment = await agent.status.get("unemployment", [])
+                        wages = await agent.status.get("wages", [])
+                        prices = await agent.status.get("prices", [])
+                        inventory = await agent.status.get("inventory", 0)
+                        price = await agent.status.get("price", 0.0)
+                        interest_rate = await agent.status.get("interest_rate", 0.0)
+                        bracket_cutoffs = await agent.status.get("bracket_cutoffs", [])
+                        bracket_rates = await agent.status.get("bracket_rates", [])
+                        employees = await agent.status.get("employees", [])
+                        friend_ids = await agent.status.get("friends", [])
                         _status_dict = {
                             "id": agent._uuid,
                             "day": _day,
@@ -706,9 +755,25 @@ class AgentGroup:
             )
 
     def get_llm_consumption(self):
+        """
+        Retrieves the consumption statistics from the LLM client.
+
+        - **Returns**:
+            - The consumption data provided by the LLM client.
+        """
         return self.llm.get_consumption()
 
     async def step(self):
+        """
+        Executes a single simulation step by running all agents concurrently.
+
+        - **Description**:
+            - This method initiates the `run` coroutine for each agent in parallel using asyncio.gather.
+            - Any exceptions raised during the execution are caught, logged, and re-raised as a RuntimeError.
+
+        - **Raises**:
+            - `RuntimeError`: If an exception occurs during the execution of any agent's `run` method.
+        """
         try:
             tasks = [agent.run() for agent in self.agents]
             await asyncio.gather(*tasks)
@@ -719,6 +784,16 @@ class AgentGroup:
             raise RuntimeError(str(e)) from e
 
     async def save(self, day: int, t: int):
+        """
+        Saves the current status of the agents at a given point in the simulation.
+
+        - **Args**:
+            - `day` (int): The day number in the simulation time.
+            - `t` (int): The tick or time unit within the simulation day.
+
+        - **Raises**:
+            - `RuntimeError`: If an exception occurs while saving the status.
+        """
         try:
             await self.save_status(day, t)
         except Exception as e:

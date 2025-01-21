@@ -13,20 +13,30 @@ import yaml
 from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, InstitutionAgent
-from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
-                         SocietyAgent)
-from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
-                         memory_config_government, memory_config_nbs,
-                         memory_config_societyagent, memory_config_init)
+from ..cityagent import BankAgent, FirmAgent, GovernmentAgent, NBSAgent, SocietyAgent
+from ..cityagent.memory_config import (
+    memory_config_bank,
+    memory_config_firm,
+    memory_config_government,
+    memory_config_nbs,
+    memory_config_societyagent,
+    memory_config_init,
+)
 from ..cityagent.initial import bind_agent_info, initialize_social_network
-from ..cityagent.message_intercept import (EdgeMessageBlock,
-                                           MessageBlockListener,
-                                           PointMessageBlock)
+from ..cityagent.message_intercept import (
+    EdgeMessageBlock,
+    MessageBlockListener,
+    PointMessageBlock,
+)
 from ..economy.econ_client import EconomyClient
 from ..environment import Simulator
 from ..llm import SimpleEmbedding
-from ..message import (MessageBlockBase, MessageBlockListenerBase,
-                       MessageInterceptor, Messager)
+from ..message import (
+    MessageBlockBase,
+    MessageBlockListenerBase,
+    MessageInterceptor,
+    Messager,
+)
 from ..metrics import init_mlflow_connection
 from ..metrics.mlflow_client import MlflowClient
 from ..survey import Survey
@@ -36,8 +46,23 @@ from .storage.pg import PgWriter, create_pg_tables
 
 logger = logging.getLogger("pycityagent")
 
+
+__all__ = ["AgentSimulation"]
+
 class AgentSimulation:
-    """Agent Simulation"""
+    """
+    A class to simulate a multi-agent system.
+
+    This simulation framework is designed to facilitate the creation and management of multiple agent types within an experiment.
+    It allows for the configuration of different agents, memory configurations, and metric extractors, as well as enabling institutional settings.
+
+    Attributes:
+        exp_id (str): A unique identifier for the current experiment.
+        agent_class (List[Type[Agent]]): A list of agent classes that will be instantiated in the simulation.
+        agent_config_file (Optional[dict]): Configuration file or dictionary for initializing agents.
+        logging_level (int): The level of logging to be used throughout the simulation.
+        default_memory_config_func (Dict[Type[Agent], Callable]): Dictionary mapping agent classes to their respective memory configuration functions.
+    """
 
     def __init__(
         self,
@@ -51,15 +76,26 @@ class AgentSimulation:
         logging_level: int = logging.WARNING,
     ):
         """
-        Args:
-            config: Configuration
-            agent_class: Agent class
-            agent_config_file: Agent configuration file
-            metric_extractors: Metric extractor
-            enable_institution: Whether to enable institution
-            agent_prefix: Agent name prefix
-            exp_name: Experiment name
-            logging_level: Logging level
+        Initializes the AgentSimulation with the given parameters.
+
+        - **Description**:
+            - Sets up the simulation environment based on the provided configuration. Depending on the `enable_institution` flag,
+              it can include a predefined set of institutional agents. If specific agent classes are provided, those will be used instead.
+
+        - **Args**:
+            - `config` (dict): The main configuration dictionary for the simulation.
+            - `agent_class` (Union[None, Type[Agent], List[Type[Agent]]], optional):
+                Either a single agent class or a list of agent classes to instantiate. Defaults to None, which implies a default set of agents.
+            - `agent_config_file` (Optional[dict], optional): An optional configuration file or dictionary used to initialize agents. Defaults to None.
+            - `metric_extractors` (Optional[List[Tuple[int, Callable]]], optional):
+                A list of tuples containing intervals and callables for extracting metrics from the simulation. Defaults to None.
+            - `enable_institution` (bool, optional): Flag indicating whether institutional agents should be included in the simulation. Defaults to True.
+            - `agent_prefix` (str, optional): Prefix string for naming agents. Defaults to "agent_".
+            - `exp_name` (str, optional): The name of the experiment. Defaults to "default_experiment".
+            - `logging_level` (int, optional): Logging level to set for the simulation's logger. Defaults to logging.WARNING.
+
+        - **Returns**:
+            - None
         """
         self.exp_id = str(uuid.uuid4())
         if isinstance(agent_class, list):
@@ -170,8 +206,7 @@ class AgentSimulation:
                 experiment_name=exp_name,
                 run_id=mlflow_run_id,
             )
-            if metric_extractors is not None:
-                self.metric_extractors = metric_extractors
+            self.metric_extractors = metric_extractors
         else:
             logger.warning("Mlflow is not enabled, NO MLFLOW STORAGE")
             self.mlflow_client = None
@@ -270,13 +305,13 @@ class AgentSimulation:
             logging_level=config.get("logging_level", logging.WARNING),
         )
         environment = config.get(
-            "environment", 
+            "environment",
             {
-                "weather": "The weather is normal", 
-                "crime": "The crime rate is low", 
-                "pollution": "The pollution level is low", 
-                "temperature": "The temperature is normal"
-            }
+                "weather": "The weather is normal",
+                "crime": "The crime rate is low",
+                "pollution": "The pollution level is low",
+                "temperature": "The temperature is normal",
+            },
         )
         simulation._simulator.set_environment(environment)
         logger.info("Initializing Agents...")
@@ -289,7 +324,7 @@ class AgentSimulation:
         }
         if agent_count.get(SocietyAgent, 0) == 0:
             raise ValueError("number_of_citizen is required")
-        
+
         # support MessageInterceptor
         if "message_intercept" in config:
             _intercept_config = config["message_intercept"]
@@ -328,8 +363,10 @@ class AgentSimulation:
             embedding_model=config["agent_config"].get(
                 "embedding_model", SimpleEmbedding()
             ),
-            memory_config_func=config["agent_config"].get("memory_config_func", None),  
-            memory_config_init_func=config["agent_config"].get("memory_config_init_func", None),
+            memory_config_func=config["agent_config"].get("memory_config_func", None),
+            memory_config_init_func=config["agent_config"].get(
+                "memory_config_init_func", None
+            ),
             **_message_intercept_kwargs,
             environment=environment,
         )
@@ -488,15 +525,32 @@ class AgentSimulation:
         memory_config_func: Optional[dict[type[Agent], Callable]] = None,
         environment: Optional[dict[str, str]] = None,
     ) -> None:
-        """初始化智能体
+        """
+        Initialize agents within the simulation.
 
-        Args:
-            agent_count: 要创建的总智能体数量, 如果为列表，则每个元素表示一个智能体类创建的智能体数量
-            group_size: 每个组的智能体数量，每一个组为一个独立的ray actor
-            pg_sql_writers: 独立的PgSQL writer数量
-            message_interceptors: message拦截器数量
-            memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组, 每个元素表示一个智能体类创建的Memory配置函数
-            environment: 环境变量，用于更新模拟器的环境变量
+        - **Description**:
+            - Asynchronously initializes a specified number of agents for each provided agent class.
+            - Agents are grouped into independent Ray actors based on the `group_size`, with configurations for database writers,
+              message interceptors, and memory settings. Optionally updates the simulator's environment variables.
+
+        - **Args**:
+            - `agent_count` (dict[Type[Agent], int]): Dictionary mapping agent classes to the number of instances to create.
+            - `group_size` (int, optional): Number of agents per group, each group runs as an independent Ray actor. Defaults to 10000.
+            - `pg_sql_writers` (int, optional): Number of independent PgSQL writer processes. Defaults to 32.
+            - `message_interceptors` (int, optional): Number of message interceptor processes. Defaults to 1.
+            - `message_interceptor_blocks` (Optional[List[MessageBlockBase]], optional): List of message interception blocks. Defaults to None.
+            - `social_black_list` (Optional[List[Tuple[str, str]]], optional): List of tuples representing pairs of agents that should not communicate. Defaults to None.
+            - `message_listener` (Optional[MessageBlockListenerBase], optional): Listener for intercepted messages. Defaults to None.
+            - `embedding_model` (Embeddings, optional): Model used for generating embeddings for agents' memories. Defaults to SimpleEmbedding().
+            - `memory_config_init_func` (Optional[Callable], optional): Initialization function for setting up memory configuration. Defaults to None.
+            - `memory_config_func` (Optional[Dict[Type[Agent], Callable]], optional): Dictionary mapping agent classes to their memory configuration functions. Defaults to None.
+            - `environment` (Optional[Dict[str, str]], optional): Environment variables to update in the simulation. Defaults to None.
+
+        - **Raises**:
+            - `ValueError`: If the lengths of `agent_class` and `agent_count` do not match.
+
+        - **Returns**:
+            - `None`
         """
         self.agent_count = agent_count
 
@@ -724,7 +778,19 @@ class AgentSimulation:
     async def gather(
         self, content: str, target_agent_uuids: Optional[list[str]] = None
     ):
-        """收集智能体的特定信息"""
+        """
+        Collect specific information from agents.
+
+        - **Description**:
+            - Asynchronously gathers specified content from targeted agents within all groups.
+
+        - **Args**:
+            - `content` (str): The information to collect from the agents.
+            - `target_agent_uuids` (Optional[List[str]], optional): A list of agent UUIDs to target. Defaults to None, meaning all agents are targeted.
+
+        - **Returns**:
+            - Result of the gathering process as returned by each group's `gather` method.
+        """
         gather_tasks = []
         for group in self._groups.values():
             gather_tasks.append(group.gather.remote(content, target_agent_uuids))
@@ -736,7 +802,20 @@ class AgentSimulation:
         keys: Optional[list[str]] = None,
         values: Optional[list[Any]] = None,
     ) -> list[str]:
-        """过滤出指定类型的智能体"""
+        """
+        Filter out agents of specified types or with matching key-value pairs.
+
+        - **Args**:
+            - `types` (Optional[List[Type[Agent]]], optional): Types of agents to filter for. Defaults to None.
+            - `keys` (Optional[List[str]], optional): Keys to match in agent attributes. Defaults to None.
+            - `values` (Optional[List[Any]], optional): Values corresponding to keys for matching. Defaults to None.
+
+        - **Raises**:
+            - `ValueError`: If neither types nor keys and values are provided, or if the lengths of keys and values do not match.
+
+        - **Returns**:
+            - `List[str]`: A list of filtered agent UUIDs.
+        """
         if not types and not keys and not values:
             return self._agent_uuids
         group_to_filter = []
@@ -759,12 +838,26 @@ class AgentSimulation:
             return filtered_uuids
 
     async def update_environment(self, key: str, value: str):
+        """
+        Update the environment variables for the simulation and all agent groups.
+
+        - **Args**:
+            - `key` (str): The environment variable key to update.
+            - `value` (str): The new value for the environment variable.
+        """
         self._simulator.update_environment(key, value)
         for group in self._groups.values():
             await group.update_environment.remote(key, value)
 
     async def update(self, target_agent_uuid: str, target_key: str, content: Any):
-        """更新指定智能体的记忆"""
+        """
+        Update the memory of a specified agent.
+
+        - **Args**:
+            - `target_agent_uuid` (str): The UUID of the target agent to update.
+            - `target_key` (str): The key in the agent's memory to update.
+            - `content` (Any): The new content to set for the target key.
+        """
         group = self._agent_uuid2group[target_agent_uuid]
         await group.update.remote(target_agent_uuid, target_key, content)
 
@@ -775,13 +868,30 @@ class AgentSimulation:
         content: Any,
         mode: Literal["replace", "merge"] = "replace",
     ):
-        """更新指定智能体的经济数据"""
+        """
+        Update economic data for a specified agent.
+
+        - **Args**:
+            - `target_agent_id` (int): The ID of the target agent whose economic data to update.
+            - `target_key` (str): The key in the agent's economic data to update.
+            - `content` (Any): The new content to set for the target key.
+            - `mode` (Literal["replace", "merge"], optional): Mode of updating the economic data. Defaults to "replace".
+        """
         await self.economy_client.update(
             id=target_agent_id, key=target_key, value=content, mode=mode
         )
 
     async def send_survey(self, survey: Survey, agent_uuids: list[str] = []):
-        """发送问卷"""
+        """
+        Send a survey to specified agents.
+
+        - **Args**:
+            - `survey` (Survey): The survey object to send.
+            - `agent_uuids` (List[str], optional): List of agent UUIDs to receive the survey. Defaults to an empty list.
+
+        - **Returns**:
+            - None
+        """
         survey_dict = survey.to_dict()
         _date_time = datetime.now(timezone.utc)
         payload = {
@@ -806,7 +916,16 @@ class AgentSimulation:
     async def send_interview_message(
         self, content: str, agent_uuids: Union[str, list[str]]
     ):
-        """发送采访消息"""
+        """
+        Send an interview message to specified agents.
+
+        - **Args**:
+            - `content` (str): The content of the message to send.
+            - `agent_uuids` (Union[str, List[str]]): A single UUID string or a list of UUID strings for the agents to receive the message.
+
+        - **Returns**:
+            - None
+        """
         _date_time = datetime.now(timezone.utc)
         payload = {
             "from": SURVEY_SENDER_UUID,
@@ -829,12 +948,37 @@ class AgentSimulation:
             await asyncio.sleep(3)
 
     async def extract_metric(self, metric_extractors: list[Callable]):
-        """提取指标"""
+        """
+        Extract metrics using provided extractors.
+
+        - **Description**:
+            - Asynchronously applies each metric extractor function to the simulation to collect various metrics.
+
+        - **Args**:
+            - `metric_extractors` (List[Callable]): A list of callable functions that take the simulation instance as an argument and return a metric or perform some form of analysis.
+
+        - **Returns**:
+            - None
+        """
         for metric_extractor in metric_extractors:
             await metric_extractor(self)
 
     async def step(self):
-        """Run one step, each agent execute one forward"""
+        """
+        Execute one step of the simulation where each agent performs its forward action.
+
+        - **Description**:
+            - Checks if new agents need to be inserted based on the current day of the simulation. If so, it inserts them.
+            - Executes the forward method for each agent group to advance the simulation by one step.
+            - Saves the state of all agent groups after the step has been completed.
+            - Optionally extracts metrics if the current step matches the interval specified for any metric extractors.
+
+        - **Raises**:
+            - `RuntimeError`: If there is an error during the execution of the step, it logs the error and rethrows it as a RuntimeError.
+
+        - **Returns**:
+            - None
+        """
         try:
             # check whether insert agents
             simulator_day = await self._simulator.get_simulator_day()
@@ -852,7 +996,9 @@ class AgentSimulation:
             # step
             simulator_day = await self._simulator.get_simulator_day()
             simulator_time = int(await self._simulator.get_time())
-            logger.info(f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}")
+            logger.info(
+                f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}"
+            )
             tasks = []
             for group in self._groups.values():
                 tasks.append(group.step.remote())
@@ -865,11 +1011,11 @@ class AgentSimulation:
                 save_tasks.append(group.save.remote(simulator_day, simulator_time))
             await asyncio.gather(*save_tasks)
             self._total_steps += 1
-            if self.metric_extractor is not None:
+            if self.metric_extractor is not None:  # type:ignore
                 print(f"total_steps: {self._total_steps}, excute metric")
                 to_excute_metric = [
                     metric[1]
-                    for metric in self.metric_extractor
+                    for metric in self.metric_extractor  # type:ignore
                     if self._total_steps % metric[0] == 0
                 ]
                 await self.extract_metric(to_excute_metric)
@@ -883,7 +1029,23 @@ class AgentSimulation:
         self,
         day: int = 1,
     ):
-        """Run the simulation by days"""
+        """
+        Run the simulation for a specified number of days.
+
+        - **Args**:
+            - `day` (int, optional): The number of days to run the simulation. Defaults to 1.
+
+        - **Description**:
+            - Updates the experiment status to running and sets up monitoring for the experiment's status.
+            - Runs the simulation loop until the end time, which is calculated based on the current time and the number of days to simulate.
+            - After completing the simulation, updates the experiment status to finished, or to failed if an exception occurs.
+
+        - **Raises**:
+            - `RuntimeError`: If there is an error during the simulation, it logs the error and updates the experiment status to failed before rethrowing the exception.
+
+        - **Returns**:
+            - None
+        """
         try:
             self._exp_info["num_day"] += day
             await self._update_exp_status(1)  # 更新状态为运行中

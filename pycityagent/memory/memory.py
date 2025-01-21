@@ -21,7 +21,7 @@ logger = logging.getLogger("pycityagent")
 
 
 class MemoryTag(str, Enum):
-    """记忆标签枚举类"""
+    """Memory tag enumeration class"""
 
     MOBILITY = "mobility"
     SOCIAL = "social"
@@ -33,7 +33,18 @@ class MemoryTag(str, Enum):
 
 @dataclass
 class MemoryNode:
-    """记忆节点"""
+    """
+    A data class representing a memory node.
+
+    - **Attributes**:
+        - `tag`: The tag associated with the memory node.
+        - `day`: Day of the event or memory.
+        - `t`: Time stamp or order.
+        - `location`: Location where the event occurred.
+        - `description`: Description of the memory.
+        - `cognition_id`: ID related to cognitive memory (optional).
+        - `id`: Unique ID for this memory node (optional).
+    """
 
     tag: MemoryTag
     day: int
@@ -45,9 +56,26 @@ class MemoryNode:
 
 
 class StreamMemory:
-    """用于存储时序性的流式信息"""
+    """
+    A class used to store and manage time-ordered stream information.
+
+    - **Attributes**:
+        - `_memories`: A deque to store memory nodes with a maximum length limit.
+        - `_memory_id_counter`: An internal counter to generate unique IDs for each new memory node.
+        - `_faiss_query`: The Faiss query object for search functionality.
+        - `_embedding_model`: The embedding model object for vectorizing text or other data.
+        - `_agent_id`: Identifier for the agent owning these memories.
+        - `_status_memory`: The status memory object.
+        - `_simulator`: The simulator object.
+    """
 
     def __init__(self, max_len: int = 1000):
+        """
+        Initialize an instance of StreamMemory.
+
+        - **Args**:
+            - `max_len` (int): Maximum length of the deque. Default is 1000.
+        """
         self._memories: deque = deque(maxlen=max_len)  # 限制最大存储量
         self._memory_id_counter: int = 0  # 用于生成唯一ID
         self._faiss_query = None
@@ -60,6 +88,12 @@ class StreamMemory:
     def faiss_query(
         self,
     ) -> FaissQuery:
+        """
+        Get the Faiss query object.
+
+        - **Returns**:
+            - `FaissQuery`: Instance of the Faiss query object.
+        """
         assert self._faiss_query is not None
         return self._faiss_query
 
@@ -67,26 +101,64 @@ class StreamMemory:
     def status_memory(
         self,
     ):
+        """
+        Get the status memory object.
+
+        - **Returns**:
+            - `StatusMemory`: Instance of the status memory object.
+        """
         assert self._status_memory is not None
         return self._status_memory
 
     def set_simulator(self, simulator):
+        """
+        Set the simulator object.
+
+        - **Args**:
+            - `simulator` (Simulator): Simulator object.
+        """
         self._simulator = simulator
 
     def set_status_memory(self, status_memory):
+        """
+        Set the status memory object.
+
+        - **Args**:
+            - `status_memory` (StatusMemory): Status memory object.
+        """
         self._status_memory = status_memory
 
     def set_search_components(self, faiss_query, embedding_model):
-        """设置搜索所需的组件"""
+        """
+        Set the components required for search functionality.
+
+        - **Args**:
+            - `faiss_query` (Any): Faiss query object.
+            - `embedding_model` (Any): Embedding model object.
+        """
         self._faiss_query = faiss_query
         self._embedding_model = embedding_model
 
     def set_agent_id(self, agent_id: int):
-        """设置agent_id"""
+        """
+        Set the agent ID.
+
+        - **Args**:
+            - `agent_id` (int): Agent ID.
+        """
         self._agent_id = agent_id
 
     async def _add_memory(self, tag: MemoryTag, description: str) -> int:
-        """添加记忆节点的通用方法，返回记忆节点ID"""
+        """
+        A generic method for adding a memory node and returning the memory node ID.
+
+        - **Args**:
+            - `tag` (MemoryTag): The tag associated with the memory node.
+            - `description` (str): Description of the memory.
+
+        - **Returns**:
+            - `int`: The unique ID of the newly added memory node.
+        """
         if self._simulator is not None:
             day = int(await self._simulator.get_simulator_day())
             t = int(await self._simulator.get_time())
@@ -129,31 +201,87 @@ class StreamMemory:
         return current_id
 
     async def add_cognition(self, description: str) -> int:
-        """添加认知记忆 Add cognition memory"""
+        """
+        Add a cognition memory node.
+
+        - **Args**:
+            - `description` (str): Description of the cognition memory.
+
+        - **Returns**:
+            - `int`: The unique ID of the newly added cognition memory node.
+        """
         return await self._add_memory(MemoryTag.COGNITION, description)
 
     async def add_social(self, description: str) -> int:
-        """添加社交记忆 Add social memory"""
+        """
+        Add a social memory node.
+
+        - **Args**:
+            - `description` (str): Description of the social memory.
+
+        - **Returns**:
+            - `int`: The unique ID of the newly added social memory node.
+        """
         return await self._add_memory(MemoryTag.SOCIAL, description)
 
     async def add_economy(self, description: str) -> int:
-        """添加经济记忆 Add economy memory"""
+        """
+        Add an economy memory node.
+
+        - **Args**:
+            - `description` (str): Description of the economy memory.
+
+        - **Returns**:
+            - `int`: The unique ID of the newly added economy memory node.
+        """
         return await self._add_memory(MemoryTag.ECONOMY, description)
 
     async def add_mobility(self, description: str) -> int:
-        """添加移动记忆 Add mobility memory"""
+        """
+        Add a mobility memory node.
+
+        - **Args**:
+            - `description` (str): Description of the mobility memory.
+
+        - **Returns**:
+            - `int`: The unique ID of the newly added mobility memory node.
+        """
         return await self._add_memory(MemoryTag.MOBILITY, description)
 
     async def add_event(self, description: str) -> int:
-        """添加事件记忆 Add event memory"""
+        """
+        Add an event memory node.
+
+        - **Args**:
+            - `description` (str): Description of the event memory.
+
+        - **Returns**:
+            - `int`: The unique ID of the newly added event memory node.
+        """
         return await self._add_memory(MemoryTag.EVENT, description)
 
     async def add_other(self, description: str) -> int:
-        """添加其他记忆 Add other memory"""
+        """
+        Add an other type memory node.
+
+        - **Args**:
+            - `description` (str): Description of the other type memory.
+
+        - **Returns**:
+            - `int`: The unique ID of the newly added other type memory node.
+        """
         return await self._add_memory(MemoryTag.OTHER, description)
 
-    async def get_related_cognition(self, memory_id: int) -> Optional[MemoryNode]:
-        """获取关联的认知记忆 Get related cognition memory"""
+    async def get_related_cognition(self, memory_id: int) -> Union[MemoryNode, None]:
+        """
+        Retrieve the related cognition memory node by its ID.
+
+        - **Args**:
+            - `memory_id` (int): The ID of the memory to find related cognition for.
+
+        - **Returns**:
+            - `Optional[MemoryNode]`: The related cognition memory node, if found; otherwise, None.
+        """
         for memory in self._memories:
             if memory.cognition_id == memory_id:
                 for cognition_memory in self._memories:
@@ -165,7 +293,15 @@ class StreamMemory:
         return None
 
     async def format_memory(self, memories: list[MemoryNode]) -> str:
-        """格式化记忆"""
+        """
+        Format a list of memory nodes into a readable string representation.
+
+        - **Args**:
+            - `memories` (list[MemoryNode]): List of MemoryNode objects to format.
+
+        - **Returns**:
+            - `str`: A formatted string containing the details of each memory node.
+        """
         formatted_results = []
         for memory in memories:
             memory_tag = memory.tag
@@ -215,14 +351,18 @@ class StreamMemory:
         day_range: Optional[tuple[int, int]] = None,  # 新增参数
         time_range: Optional[tuple[int, int]] = None,  # 新增参数
     ) -> str:
-        """Search stream memory
+        """
+        Search stream memory with optional filters and return formatted results.
 
-        Args:
-            query: Query text
-            tag: Optional memory tag for filtering specific types of memories
-            top_k: Number of most relevant memories to return
-            day_range: Optional tuple of start and end days (start_day, end_day)
-            time_range: Optional tuple of start and end times (start_time, end_time)
+        - **Args**:
+            - `query` (str): The text to use for searching.
+            - `tag` (Optional[MemoryTag], optional): Filter memories by this tag. Defaults to None.
+            - `top_k` (int, optional): Number of top relevant memories to return. Defaults to 3.
+            - `day_range` (Optional[tuple[int, int]], optional): Tuple of start and end days for filtering. Defaults to None.
+            - `time_range` (Optional[tuple[int, int]], optional): Tuple of start and end times for filtering. Defaults to None.
+
+        - **Returns**:
+            - `str`: Formatted string of the search results.
         """
         if not self._embedding_model or not self._faiss_query:
             return "Search components not initialized"
@@ -318,11 +458,12 @@ class StreamMemory:
     async def add_cognition_to_memory(
         self, memory_id: Union[int, list[int]], cognition: str
     ) -> None:
-        """为已存在的记忆添加认知
+        """
+        Add cognition to existing memory nodes.
 
-        Args:
-            memory_id: 要添加认知的记忆ID，可以是单个ID或ID列表
-            cognition: 认知描述
+        - **Args**:
+            - `memory_id` (Union[int, list[int]]): ID or list of IDs of the memories to which cognition will be added.
+            - `cognition` (str): Description of the cognition to add.
         """
         # 将单个ID转换为列表以统一处理
         memory_ids = [memory_id] if isinstance(memory_id, int) else memory_id
@@ -344,16 +485,29 @@ class StreamMemory:
             target_memory.cognition_id = cognition_id
 
     async def get_all(self) -> list[MemoryNode]:
-        """获取所有流式信息"""
+        """
+        Retrieve all stream memory nodes.
+
+        - **Returns**:
+            - `list[MemoryNode]`: List of all MemoryNode objects.
+        """
         return list(self._memories)
 
 
 class StatusMemory:
-    """组合现有的三种记忆类型"""
+    """Combine existing three types of memories into a single interface."""
 
     def __init__(
         self, profile: ProfileMemory, state: StateMemory, dynamic: DynamicMemory
     ):
+        """
+        Initialize the StatusMemory with three types of memory.
+
+        - **Args**:
+            - `profile`: Profile memory instance.
+            - `state`: State memory instance.
+            - `dynamic`: Dynamic memory instance.
+        """
         self.profile = profile
         self.state = state
         self.dynamic = dynamic
@@ -371,14 +525,16 @@ class StatusMemory:
     def faiss_query(
         self,
     ) -> FaissQuery:
+        """Get the Faiss query component."""
         assert self._faiss_query is not None
         return self._faiss_query
 
     def set_simulator(self, simulator):
+        """Set the simulator for this status memory."""
         self._simulator = simulator
 
     async def initialize_embeddings(self) -> None:
-        """初始化所有需要 embedding 的字段"""
+        """Initialize embeddings for all fields that require them."""
         if not self._embedding_model or not self._faiss_query:
             logger.warning(
                 "Search components not initialized, skipping embeddings initialization"
@@ -429,7 +585,7 @@ class StatusMemory:
                 self._embedding_field_to_doc_id[key] = doc_ids[0]
 
     def _get_memory_type_by_key(self, key: str) -> str:
-        """根据键名确定记忆类型"""
+        """Determine the type of memory based on the key name."""
         try:
             if key in self.profile.__dict__:
                 return "profile"
@@ -441,27 +597,41 @@ class StatusMemory:
             return "dynamic"
 
     def set_search_components(self, faiss_query, embedding_model):
-        """设置搜索所需的组件"""
+        """Set the search components for this status memory."""
         self._faiss_query = faiss_query
         self._embedding_model = embedding_model
 
     def set_agent_id(self, agent_id: int):
-        """设置agent_id"""
+        """
+        Set the agent ID.
+
+        - **Args**:
+            - `agent_id` (int): Agent ID.
+        """
         self._agent_id = agent_id
 
     def set_semantic_templates(self, templates: Dict[str, str]):
-        """设置语义模板
+        """
+        Set the semantic templates for generating embedding text.
 
-        Args:
-            templates: 键值对形式的模板字典，如 {"name": "my name is {}", "age": "I am {} years old"}
+        - **Args**:
+            - `templates` (Dict[str, str]): A dictionary of key-value pairs where keys are field names and values are template strings.
         """
         self._semantic_templates = templates
 
     def _generate_semantic_text(self, key: str, value: Any) -> str:
-        """生成语义文本
+        """
+        Generate semantic text for a given key and value.
 
-        如果key存在于模板中，使用自定义模板
-        否则使用默认模板 "my {key} is {value}"
+        If a custom template exists for the key, it uses that template;
+        otherwise, it uses a default template "Your {key} is {value}".
+
+        - **Args**:
+            - `key` (str): The name of the field.
+            - `value` (Any): The value associated with the field.
+
+        - **Returns**:
+            - `str`: The generated semantic text.
         """
         if key in self._semantic_templates:
             return self._semantic_templates[key].format(value)
@@ -471,15 +641,16 @@ class StatusMemory:
     async def search(
         self, query: str, top_k: int = 3, filter: Optional[dict] = None
     ) -> str:
-        """搜索相关记忆
+        """
+        Search for relevant memories based on the provided query.
 
-        Args:
-            query: 查询文本
-            top_k: 返回最相关的记忆数量
-            filter (dict, optional): 记忆的筛选条件，如 {"key":"self_define_1",}，默认为空
+        - **Args**:
+            - `query` (str): The text query to search for.
+            - `top_k` (int, optional): Number of top relevant memories to return. Defaults to 3.
+            - `filter` (Optional[dict], optional): Additional filters for the search. Defaults to None.
 
-        Returns:
-            str: 格式化的相关记忆文本
+        - **Returns**:
+            - `str`: Formatted string of the search results.
         """
         if not self._embedding_model:
             return "Embedding model not initialized"
@@ -504,31 +675,47 @@ class StatusMemory:
         return "\n".join(formatted_results)
 
     def set_embedding_fields(self, embedding_fields: Dict[str, bool]):
-        """设置需要 embedding 的字段"""
+        """
+        Set which fields require embeddings.
+
+        - **Args**:
+            - `embedding_fields` (Dict[str, bool]): Dictionary indicating whether each field should be embedded.
+        """
         self._embedding_fields = embedding_fields
 
     def should_embed(self, key: str) -> bool:
-        """判断字段是否需要 embedding"""
+        """
+        Determine if a given field requires an embedding.
+
+        - **Args**:
+            - `key` (str): The name of the field.
+
+        - **Returns**:
+            - `bool`: True if the field should be embedded, False otherwise.
+        """
         return self._embedding_fields.get(key, False)
 
     @lock_decorator
     async def get(
         self,
         key: Any,
+        default_value: Optional[Any] = None,
         mode: Union[Literal["read only"], Literal["read and write"]] = "read only",
     ) -> Any:
-        """从记忆中获取值
+        """
+        Retrieve a value from the memory.
 
-        Args:
-            key: 要获取的键
-            mode: 访问模式，"read only" 或 "read and write"
+        - **Args**:
+            - `key` (Any): The key to retrieve.
+            - `default_value` (Optional[Any], optional): Default value if the key is not found. Defaults to None.
+            - `mode` (Union[Literal["read only"], Literal["read and write"]], optional): Access mode for the value. Defaults to "read only".
 
-        Returns:
-            获取到的值
+        - **Returns**:
+            - `Any`: The retrieved value or the default value if the key is not found.
 
-        Raises:
-            ValueError: 如果提供了无效的模式
-            KeyError: 如果在任何记忆部分都找不到该键
+        - **Raises**:
+            - `ValueError`: If an invalid mode is provided.
+            - `KeyError`: If the key is not found in any of the memory sections and no default value is provided.
         """
         if mode == "read only":
             process_func = deepcopy
@@ -543,7 +730,10 @@ class StatusMemory:
                 return process_func(value)
             except KeyError:
                 continue
-        raise KeyError(f"No attribute `{key}` in memories!")
+        if default_value is None:
+            raise KeyError(f"No attribute `{key}` in memories!")
+        else:
+            return default_value
 
     @lock_decorator
     async def update(
@@ -554,7 +744,20 @@ class StatusMemory:
         store_snapshot: bool = False,
         protect_llm_read_only_fields: bool = True,
     ) -> None:
-        """更新记忆值并在必要时更新embedding"""
+        """
+        Update a value in the memory and refresh embeddings if necessary.
+
+        - **Args**:
+            - `key` (Any): The key to update.
+            - `value` (Any): The new value to set.
+            - `mode` (Union[Literal["replace"], Literal["merge"]], optional): Update mode. Defaults to "replace".
+            - `store_snapshot` (bool, optional): Whether to store a snapshot. Defaults to False.
+            - `protect_llm_read_only_fields` (bool, optional): Whether to protect certain fields from being updated. Defaults to True.
+
+        - **Raises**:
+            - `ValueError`: If an invalid update mode is provided.
+            - `KeyError`: If the key is not found in any of the memory sections.
+        """
         if protect_llm_read_only_fields:
             if any(key in _attrs for _attrs in [STATE_ATTRIBUTES]):
                 logger.warning(f"Trying to write protected key `{key}`!")
@@ -626,7 +829,15 @@ class StatusMemory:
         raise KeyError(f"No attribute `{key}` in memories!")
 
     def _get_memory_type(self, mem: Any) -> str:
-        """获取记忆类型"""
+        """
+        Determine the type of memory.
+
+        - **Args**:
+            - `mem` (Any): The memory instance to check.
+
+        - **Returns**:
+            - `str`: The type of memory ("state", "profile", or "dynamic").
+        """
         if mem is self.state:
             return "state"
         elif mem is self.profile:
@@ -636,7 +847,13 @@ class StatusMemory:
 
     @lock_decorator
     async def add_watcher(self, key: str, callback: Callable) -> None:
-        """添加值变更的监听器"""
+        """
+        Add a watcher for value changes on a specific key.
+
+        - **Args**:
+            - `key` (str): The key to watch.
+            - `callback` (Callable): The function to call when the watched key's value changes.
+        """
         if key not in self.watchers:
             self.watchers[key] = []
         self.watchers[key].append(callback)
@@ -645,10 +862,10 @@ class StatusMemory:
         self,
     ) -> tuple[Sequence[dict], Sequence[dict], Sequence[dict]]:
         """
-        Exports the current state of all memory sections.
+        Export the current state of all memory sections.
 
-        Returns:
-            tuple[Sequence[dict], Sequence[dict], Sequence[dict]]: A tuple containing the exported data of profile, state, and dynamic memory sections.
+        - **Returns**:
+            - `Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]]`: A tuple containing the exported data from profile, state, and dynamic memory sections.
         """
         return (
             await self.profile.export(),
@@ -662,11 +879,11 @@ class StatusMemory:
         reset_memory: bool = True,
     ) -> None:
         """
-        Import the snapshot memories of all sections.
+        Load snapshot memories into all sections.
 
-        Args:
-            snapshots (tuple[Sequence[dict], Sequence[dict], Sequence[dict]]): The exported snapshots.
-            reset_memory (bool): Whether to reset previous memory.
+        - **Args**:
+            - `snapshots` (Tuple[Sequence[Dict], Sequence[Dict], Sequence[Dict]]): The exported snapshots to load.
+            - `reset_memory` (bool, optional): Whether to reset previous memory. Defaults to True.
         """
         _profile_snapshot, _state_snapshot, _dynamic_snapshot = snapshots
         for _snapshot, _mem in zip(
@@ -681,10 +898,14 @@ class Memory:
     """
     A class to manage different types of memory (state, profile, dynamic).
 
-    Attributes:
-        _state (StateMemory): Stores state-related data.
-        _profile (ProfileMemory): Stores profile-related data.
-        _dynamic (DynamicMemory): Stores dynamically configured data.
+    - **Attributes**:
+        - `_state` (`StateMemory`): Stores state-related data.
+        - `_profile` (`ProfileMemory`): Stores profile-related data.
+        - `_dynamic` (`DynamicMemory`): Stores dynamically configured data.
+
+    - **Methods**:
+        - `set_search_components`: Sets the search components for stream and status memory.
+
     """
 
     def __init__(
@@ -699,21 +920,27 @@ class Memory:
         """
         Initializes the Memory with optional configuration.
 
-        Args:
-            config (Optional[dict[Any, Any]], optional):
-                A configuration dictionary for dynamic memory. The dictionary format is:
-                - Key: The name of the dynamic memory field.
-                - Value: Can be one of two formats:
-                    1. A tuple where the first element is a variable type (e.g., int, str, etc.), and the second element is the default value for this field.
-                    2. A callable that returns the default value when invoked (useful for complex default values).
-                Note: If a key in `config` overlaps with predefined attributes in `PROFILE_ATTRIBUTES` or `STATE_ATTRIBUTES`, a warning will be logged, and the key will be ignored.
+        - **Description**:
+            - Sets up the memory management system by initializing different memory types (state, profile, dynamic)
+              and configuring them based on provided parameters. Also initializes watchers and locks for thread-safe operations.
+
+        - **Args**:
+            - `config` (Optional[dict[Any, Any]], optional):
+                Configuration dictionary for dynamic memory, where keys are field names and values can be tuples or callables.
                 Defaults to None.
-            profile (Optional[dict[Any, Any]], optional): profile attribute dict.
-            base (Optional[dict[Any, Any]], optional): base attribute dict from City Simulator.
-            motion (Optional[dict[Any, Any]], optional): motion attribute dict from City Simulator.
-            activate_timestamp (bool): Whether activate timestamp storage in MemoryUnit
-            embedding_model (Embeddings): The embedding model for memory search.
-            faiss_query (FaissQuery): The faiss_query of the agent. Defaults to None.
+            - `profile` (Optional[dict[Any, Any]], optional): Dictionary for profile attributes.
+                Defaults to None.
+            - `base` (Optional[dict[Any, Any]], optional): Dictionary for base attributes from City Simulator.
+                Defaults to None.
+            - `activate_timestamp` (bool): Flag to enable timestamp storage in MemoryUnit.
+                Defaults to False.
+            - `embedding_model` (Optional[Embeddings]): Embedding model used for memory search.
+                Defaults to None.
+            - `faiss_query` (Optional[FaissQuery]): Faiss query object for the agent.
+                Defaults to None.
+
+        - **Returns**:
+            - `None`
         """
         self.watchers: dict[str, list[Callable]] = {}
         self._lock = asyncio.Lock()
@@ -856,6 +1083,19 @@ class Memory:
         faiss_query: FaissQuery,
         embedding_model: Embeddings,
     ):
+        """
+        Set the search components for stream and status memory.
+
+        - **Description**:
+            - Updates the embedding model and faiss query for both stream and status memory, allowing for new searches to use updated models.
+
+        - **Args**:
+            - `faiss_query` (`FaissQuery`): The new faiss query component.
+            - `embedding_model` (`Embeddings`): The new embedding model component.
+
+        - **Returns**:
+            - `None`
+        """
         self._embedding_model = embedding_model
         self._faiss_query = faiss_query
         self._stream.set_search_components(faiss_query, embedding_model)
@@ -863,13 +1103,34 @@ class Memory:
 
     def set_agent_id(self, agent_id: int):
         """
-        Set the FaissQuery of the agent.
+        Set the agent ID for the memory management system.
+
+        - **Description**:
+            - Sets the identifier for the agent and propagates this ID to stream and status memory components.
+
+        - **Args**:
+            - `agent_id` (int): Identifier of the agent.
+
+        - **Returns**:
+            - `None`
         """
         self._agent_id = agent_id
         self._stream.set_agent_id(agent_id)
         self._status.set_agent_id(agent_id)
 
     def set_simulator(self, simulator):
+        """
+        Assign a simulator to the memory management system.
+
+        - **Description**:
+            - Sets the simulator for the memory system and passes it on to the stream and status memory components.
+
+        - **Args**:
+            - `simulator`: The simulator object to be used by the memory system.
+
+        - **Returns**:
+            - `None`
+        """
         self._simulator = simulator
         self._stream.set_simulator(simulator)
         self._status.set_simulator(simulator)
@@ -886,6 +1147,18 @@ class Memory:
     def embedding_model(
         self,
     ):
+        """
+        Access the embedding model used in the memory system.
+
+        - **Description**:
+            - Property that provides access to the embedding model. Raises an error if accessed before assignment.
+
+        - **Raises**:
+            - `RuntimeError`: If the embedding model has not been set yet.
+
+        - **Returns**:
+            - `Embeddings`: The embedding model instance.
+        """
         if self._embedding_model is None:
             raise RuntimeError(
                 f"embedding_model before assignment, please `set_embedding_model` first!"
@@ -896,6 +1169,18 @@ class Memory:
     def agent_id(
         self,
     ):
+        """
+        Access the agent ID.
+
+        - **Description**:
+            - Property that provides access to the agent ID. Raises an error if accessed before assignment.
+
+        - **Raises**:
+            - `RuntimeError`: If the agent ID has not been set yet.
+
+        - **Returns**:
+            - `int`: The agent's identifier.
+        """
         if self._agent_id < 0:
             raise RuntimeError(
                 f"agent_id before assignment, please `set_agent_id` first!"
@@ -904,7 +1189,18 @@ class Memory:
 
     @property
     def faiss_query(self) -> FaissQuery:
-        """FaissQuery"""
+        """
+        Access the FaissQuery component.
+
+        - **Description**:
+            - Property that provides access to the FaissQuery component. Raises an error if accessed before assignment.
+
+        - **Raises**:
+            - `RuntimeError`: If the FaissQuery has not been set yet.
+
+        - **Returns**:
+            - `FaissQuery`: The FaissQuery instance.
+        """
         if self._faiss_query is None:
             raise RuntimeError(
                 f"FaissQuery access before assignment, please `set_faiss_query` first!"
@@ -912,5 +1208,12 @@ class Memory:
         return self._faiss_query
 
     async def initialize_embeddings(self):
-        """初始化embedding"""
+        """
+        Initialize embeddings within the status memory.
+
+        - **Description**:
+            - Asynchronously initializes embeddings for the status memory component, which prepares the system for performing searches.
+
+        - **Returns**:
+        """
         await self._status.initialize_embeddings()

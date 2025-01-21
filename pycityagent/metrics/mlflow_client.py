@@ -15,6 +15,8 @@ from mlflow.entities import (Dataset, DatasetInput, Document, Experiment,
 
 from ..utils.decorators import lock_decorator
 
+__all__ = ["init_mlflow_connection","MlflowClient",]
+
 logger = logging.getLogger("mlflow")
 
 
@@ -26,7 +28,20 @@ def init_mlflow_connection(
     experiment_description: Optional[str] = None,
     experiment_tags: Optional[dict[str, Any]] = None,
 ) -> tuple[str, tuple[str, mlflow.MlflowClient, Run, str]]:
+    """
+    Initialize an MLflow connection with a new or existing experiment and run.
 
+    Args:
+        config (dict): Configuration dictionary containing MLflow credentials and URI.
+        experiment_uuid (str): A unique identifier for the experiment.
+        mlflow_run_name (str, optional): Name of the MLflow run. Defaults to a generated name.
+        experiment_name (str, optional): Name of the experiment. Defaults to a generated name.
+        experiment_description (str, optional): Description for the experiment. Defaults to None.
+        experiment_tags (dict, optional): Tags to associate with the experiment. Defaults to None.
+
+    Returns:
+        tuple: A tuple containing the run_id and another tuple with the MLflow URI, client, run object, and run UUID.
+    """
     os.environ["MLFLOW_TRACKING_USERNAME"] = config.get("username", None)
     os.environ["MLFLOW_TRACKING_PASSWORD"] = config.get("password", None)
 
@@ -70,9 +85,7 @@ def init_mlflow_connection(
 
 
 class MlflowClient:
-    """
-    - Mlflow client
-    """
+    """A wrapper around MLflow's MlflowClient for managing experiments and runs."""
 
     def __init__(
         self,
@@ -84,6 +97,18 @@ class MlflowClient:
         experiment_tags: Optional[dict[str, Any]] = None,
         run_id: Optional[str] = None,
     ) -> None:
+        """
+        Initialize the MlflowClient.
+
+        Args:
+            config (dict): Configuration dictionary containing MLflow credentials and URI.
+            experiment_uuid (str): A unique identifier for the experiment.
+            mlflow_run_name (str, optional): Name of the MLflow run. Defaults to a generated name.
+            experiment_name (str, optional): Name of the experiment. Defaults to a generated name.
+            experiment_description (str, optional): Description for the experiment. Defaults to None.
+            experiment_tags (dict, optional): Tags to associate with the experiment. Defaults to None.
+            run_id (str, optional): Existing MLflow run ID to attach to. Defaults to None.
+        """
         if run_id is None:
             self._run_id, (
                 self._mlflow_uri,
@@ -112,12 +137,14 @@ class MlflowClient:
     def client(
         self,
     ) -> mlflow.MlflowClient:
+        """Return the underlying MLflow client."""
         return self._client
 
     @property
     def run_id(
         self,
     ) -> str:
+        """Return the current run ID."""
         assert self._run_id is not None
         return self._run_id
 
@@ -128,6 +155,11 @@ class MlflowClient:
         params: Sequence[Param] = (),
         tags: Sequence[RunTag] = (),
     ):
+        """
+        Log a batch of metrics, parameters, and tags to the MLflow run.
+
+        This method is thread-safe due to the `@lock_decorator`.
+        """
         self.client.log_batch(
             run_id=self.run_id, metrics=metrics, params=params, tags=tags
         )
@@ -140,6 +172,17 @@ class MlflowClient:
         step: Optional[int] = None,
         timestamp: Optional[int] = None,
     ):
+        """
+        Log a single metric to the MLflow run.
+
+        This method is thread-safe due to the `@lock_decorator`.
+
+        Args:
+            key (str): The name of the metric.
+            value (float): The value of the metric.
+            step (int, optional): The step at which the metric was recorded. Defaults to None.
+            timestamp (int, optional): The timestamp when the metric was recorded. Defaults to None.
+        """
         if timestamp is not None:
             timestamp = int(timestamp)
         self.client.log_metric(

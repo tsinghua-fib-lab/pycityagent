@@ -1,25 +1,49 @@
 import asyncio
-from typing import Optional
 import socket
-from ..memory import Memory
+from typing import Optional
+
 from ..environment import Simulator
+from ..memory import Memory
 
 KEY_TRIGGER_COMPONENTS = [Memory, Simulator]
 
+__all__ = [
+    "EventTrigger",
+    "MemoryChangeTrigger",
+    "TimeTrigger",
+]
+
 
 class EventTrigger:
-    """Base class for event triggers that wait for specific conditions to be met."""
+    """Base class for event triggers that wait for specific conditions to be met.
+
+    - **Attributes**:
+        - `required_components` (List[Type]): A list of component types required by this trigger.
+    """
 
     # 定义该trigger需要的组件类型
     required_components: list[type] = []
 
     def __init__(self, block=None):
+        """
+        - **Description**:
+            - Initializes the EventTrigger with an optional block which contains dependencies.
+
+        - **Args**:
+            - `block`: An object containing necessary dependencies for the trigger. Defaults to None.
+        """
         self.block = block
         if block is not None:
             self.initialize()
 
     def initialize(self) -> None:
-        """Initialize the trigger with necessary dependencies."""
+        """
+        - **Description**:
+            - Initialize the trigger with necessary dependencies and checks for missing components.
+
+        - **Raises**:
+            - `RuntimeError`: If the block is not set or required components are missing.
+        """
         if not self.block:
             raise RuntimeError("Block not set for trigger")
 
@@ -37,24 +61,32 @@ class EventTrigger:
             )
 
     async def wait_for_trigger(self) -> None:
-        """Wait for the event trigger to be activated.
+        """
+        - **Description**:
+            - Wait for the event trigger to be activated.
 
-        Raises:
-            NotImplementedError: Subclasses must implement this method.
+        - **Raises**:
+            - `NotImplementedError`: Subclasses must implement this method.
         """
         raise NotImplementedError
 
 
 class MemoryChangeTrigger(EventTrigger):
-    """Event trigger that activates when a specific key in memory changes."""
+    """Event trigger that activates when a specific key in memory changes.
+
+    - **Attributes**:
+        - `required_components` (List[Type]): Specifies that the Memory component is required.
+    """
 
     required_components = [Memory]
 
     def __init__(self, key: str) -> None:
-        """Initialize the memory change trigger.
+        """
+        - **Description**:
+            - Initialize the memory change trigger.
 
-        Args:
-            key (str): The key in memory to monitor for changes.
+        - **Args**:
+            - `key` (str): The key in memory to monitor for changes.
         """
         self.key = key
         self.trigger_event = asyncio.Event()
@@ -62,14 +94,27 @@ class MemoryChangeTrigger(EventTrigger):
         super().__init__()
 
     def initialize(self) -> None:
-        """Initialize the trigger with memory from block."""
+        """
+        - **Description**:
+            - Initialize the trigger with memory from block and add watcher for the specified key.
+
+        - **Raises**:
+            - `RuntimeError`: If the block is not properly set.
+        """
         super().initialize()  # 首先检查必需组件
+        assert self.block is not None
         self.memory = self.block.memory
         asyncio.create_task(self.memory.add_watcher(self.key, self.trigger_event.set))
         self._initialized = True
 
     async def wait_for_trigger(self) -> None:
-        """Wait for the memory change trigger to be activated."""
+        """
+        - **Description**:
+            - Wait for the memory change trigger to be activated.
+
+        - **Raises**:
+            - `RuntimeError`: If the trigger is not properly initialized.
+        """
         if not self._initialized:
             raise RuntimeError("Trigger not properly initialized")
         await self.trigger_event.wait()
@@ -77,7 +122,11 @@ class MemoryChangeTrigger(EventTrigger):
 
 
 class TimeTrigger(EventTrigger):
-    """Event trigger that activates periodically based on time intervals."""
+    """Event trigger that activates periodically based on time intervals.
+
+    - **Attributes**:
+        - `required_components` (List[Type]): Specifies that the Simulator component is required.
+    """
 
     required_components = [Simulator]
 
@@ -87,15 +136,17 @@ class TimeTrigger(EventTrigger):
         hours: Optional[int] = None,
         minutes: Optional[int] = None,
     ) -> None:
-        """Initialize the time trigger with interval settings.
+        """
+        - **Description**:
+            - Initialize the time trigger with interval settings.
 
-        Args:
-            days (Optional[int]): Execute every N days
-            hours (Optional[int]): Execute every N hours
-            minutes (Optional[int]): Execute every N minutes
+        - **Args**:
+            - `days` (Optional[int]): Execute every N days. Defaults to None.
+            - `hours` (Optional[int]): Execute every N hours. Defaults to None.
+            - `minutes` (Optional[int]): Execute every N minutes. Defaults to None.
 
-        Raises:
-            ValueError: If all interval parameters are None or negative
+        - **Raises**:
+            - `ValueError`: If all interval parameters are None or any of them are negative.
         """
         if all(param is None for param in (days, hours, minutes)):
             raise ValueError("At least one time interval must be specified")
@@ -125,8 +176,15 @@ class TimeTrigger(EventTrigger):
         super().__init__()
 
     def initialize(self) -> None:
-        """Initialize the trigger with necessary dependencies."""
+        """
+        - **Description**:
+            - Initialize the trigger with necessary dependencies and start monitoring task.
+
+        - **Raises**:
+            - `RuntimeError`: If the block is not properly set.
+        """
         super().initialize()  # 首先检查必需组件
+        assert self.block is not None
         self.memory = self.block.memory
         self.simulator = self.block.simulator
         # 启动时间监控任务
@@ -134,7 +192,10 @@ class TimeTrigger(EventTrigger):
         self._initialized = True
 
     async def _monitor_time(self):
-        """持续监控时间并在达到间隔时触发事件"""
+        """
+        - **Description**:
+            - Continuously monitor the time and trigger the event when the interval has passed.
+        """
         # 第一次调用时直接触发
         self.trigger_event.set()
 
@@ -156,7 +217,13 @@ class TimeTrigger(EventTrigger):
                 await asyncio.sleep(10)  # 发生错误时等待较长时间
 
     async def wait_for_trigger(self) -> None:
-        """Wait for the time trigger to be activated."""
+        """
+        - **Description**:
+            - Wait for the time trigger to be activated.
+
+        - **Raises**:
+            - `RuntimeError`: If the trigger is not properly initialized.
+        """
         if not self._initialized:
             raise RuntimeError("Trigger not properly initialized")
         await self.trigger_event.wait()

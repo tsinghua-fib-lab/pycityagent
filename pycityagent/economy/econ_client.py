@@ -41,14 +41,22 @@ def _get_field_type_and_repeated(message, field_name: str) -> tuple[Any, bool]:
 
 def _create_aio_channel(server_address: str, secure: bool = False) -> grpc.aio.Channel:
     """
-    Create a grpc asynchronous channel
+    Create a gRPC asynchronous channel.
 
-    Args:
-    - server_address (str): server address.
-    - secure (bool, optional): Defaults to False. Whether to use a secure connection. Defaults to False.
+    - **Args**:
+        - `server_address` (`str`): The address of the server to connect to.
+        - `secure` (`bool`, optional): Whether to use a secure connection. Defaults to `False`.
 
-    Returns:
-    - grpc.aio.Channel: grpc asynchronous channel.
+    - **Returns**:
+        - `grpc.aio.Channel`: A gRPC asynchronous channel for making RPC calls.
+
+    - **Raises**:
+        - `ValueError`: If a secure channel is requested but the server address starts with `http://`.
+
+    - **Description**:
+        - This function creates and returns a gRPC asynchronous channel based on the provided server address and security flag.
+        - It ensures that if `secure=True`, then the server address does not start with `http://`.
+        - If the server address starts with `https://`, it will automatically switch to a secure connection even if `secure=False`.
     """
     if server_address.startswith("http://"):
         server_address = server_address.split("//")[1]
@@ -67,16 +75,30 @@ def _create_aio_channel(server_address: str, secure: bool = False) -> grpc.aio.C
 
 class EconomyClient:
     """
-    Client side of Economy service
+    Client side of Economy service.
+
+    - **Description**:
+        - This class serves as a client interface to interact with the Economy Simulator via gRPC.
+        - It establishes an asynchronous connection and provides methods to communicate with the service.
     """
 
     def __init__(self, server_address: str, secure: bool = False):
         """
-        Constructor of EconomyClient
+        Initialize the EconomyClient.
 
-        Args:
-        - server_address (str): Economy server address
-        - secure (bool, optional): Defaults to False. Whether to use a secure connection. Defaults to False.
+        - **Args**:
+            - `server_address` (`str`): The address of the Economy server to connect to.
+            - `secure` (`bool`, optional): Whether to use a secure connection. Defaults to `False`.
+
+        - **Attributes**:
+            - `server_address` (`str`): The address of the Economy server.
+            - `secure` (`bool`): A flag indicating if a secure connection should be used.
+            - `_aio_stub` (`OrgServiceStub`): A gRPC stub used to make remote calls to the Economy service.
+
+        - **Description**:
+            - Initializes the EconomyClient with the specified server address and security preference.
+            - Creates an asynchronous gRPC channel using `_create_aio_channel`.
+            - Instantiates a gRPC stub (`_aio_stub`) for interacting with the Economy service.
         """
         self.server_address = server_address
         self.secure = secure
@@ -112,12 +134,12 @@ class EconomyClient:
         """
         Get specific value
 
-        Args:
-        - id (int): the id of `Org` or `Agent`.
-        - key (str): the attribute to fetch.
+        - **Args**:
+            - `id` (`int`): The id of `Org` or `Agent`.
+            - `key` (`str`): The attribute to fetch.
 
-        Returns:
-        - Any
+        - **Returns**:
+            - Any
         """
         pascal_key = _snake_to_pascal(key)
         _request_type = getattr(org_service, f"Get{pascal_key}Request")
@@ -139,14 +161,14 @@ class EconomyClient:
         """
         Update key-value pair
 
-        Args:
-        - id (int): the id of `Org` or `Agent`.
-        - key (str): the attribute to update.
-        - mode (Union[Literal["replace"], Literal["merge"]], optional): Update mode. Defaults to "replace".
+        - **Args**:
+            - `id` (`int`): The id of `Org` or `Agent`.
+            - `key` (`str`): The attribute to update.
+            - `mode` (Union[Literal["replace"], Literal["merge"]], optional): Update mode. Defaults to "replace".
 
 
-        Returns:
-        - Any
+        - **Returns**:
+            - Any
         """
         pascal_key = _snake_to_pascal(key)
         _request_type = getattr(org_service, f"Set{pascal_key}Request")
@@ -183,6 +205,21 @@ class EconomyClient:
         )
 
     async def add_agents(self, configs: Union[list[dict], dict]):
+        """
+        Add one or more agents to the economy system.
+
+        - **Args**:
+            - `configs` (`Union[list[dict], dict]`): A single configuration dictionary or a list of dictionaries,
+              each containing the necessary information to create an agent (e.g., id, currency).
+
+        - **Returns**:
+            - The method does not explicitly return any value but gathers the responses from adding each agent.
+
+        - **Description**:
+            - If a single configuration dictionary is provided, it is converted into a list.
+            - For each configuration in the list, a task is created to asynchronously add an agent using the provided configuration.
+            - All tasks are executed concurrently, and their results are gathered and returned.
+        """
         if isinstance(configs, dict):
             configs = [configs]
         tasks = [
@@ -199,6 +236,24 @@ class EconomyClient:
         responses = await asyncio.gather(*tasks)
 
     async def add_orgs(self, configs: Union[list[dict], dict]):
+        """
+        Add one or more organizations to the economy system.
+
+        - **Args**:
+            - `configs` (`Union[List[Dict], Dict]`): A single configuration dictionary or a list of dictionaries,
+              each containing the necessary information to create an organization (e.g., id, type, nominal_gdp, etc.).
+
+        - **Returns**:
+            - `List`: A list of responses from adding each organization.
+
+        - **Raises**:
+            - `KeyError`: If a required field is missing from the config dictionary.
+
+        - **Description**:
+            - Ensures `configs` is always a list, even if only one config is provided.
+            - For each configuration in the list, creates a task to asynchronously add an organization using the provided configuration.
+            - Executes all tasks concurrently and gathers their results.
+        """
         if isinstance(configs, dict):
             configs = [configs]
         tasks = [
@@ -232,6 +287,18 @@ class EconomyClient:
         incomes: list[float],
         enable_redistribution: bool,
     ):
+        """
+        Calculate the taxes due for agents based on their incomes.
+
+        - **Args**:
+            - `org_id` (`int`): The ID of the government organization.
+            - `agent_ids` (`List[int]`): A list of IDs for the agents whose taxes are being calculated.
+            - `incomes` (`List[float]`): A list of income values corresponding to each agent.
+            - `enable_redistribution` (`bool`): Flag indicating whether redistribution is enabled.
+
+        - **Returns**:
+            - `Tuple[float, List[float]]`: A tuple containing the total taxes due and updated incomes after tax calculation.
+        """
         request = org_service.CalculateTaxesDueRequest(
             government_id=org_id,
             agent_ids=agent_ids,
@@ -246,6 +313,17 @@ class EconomyClient:
     async def calculate_consumption(
         self, org_id: int, agent_ids: list[int], demands: list[int]
     ):
+        """
+        Calculate consumption for agents based on their demands.
+
+        - **Args**:
+            - `org_id` (`int`): The ID of the firm providing goods or services.
+            - `agent_ids` (`List[int]`): A list of IDs for the agents whose consumption is being calculated.
+            - `demands` (`List[int]`): A list of demand quantities corresponding to each agent.
+
+        - **Returns**:
+            - `Tuple[int, List[float]]`: A tuple containing the remaining inventory and updated currencies for each agent.
+        """
         request = org_service.CalculateConsumptionRequest(
             firm_id=org_id,
             agent_ids=agent_ids,
@@ -257,6 +335,16 @@ class EconomyClient:
         return (int(response.remain_inventory), list(response.updated_currencies))
 
     async def calculate_interest(self, org_id: int, agent_ids: list[int]):
+        """
+        Calculate interest for agents based on their accounts.
+
+        - **Args**:
+            - `org_id` (`int`): The ID of the bank.
+            - `agent_ids` (`List[int]`): A list of IDs for the agents whose interests are being calculated.
+
+        - **Returns**:
+            - `Tuple[float, List[float]]`: A tuple containing the total interest and updated currencies for each agent.
+        """
         request = org_service.CalculateInterestRequest(
             bank_id=org_id,
             agent_ids=agent_ids,
@@ -267,6 +355,12 @@ class EconomyClient:
         return (float(response.total_interest), list(response.updated_currencies))
 
     async def remove_agents(self, agent_ids: Union[int, list[int]]):
+        """
+        Remove one or more agents from the system.
+
+        - **Args**:
+            - `org_ids` (`Union[int, List[int]]`): A single ID or a list of IDs for the agents to be removed.
+        """
         if isinstance(agent_ids, int):
             agent_ids = [agent_ids]
         tasks = [
@@ -278,6 +372,12 @@ class EconomyClient:
         responses = await asyncio.gather(*tasks)
 
     async def remove_orgs(self, org_ids: Union[int, list[int]]):
+        """
+        Remove one or more organizations from the system.
+
+        - **Args**:
+            - `org_ids` (`Union[int, List[int]]`): A single ID or a list of IDs for the organizations to be removed.
+        """
         if isinstance(org_ids, int):
             org_ids = [org_ids]
         tasks = [
@@ -287,6 +387,15 @@ class EconomyClient:
         responses = await asyncio.gather(*tasks)
 
     async def save(self, file_path: str) -> tuple[list[int], list[int]]:
+        """
+        Save the current state of all economy entities to a specified file.
+
+        - **Args**:
+            - `file_path` (`str`): The path to the file where the economy entities will be saved.
+
+        - **Returns**:
+            - `Tuple[List[int], List[int]]`: A tuple containing lists of agent IDs and organization IDs that were saved.
+        """
         request = org_service.SaveEconomyEntitiesRequest(
             file_path=file_path,
         )
@@ -297,6 +406,15 @@ class EconomyClient:
         return (list(response.agent_ids), list(response.org_ids))
 
     async def load(self, file_path: str):
+        """
+        Load the state of economy entities from a specified file.
+
+        - **Args**:
+            - `file_path` (`str`): The path to the file from which the economy entities will be loaded.
+
+        - **Returns**:
+            - `Tuple[List[int], List[int]]`: A tuple containing lists of agent IDs and organization IDs that were loaded.
+        """
         request = org_service.LoadEconomyEntitiesRequest(
             file_path=file_path,
         )
@@ -307,6 +425,15 @@ class EconomyClient:
         return (list(response.agent_ids), list(response.org_ids))
 
     async def get_org_entity_ids(self, org_type: economyv2.OrgType) -> list[int]:
+        """
+        Get the IDs of all organizations of a specific type.
+
+        - **Args**:
+            - `org_type` (`economyv2.OrgType`): The type of organizations whose IDs are to be retrieved.
+
+        - **Returns**:
+            - `List[int]`: A list of organization IDs matching the specified type.
+        """
         request = org_service.GetOrgEntityIdsRequest(
             type=org_type,
         )
@@ -322,15 +449,15 @@ class EconomyClient:
         value: Any,
     ) -> Any:
         """
-        Add key-value pair
+        Add value pair
 
-        Args:
-        - id (int): the id of `Org` or `Agent`.
-        - key (str): the attribute to update. Can only be `inventory`, `price`, `interest_rate` and `currency`
+        - **Args**:
+            - `id` (`int`): The id of `Org` or `Agent`.
+            - `key` (`str`): The attribute to update. Can only be `inventory`, `price`, `interest_rate` and `currency`
 
 
-        Returns:
-        - Any
+        - **Returns**:
+            - Any
         """
         pascal_key = _snake_to_pascal(key)
         _request_type = getattr(org_service, f"Add{pascal_key}Request")

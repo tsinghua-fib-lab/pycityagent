@@ -57,6 +57,18 @@ class Page:
 
 @dataclass
 class Survey:
+    """
+    Represents a survey with metadata and associated pages containing questions.
+
+    - **Attributes**:
+        - `id` (uuid.UUID): Unique identifier for the survey.
+        - `title` (str): Title of the survey.
+        - `description` (str): Description of the survey's purpose or content.
+        - `pages` (list[Page]): A list of `Page` objects, each containing a set of questions.
+        - `responses` (dict[str, dict], optional): Dictionary mapping response IDs to their data. Defaults to an empty dictionary.
+        - `created_at` (datetime, optional): Timestamp of when the survey was created. Defaults to the current time.
+    """
+
     id: uuid.UUID
     title: str
     description: str
@@ -65,6 +77,15 @@ class Survey:
     created_at: datetime = field(default_factory=datetime.now)
 
     def to_dict(self) -> dict:
+        """
+        Convert the survey instance into a dictionary representation.
+
+        - **Description**:
+            - Creates a dictionary containing the survey's ID, title, description, and pages in a simplified format suitable for serialization.
+
+        - **Returns**:
+            - `dict`: Simplified dictionary representation of the survey.
+        """
         return {
             "id": str(self.id),
             "title": self.title,
@@ -74,7 +95,15 @@ class Survey:
         }
 
     def to_json(self) -> str:
-        """Convert the survey to a JSON string for MQTT transmission"""
+        """
+        Serialize the survey instance to a JSON string for MQTT transmission.
+
+        - **Description**:
+            - Converts the survey into a JSON string that includes all necessary information for reconstructing the survey object on another system.
+
+        - **Returns**:
+            - `str`: JSON string representing the survey.
+        """
         survey_dict = {
             "id": str(self.id),
             "title": self.title,
@@ -87,7 +116,18 @@ class Survey:
 
     @classmethod
     def from_json(cls, json_str: str) -> "Survey":
-        """Create a Survey instance from a JSON string"""
+        """
+        Deserialize a JSON string into a new Survey instance.
+
+        - **Description**:
+            - Parses a JSON string into a Python dictionary and uses it to create a new `Survey` instance.
+
+        - **Args**:
+            - `json_str` (str): JSON string representation of a survey.
+
+        - **Returns**:
+            - `Survey`: An instance of `Survey` initialized with the data from the JSON string.
+        """
         data = json.loads(json_str)
         pages = [
             Page(

@@ -33,11 +33,11 @@ def log_and_check_with_memory(
 
     This decorator is specifically designed to be used with the `block` method. A 'Memory' object is required in method input.
 
-    Args:
-        condition (Callable): A condition function that must be satisfied before the decorated function is executed.
+    - **Args**:
+        - `condition` (Callable): A condition function that must be satisfied before the decorated function is executed.
                              Can be synchronous or asynchronous.
-        trigger_interval (float): The interval (in seconds) to wait between condition checks.
-        record_function_calling (bool): Whether to log the function call information.
+        - `trigger_interval` (float): The interval (in seconds) to wait between condition checks.
+        - `record_function_calling` (bool): Whether to log the function call information.
     """
 
     def decorator(func):
@@ -93,11 +93,11 @@ def log_and_check(
 
     This decorator is specifically designed to be used with the `block` method.
 
-    Args:
-        condition (Callable): A condition function that must be satisfied before the decorated function is executed.
+    - **Args**:
+        - `condition` (Callable): A condition function that must be satisfied before the decorated function is executed.
                              Can be synchronous or asynchronous.
-        trigger_interval (float): The interval (in seconds) to wait between condition checks.
-        record_function_calling (bool): Whether to log the function call information.
+        - `trigger_interval` (float): The interval (in seconds) to wait between condition checks.
+        - `record_function_calling` (bool): Whether to log the function call information.
     """
 
     def decorator(func):
@@ -144,6 +144,15 @@ def trigger_class():
 
 # Define a Block, similar to a layer in PyTorch
 class Block:
+    """
+    A foundational component similar to a layer in PyTorch, used for building complex systems.
+
+    - **Attributes**:
+        - `configurable_fields` (list[str]): A list of fields that can be configured.
+        - `default_values` (dict[str, Any]): Default values for configurable fields.
+        - `fields_description` (dict[str, str]): Descriptions for each configurable field.
+    """
+
     configurable_fields: list[str] = []
     default_values: dict[str, Any] = {}
     fields_description: dict[str, str] = {}
@@ -156,6 +165,17 @@ class Block:
         simulator: Optional[Simulator] = None,
         trigger: Optional[EventTrigger] = None,
     ):
+        """
+        - **Description**:
+            - Initializes a new instance of the Block class with optional LLM, Memory, Simulator, and Trigger components.
+
+        - **Args**:
+            - `name` (str): The name of the block.
+            - `llm` (Optional[LLM], optional): An instance of LLM. Defaults to None.
+            - `memory` (Optional[Memory], optional): An instance of Memory. Defaults to None.
+            - `simulator` (Optional[Simulator], optional): An instance of Simulator. Defaults to None.
+            - `trigger` (Optional[EventTrigger], optional): An event trigger that may be associated with this block. Defaults to None.
+        """
         self.name = name
         self._llm = llm
         self._memory = memory
@@ -167,13 +187,27 @@ class Block:
         self.trigger = trigger
 
     def export_config(self) -> dict[str, Optional[str]]:
+        """
+        - **Description**:
+            - Exports the configuration of the block as a dictionary.
+
+        - **Returns**:
+            - `Dict[str, Optional[str]]`: A dictionary containing the configuration of the block.
+        """
         return {
             field: self.default_values.get(field, "default_value")
             for field in self.configurable_fields
         }
 
     @classmethod
-    def export_class_config(cls) -> dict[str, str]:
+    def export_class_config(cls) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        - **Description**:
+            - Exports the default configuration and descriptions for the configurable fields of the class.
+
+        - **Returns**:
+            - `tuple[Dict[str, Any], Dict[str, Any]]`: A tuple containing two dictionaries, one for default values and one for field descriptions.
+        """
         return (
             {
                 field: cls.default_values.get(field, "default_value")
@@ -182,11 +216,21 @@ class Block:
             {
                 field: cls.fields_description.get(field, "")
                 for field in cls.configurable_fields
-            }
+            },
         )
 
     @classmethod
     def import_config(cls, config: dict[str, Union[str, dict]]) -> Block:
+        """
+        - **Description**:
+            - Creates an instance of the Block from a configuration dictionary.
+
+        - **Args**:
+            - `config` (Dict[str, Union[str, dict]]): Configuration dictionary for creating the block.
+
+        - **Returns**:
+            - `Block`: An instance of the Block created from the provided configuration.
+        """
         instance = cls(name=config["name"])  # type: ignore
         assert isinstance(config["config"], dict)
         for field, value in config["config"].items():
@@ -202,7 +246,11 @@ class Block:
 
     def load_from_config(self, config: dict[str, list[dict]]) -> None:
         """
-        使用配置更新当前Block实例的参数，并递归更新子Block。
+        - **Description**:
+            - Updates the current Block instance parameters using a configuration dictionary and recursively updates its children.
+
+        - **Args**:
+            - `config` (Dict[str, List[Dict]]): Configuration dictionary for updating the block.
         """
         # 更新当前Block的参数
         for field in self.configurable_fields:
@@ -233,8 +281,11 @@ class Block:
 
     async def forward(self):
         """
-        Each block performs a specific reasoning task.
-        To be overridden by specific block implementations.
+        - **Description**:
+            - Each block performs a specific reasoning task. This method should be overridden by subclasses.
+
+        - **Raises**:
+            - `NotImplementedError`: Subclasses must implement this method.
         """
         raise NotImplementedError("Subclasses should implement this method")
 

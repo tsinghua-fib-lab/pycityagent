@@ -19,10 +19,23 @@ from .agent_base import Agent, AgentType
 
 logger = logging.getLogger("pycityagent")
 
+__all__ = [
+    "InstitutionAgent",
+    "CitizenAgent",
+]
+
 
 class CitizenAgent(Agent):
     """
-    CitizenAgent: 城市居民智能体类及其定义
+    Represents a citizen agent within the simulation environment.
+
+    - **Description**:
+        - This class extends the base `Agent` class and is designed to simulate the behavior of a city resident.
+        - It includes initialization of various clients (like LLM, economy) and services required for the agent's operation.
+        - Provides methods for binding the agent to the simulator and economy system, as well as handling specific types of messages.
+
+    - **Attributes**:
+        - `_mlflow_client`: An optional client for integrating with MLflow for experiment tracking and management.
     """
 
     def __init__(
@@ -36,6 +49,22 @@ class CitizenAgent(Agent):
         message_interceptor: Optional[MessageInterceptor] = None,  # type:ignore
         avro_file: Optional[dict] = None,
     ) -> None:
+        """
+        Initialize a new instance of the CitizenAgent.
+
+        - **Args**:
+            - `name` (`str`): The name or identifier of the agent.
+            - `llm_client` (`Optional[LLM]`, optional): A client for interacting with a Language Model. Defaults to `None`.
+            - `simulator` (`Optional[Simulator]`, optional): A reference to the simulation environment. Defaults to `None`.
+            - `memory` (`Optional[Memory]`, optional): A memory storage object for the agent. Defaults to `None`.
+            - `economy_client` (`Optional[EconomyClient]`, optional): A client for managing economic transactions. Defaults to `None`.
+            - `messager` (`Optional[Messager]`, optional): A communication service for messaging between agents. Defaults to `None`.
+            - `message_interceptor` (`Optional[MessageInterceptor]`, optional): An interceptor for modifying messages before they are processed. Defaults to `None`.
+            - `avro_file` (`Optional[dict]`, optional): Configuration for writing data in Avro format. Defaults to `None`.
+
+        - **Description**:
+            - Initializes the CitizenAgent with the provided parameters and sets up necessary internal states.
+        """
         super().__init__(
             name=name,
             type=AgentType.Citizen,
@@ -50,15 +79,24 @@ class CitizenAgent(Agent):
         self._mlflow_client = None
 
     async def bind_to_simulator(self):
+        """
+        Bind the agent to both the Traffic Simulator and Economy Simulator.
+
+        - **Description**:
+            - Calls the `_bind_to_simulator` method to establish the agent within the simulation environment.
+            - Calls the `_bind_to_economy` method to integrate the agent into the economy simulator.
+        """
         await self._bind_to_simulator()
         await self._bind_to_economy()
 
     async def _bind_to_simulator(self):
         """
-        Bind Agent to Simulator
+        Bind the agent to the Traffic Simulator.
 
-        Args:
-            person_template (dict, optional): The person template in dict format. Defaults to PersonService.default_dict_person().
+        - **Description**:
+            - If the simulator is set, this method binds the agent by creating a person entity in the simulator based on the agent's attributes.
+            - Updates the agent's status with the newly created person ID from the simulator.
+            - Logs the successful binding to the person entity added to the simulator.
         """
         if self._simulator is None:
             logger.warning("Simulator is not set")
@@ -90,6 +128,13 @@ class CitizenAgent(Agent):
         self.status.set_agent_id(person_id)
 
     async def _bind_to_economy(self):
+        """
+        Bind the agent to the Economy Simulator.
+
+        - **Description**:
+            - If the economy client is set and the agent has not yet been bound to the economy, this method removes any existing agent with the same ID and adds the current agent to the economy.
+            - Sets `_has_bound_to_economy` to `True` after successfully adding the agent.
+        """
         if self._economy_client is None:
             logger.warning("Economy client is not set")
             return
@@ -109,7 +154,18 @@ class CitizenAgent(Agent):
             self._has_bound_to_economy = True
 
     async def handle_gather_message(self, payload: dict):
-        """处理收到的消息，识别发送者"""
+        """
+        Handle a gather message received by the agent.
+
+        - **Args**:
+            - `payload` (`dict`): The message payload containing the target attribute and sender ID.
+
+        - **Description**:
+            - Extracts the target attribute and sender ID from the payload.
+            - Retrieves the content associated with the target attribute from the agent's status.
+            - Prepares a response payload with the retrieved content and sends it back to the sender using `_send_message`.
+        """
+        # 处理收到的消息，识别发送者
         # 从消息中解析发送者 ID 和消息内容
         target = payload["target"]
         sender_id = payload["from"]
@@ -138,7 +194,16 @@ class CitizenAgent(Agent):
 
 class InstitutionAgent(Agent):
     """
-    InstitutionAgent: Institution agent class and definition
+    Represents an institution agent within the simulation environment.
+
+    - **Description**:
+        - This class extends the base `Agent` class and is designed to simulate the behavior of an institution, such as a bank, government body, or corporation.
+        - It includes initialization of various clients (like LLM, economy) and services required for the agent's operation.
+        - Provides methods for binding the agent to the economy system and handling specific types of messages, like gathering information from other agents.
+
+    - **Attributes**:
+        - `_mlflow_client`: An optional client for integrating with MLflow for experiment tracking and management.
+        - `_gather_responses`: A dictionary mapping agent UUIDs to `asyncio.Future` objects used for collecting responses to gather requests.
     """
 
     def __init__(
@@ -152,6 +217,23 @@ class InstitutionAgent(Agent):
         message_interceptor: Optional[MessageInterceptor] = None,  # type:ignore
         avro_file: Optional[dict] = None,
     ) -> None:
+        """
+        Initialize a new instance of the InstitutionAgent.
+
+        - **Args**:
+            - `name` (`str`): The name or identifier of the agent.
+            - `llm_client` (`Optional[LLM]`, optional): A client for interacting with a Language Model. Defaults to `None`.
+            - `simulator` (`Optional[Simulator]`, optional): A reference to the simulation environment. Defaults to `None`.
+            - `memory` (`Optional[Memory]`, optional): A memory storage object for the agent. Defaults to `None`.
+            - `economy_client` (`Optional[EconomyClient]`, optional): A client for managing economic transactions. Defaults to `None`.
+            - `messager` (`Optional[Messager]`, optional): A communication service for messaging between agents. Defaults to `None`.
+            - `message_interceptor` (`Optional[MessageInterceptor]`, optional): An interceptor for modifying messages before they are processed. Defaults to `None`.
+            - `avro_file` (`Optional[dict]`, optional): Configuration for writing data in Avro format. Defaults to `None`.
+
+        - **Description**:
+            - Initializes the InstitutionAgent with the provided parameters and sets up necessary internal states.
+            - Adds a response collector (`_gather_responses`) for handling responses to gather requests.
+        """
         super().__init__(
             name=name,
             type=AgentType.Institution,
@@ -168,9 +250,22 @@ class InstitutionAgent(Agent):
         self._gather_responses: dict[str, asyncio.Future] = {}
 
     async def bind_to_simulator(self):
+        """
+        Bind the agent to the Economy Simulator.
+
+        - **Description**:
+            - Calls the `_bind_to_economy` method to integrate the agent into the economy simulator.
+        """
         await self._bind_to_economy()
 
     async def _bind_to_economy(self):
+        """
+        Bind the agent to the Economy Simulator.
+
+        - **Description**:
+            - Calls the `_bind_to_economy` method to integrate the agent into the economy system.
+            - Note that this method does not bind the agent to the simulator itself; it only handles the economy integration.
+        """
         if self._economy_client is None:
             logger.debug("Economy client is not set")
             return
@@ -210,50 +305,17 @@ class InstitutionAgent(Agent):
                 _status = self.status
                 _id = await _status.get("id")
                 _type = await _status.get("type")
-                try:
-                    nominal_gdp = await _status.get("nominal_gdp")
-                except:
-                    nominal_gdp = []
-                try:
-                    real_gdp = await _status.get("real_gdp")
-                except:
-                    real_gdp = []
-                try:
-                    unemployment = await _status.get("unemployment")
-                except:
-                    unemployment = []
-                try:
-                    wages = await _status.get("wages")
-                except:
-                    wages = []
-                try:
-                    prices = await _status.get("prices")
-                except:
-                    prices = []
-                try:
-                    inventory = await _status.get("inventory")
-                except:
-                    inventory = 0
-                try:
-                    price = await _status.get("price")
-                except:
-                    price = 0
-                try:
-                    currency = await _status.get("currency")
-                except:
-                    currency = 0.0
-                try:
-                    interest_rate = await _status.get("interest_rate")
-                except:
-                    interest_rate = 0.0
-                try:
-                    bracket_cutoffs = await _status.get("bracket_cutoffs")
-                except:
-                    bracket_cutoffs = []
-                try:
-                    bracket_rates = await _status.get("bracket_rates")
-                except:
-                    bracket_rates = []
+                nominal_gdp = await _status.get("nominal_gdp", [])
+                real_gdp = await _status.get("real_gdp", [])
+                unemployment = await _status.get("unemployment", [])
+                wages = await _status.get("wages", [])
+                prices = await _status.get("prices", [])
+                inventory = await _status.get("inventory", 0)
+                price = await _status.get("price", 0)
+                currency = await _status.get("currency", 0.0)
+                interest_rate = await _status.get("interest_rate", 0.0)
+                bracket_cutoffs = await _status.get("bracket_cutoffs", [])
+                bracket_rates = await _status.get("bracket_rates", [])
                 await self._economy_client.add_orgs(
                     {
                         "id": _id,
@@ -276,7 +338,16 @@ class InstitutionAgent(Agent):
             self._has_bound_to_economy = True
 
     async def handle_gather_message(self, payload: dict):
-        """处理收到的消息，识别发送者"""
+        """
+        Handle a gather message received by the agent.
+
+        - **Args**:
+            - `payload` (`dict`): The message payload containing the content and sender ID.
+
+        - **Description**:
+            - Extracts the content and sender ID from the payload.
+            - Stores the response in the corresponding Future object using the sender ID as the key.
+        """
         content = payload["content"]
         sender_id = payload["from"]
 
@@ -291,14 +362,21 @@ class InstitutionAgent(Agent):
             )
 
     async def gather_messages(self, agent_uuids: list[str], target: str) -> list[dict]:
-        """从多个智能体收集消息
+        """
+        Gather messages from multiple agents.
 
-        Args:
-            agent_uuids: 目标智能体UUID列表
-            target: 要收集的信息类型
+        - **Args**:
+            - `agent_uuids` (`list[str]`): A list of UUIDs for the target agents.
+            - `target` (`str`): The type of information to collect from each agent.
 
-        Returns:
-            list[dict]: 收集到的所有响应
+        - **Returns**:
+            - `list[dict]`: A list of dictionaries containing the collected responses.
+
+        - **Description**:
+            - For each agent UUID provided, creates a `Future` object to wait for its response.
+            - Sends a gather request to each specified agent.
+            - Waits for all responses and returns them as a list of dictionaries.
+            - Ensures cleanup of Futures after collecting responses.
         """
         # 为每个agent创建Future
         futures = {}

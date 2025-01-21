@@ -1,14 +1,8 @@
 """UrbanLLM: 智能能力类及其定义"""
 
+import asyncio
 import json
 import logging
-
-from openai import APIConnectionError, AsyncOpenAI, OpenAI, OpenAIError
-from zhipuai import ZhipuAI
-
-logging.getLogger("zhipuai").setLevel(logging.WARNING)
-
-import asyncio
 import os
 from http import HTTPStatus
 from io import BytesIO
@@ -17,20 +11,37 @@ from typing import Any, Optional, Union
 import dashscope
 import requests
 from dashscope import ImageSynthesis
+from openai import APIConnectionError, AsyncOpenAI, OpenAI, OpenAIError
 from PIL import Image
+from zhipuai import ZhipuAI
 
 from .llmconfig import *
 from .utils import *
 
+logging.getLogger("zhipuai").setLevel(logging.WARNING)
 os.environ["GRPC_VERBOSITY"] = "ERROR"
+
+__all__ = [
+    "LLM",
+]
+
 
 class LLM:
     """
-    大语言模型对象
-    The LLM Object used by Agent(Soul)
+    Main class for the Large Language Model (LLM) object used by Agent(Soul).
+
+    - **Description**:
+        - This class manages configurations and interactions with different large language model APIs.
+        - It initializes clients based on the specified request type and handles token usage and consumption reporting.
     """
 
     def __init__(self, config: LLMConfig) -> None:
+        """
+        Initializes the LLM instance.
+
+        - **Parameters**:
+            - `config`: An instance of `LLMConfig` containing configuration settings for the LLM.
+        """
         self.config = config
         if config.text["request_type"] not in ["openai", "deepseek", "qwen", "zhipuai"]:
             raise ValueError("Invalid request type for text request")
@@ -76,9 +87,18 @@ class LLM:
             })
 
     def set_semaphore(self, number_of_coroutine: int):
+        """
+        Sets the semaphore for controlling concurrent coroutines.
+
+        - **Parameters**:
+            - `number_of_coroutine`: The maximum number of concurrent coroutines allowed.
+        """
         self.semaphore = asyncio.Semaphore(number_of_coroutine)
 
     def clear_semaphore(self):
+        """
+        Clears the semaphore setting.
+        """
         self.semaphore = None
 
     def clear_used(self):
@@ -104,7 +124,14 @@ class LLM:
         self, input_price: Optional[float] = None, output_price: Optional[float] = None
     ):
         """
-        Show consumption for each API key separately
+        Displays token usage and optionally calculates the estimated cost based on provided prices.
+
+        - **Parameters**:
+            - `input_price`: Price per million prompt tokens. Default is None.
+            - `output_price`: Price per million completion tokens. Default is None.
+
+        - **Returns**:
+            - A dictionary summarizing the token usage and, if applicable, the estimated cost.
         """
         total_stats = {
             "total": 0,
@@ -144,7 +171,15 @@ class LLM:
         return total_stats
 
     def _get_next_client(self):
-        """获取下一个要使用的客户端"""
+        """
+        Retrieves the next client to be used for making requests.
+
+        - **Description**:
+            - This method cycles through the available clients in a round-robin fashion.
+
+        - **Returns**:
+            - The next client instance to be used for making requests.
+        """
         client = self._aclients[self._current_client_index]
         self._current_client_index = (self._current_client_index + 1) % len(
             self._aclients
@@ -165,7 +200,27 @@ class LLM:
         tool_choice: Optional[dict[str, Any]] = None,
     ):
         """
-        异步版文本请求
+        Sends an asynchronous text request to the configured LLM API.
+
+        - **Description**:
+            - Attempts to send a text request up to `retries` times with exponential backoff on failure.
+            - Handles different request types and manages token usage statistics.
+
+        - **Parameters**:
+            - `dialog`: Messages to send as part of the chat completion request.
+            - `temperature`: Controls randomness in the model's output. Default is 1.
+            - `max_tokens`: Maximum number of tokens to generate in the response. Default is None.
+            - `top_p`: Limits the next token selection to a subset of tokens with a cumulative probability above this value. Default is None.
+            - `frequency_penalty`: Penalizes new tokens based on their existing frequency in the text so far. Default is None.
+            - `presence_penalty`: Penalizes new tokens based on whether they appear in the text so far. Default is None.
+            - `timeout`: Request timeout in seconds. Default is 300 seconds.
+            - `retries`: Number of retry attempts in case of failure. Default is 3.
+            - `tools`: List of dictionaries describing the tools that can be called by the model. Default is None.
+            - `tool_choice`: Dictionary specifying how the model should choose from the provided tools. Default is None.
+
+        - **Returns**:
+            - A string containing the message content or a dictionary with tool call arguments if tools are used.
+            - Raises exceptions if the request fails after all retry attempts.
         """
         if (
             self.config.text["request_type"] == "openai"
@@ -295,15 +350,14 @@ class LLM:
         self, img_path: Union[str, list[str]], prompt: Optional[str] = None
     ) -> str:
         """
-        图像理解
-        Image understanding
+        Analyzes and understands images using external APIs.
 
         Args:
-        - img_path (Union[str, list[str]]): 目标图像的路径, 既可以是一个路径也可以是包含多张图片路径的list. The path of selected Image
-        - prompt (str): 理解提示词 - 例如理解方向. The understanding prompts
+            img_path (Union[str, list[str]]): Path or list of paths to the images for analysis.
+            prompt (Optional[str]): Guidance text for understanding the images.
 
         Returns:
-        - (str): the understanding content
+            str: The content derived from understanding the images.
         """
         ppt = "如何理解这幅图像？"
         if prompt != None:
@@ -376,16 +430,15 @@ class LLM:
 
     async def img_generate(self, prompt: str, size: str = "512*512", quantity: int = 1):
         """
-        图像生成
-        Image generation
+        Generates images based on a given prompt.
 
         Args:
-        - prompt (str): 图像生成提示词. The image generation prompts
-        - size (str): 生成图像尺寸, 默认为'512*512'. The image size, default: '512*512'
-        - quantity (int): 生成图像数量, 默认为1. The quantity of generated images, default: 1
+            prompt (str): Prompt for generating images.
+            size (str): Size of the generated images, default is '512*512'.
+            quantity (int): Number of images to generate, default is 1.
 
         Returns:
-        - (list[PIL.Image.Image]): 生成的图像列表. The list of generated Images.
+            list[PIL.Image.Image]: List of generated PIL Image objects.
         """
         rsp = ImageSynthesis.call(
             model=self.config.image_g["model"],

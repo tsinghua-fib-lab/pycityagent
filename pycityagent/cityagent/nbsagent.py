@@ -21,7 +21,7 @@ class NBSAgent(InstitutionAgent):
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,
+        messager: Optional[Messager] = None,  # type:ignore
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
@@ -46,12 +46,12 @@ class NBSAgent(InstitutionAgent):
         if self.last_time_trigger is None:
             self.last_time_trigger = now_time
             return False
-        if now_time - self.last_time_trigger >= self.time_diff:
+        if now_time - self.last_time_trigger >= self.time_diff:  # type:ignore
             self.last_time_trigger = now_time
             return True
         return False
 
-    async def gather_messages(self, agent_ids, content):
+    async def gather_messages(self, agent_ids, content):  # type:ignore
         infos = await super().gather_messages(agent_ids, content)
         return [info["content"] for info in infos]
 

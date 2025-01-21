@@ -62,6 +62,7 @@ class PlanAndActionBlock(Block):
             llm=llm, memory=memory, simulator=simulator, economy_client=economy_client
         )
         self.otherBlock = OtherBlock(llm=llm, memory=memory)
+
     async def plan_generation(self):
         """Generate plan"""
         current_plan = await self.memory.status.get("current_plan")
@@ -151,8 +152,10 @@ class PlanAndActionBlock(Block):
         # step execution
         await self.step_execution()
 
+
 class MindBlock(Block):
     """Cognition workflow"""
+
     cognitionBlock: CognitionBlock
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
@@ -163,6 +166,7 @@ class MindBlock(Block):
 
     async def forward(self):
         await self.cognitionBlock.forward()
+
 
 class SocietyAgent(CitizenAgent):
     update_with_sim = UpdateWithSimulator()
@@ -237,7 +241,7 @@ class SocietyAgent(CitizenAgent):
         ifpass = await self.check_and_update_step()
         if not ifpass:
             return
-        
+
         await self.planAndActionBlock.forward()
 
         if self.enable_cognition:
@@ -362,7 +366,7 @@ class SocietyAgent(CitizenAgent):
 
                 if not content:
                     return ""
-                
+
                 # 添加记忆
                 description = f"You received a social message: {content}"
                 await self.memory.stream.add_social(description=description)
