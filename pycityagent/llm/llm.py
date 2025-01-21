@@ -24,7 +24,6 @@ from .utils import *
 
 os.environ["GRPC_VERBOSITY"] = "ERROR"
 
-
 class LLM:
     """
     大语言模型对象
@@ -46,6 +45,7 @@ class LLM:
             api_keys = [api_keys]
 
         self._aclients = []
+        self._client_usage = []
 
         for api_key in api_keys:
             if self.config.text["request_type"] == "openai":
@@ -69,6 +69,11 @@ class LLM:
                     f"Unsupported `request_type` {self.config.text['request_type']}!"
                 )
             self._aclients.append(client)
+            self._client_usage.append({
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "request_number": 0
+            })
 
     def set_semaphore(self, number_of_coroutine: int):
         self.semaphore = asyncio.Semaphore(number_of_coroutine)
@@ -81,45 +86,62 @@ class LLM:
         clear the storage of used tokens to start a new log message
         Only support OpenAI category API right now, including OpenAI, Deepseek
         """
-        self.prompt_tokens_used = 0
-        self.completion_tokens_used = 0
-        self.request_number = 0
+        for usage in self._client_usage:
+            usage["prompt_tokens"] = 0
+            usage["completion_tokens"] = 0 
+            usage["request_number"] = 0
+
+    def get_consumption(self):
+        consumption = {}
+        for i, usage in enumerate(self._client_usage):
+            consumption[f"api-key-{i+1}"] = {
+                "total_tokens": usage["prompt_tokens"] + usage["completion_tokens"],
+                "request_number": usage["request_number"]
+            }
+        return consumption
 
     def show_consumption(
         self, input_price: Optional[float] = None, output_price: Optional[float] = None
     ):
         """
-        if you give the input and output price of using model, this function will also calculate the consumption for you
+        Show consumption for each API key separately
         """
-        total_token = self.prompt_tokens_used + self.completion_tokens_used
-        if self.completion_tokens_used != 0:
-            rate = self.prompt_tokens_used / self.completion_tokens_used
-        else:
-            rate = "nan"
-        if self.request_number != 0:
-            TcA = total_token / self.request_number
-        else:
-            TcA = "nan"
-        out = f"""Request Number: {self.request_number}
-Token Usage:
-    - Total tokens: {total_token}
-    - Prompt tokens: {self.prompt_tokens_used}
-    - Completion tokens: {self.completion_tokens_used}
-    - Token per request: {TcA}
-    - Prompt:Completion ratio: {rate}:1"""
-        if input_price != None and output_price != None:
-            consumption = (
-                self.prompt_tokens_used / 1000000 * input_price
-                + self.completion_tokens_used / 1000000 * output_price
-            )
-            out += f"\n    - Cost Estimation: {consumption}"
-        print(out)
-        return {
-            "total": total_token,
-            "prompt": self.prompt_tokens_used,
-            "completion": self.completion_tokens_used,
-            "ratio": rate,
+        total_stats = {
+            "total": 0,
+            "prompt": 0,
+            "completion": 0,
+            "requests": 0
         }
+        
+        for i, usage in enumerate(self._client_usage):
+            prompt_tokens = usage["prompt_tokens"]
+            completion_tokens = usage["completion_tokens"]
+            requests = usage["request_number"]
+            total_tokens = prompt_tokens + completion_tokens
+            
+            total_stats["total"] += total_tokens
+            total_stats["prompt"] += prompt_tokens
+            total_stats["completion"] += completion_tokens
+            total_stats["requests"] += requests
+            
+            rate = prompt_tokens / completion_tokens if completion_tokens != 0 else "nan"
+            tokens_per_request = total_tokens / requests if requests != 0 else "nan"
+            
+            print(f"\nAPI Key #{i+1}:")
+            print(f"Request Number: {requests}")
+            print("Token Usage:")
+            print(f"    - Total tokens: {total_tokens}")
+            print(f"    - Prompt tokens: {prompt_tokens}")
+            print(f"    - Completion tokens: {completion_tokens}")
+            print(f"    - Token per request: {tokens_per_request}")
+            print(f"    - Prompt:Completion ratio: {rate}:1")
+            
+            if input_price is not None and output_price is not None:
+                consumption = (prompt_tokens / 1000000 * input_price + 
+                             completion_tokens / 1000000 * output_price)
+                print(f"    - Cost Estimation: {consumption}")
+        
+        return total_stats
 
     def _get_next_client(self):
         """获取下一个要使用的客户端"""
@@ -168,9 +190,9 @@ Token Usage:
                                 tools=tools,
                                 tool_choice=tool_choice,
                             )  # type: ignore
-                            self.prompt_tokens_used += response.usage.prompt_tokens  # type: ignore
-                            self.completion_tokens_used += response.usage.completion_tokens  # type: ignore
-                            self.request_number += 1
+                            self._client_usage[self._current_client_index]["prompt_tokens"] += response.usage.prompt_tokens  # type: ignore
+                            self._client_usage[self._current_client_index]["completion_tokens"] += response.usage.completion_tokens  # type: ignore
+                            self._client_usage[self._current_client_index]["request_number"] += 1
                             if tools and response.choices[0].message.tool_calls:
                                 return json.loads(
                                     response.choices[0]
@@ -193,9 +215,9 @@ Token Usage:
                             tools=tools,
                             tool_choice=tool_choice,
                         )  # type: ignore
-                        self.prompt_tokens_used += response.usage.prompt_tokens  # type: ignore
-                        self.completion_tokens_used += response.usage.completion_tokens  # type: ignore
-                        self.request_number += 1
+                        self._client_usage[self._current_client_index]["prompt_tokens"] += response.usage.prompt_tokens  # type: ignore
+                        self._client_usage[self._current_client_index]["completion_tokens"] += response.usage.completion_tokens  # type: ignore
+                        self._client_usage[self._current_client_index]["request_number"] += 1
                         if tools and response.choices[0].message.tool_calls:
                             return json.loads(
                                 response.choices[0]
@@ -248,9 +270,9 @@ Token Usage:
                     if task_status != "SUCCESS":
                         raise Exception(f"Task failed with status: {task_status}")
 
-                    self.prompt_tokens_used += result_response.usage.prompt_tokens  # type: ignore
-                    self.completion_tokens_used += result_response.usage.completion_tokens  # type: ignore
-                    self.request_number += 1
+                    self._client_usage[self._current_client_index]["prompt_tokens"] += result_response.usage.prompt_tokens  # type: ignore
+                    self._client_usage[self._current_client_index]["completion_tokens"] += result_response.usage.completion_tokens  # type: ignore
+                    self._client_usage[self._current_client_index]["request_number"] += 1
                     if tools and result_response.choices[0].message.tool_calls:  # type: ignore
                         return json.loads(
                             result_response.choices[0]  # type: ignore

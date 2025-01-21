@@ -1,9 +1,12 @@
+import math
 from typing import List
 from .dispatcher import BlockDispatcher
 from pycityagent.environment.simulator import Simulator
 from pycityagent.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.workflow.block import Block
+import numpy as np
+from operator import itemgetter
 import random
 import logging
 logger = logging.getLogger("pycityagent")
@@ -38,18 +41,83 @@ Current temperature: {temperature}
 Your current emotion: {emotion_types}
 Your current thought: {thought}
 
-Please analyze how these emotions would affect travel willingness and return only a single integer number between 1000-100000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
+Please analyze how these emotions would affect travel willingness and return only a single integer number between 3000-100000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
 
 Return only the integer number without any additional text or explanation."""
 
+def gravity_model(pois):
+    N = len(pois)
+    pois_Dis = {
+        "1k": [],
+        "2k": [],
+        "3k": [],
+        "4k": [],
+        "5k": [],
+        "6k": [],
+        "7k": [],
+        "8k": [],
+        "9k": [],
+        "10k": [],
+        "more": [],
+    }
+    for poi in pois:
+        iflt10k = True
+        for d in range(1, 11):
+            if (d - 1) * 1000 <= poi[1] < d * 1000:
+                pois_Dis["{}k".format(d)].append(poi)
+                iflt10k = False
+                break
+        if iflt10k:
+            pois_Dis["more"].append(poi)
+
+    res = []
+    distanceProb = []
+    for poi in pois:
+        iflt10k = True
+        for d in range(1, 11):
+            if (d - 1) * 1000 <= poi[1] < d * 1000:
+                n = len(pois_Dis["{}k".format(d)])
+                S = math.pi * ((d * 1000) ** 2 - ((d - 1) * 1000) ** 2)
+                density = n / S
+                distance = poi[1]
+                distance = distance if distance > 1 else 1
+
+                # distance decay coefficient, use the square of distance to calculate, so that distant places are less likely to be selected
+                weight = density / (distance**2)  # the original weight is reasonable
+                res.append((poi[0]["name"], poi[0]["id"], weight, distance))
+                distanceProb.append(
+                    1 / (math.sqrt(distance))
+                )
+                iflt10k = False
+                break
+
+    distanceProb = np.array(distanceProb)
+    distanceProb = distanceProb / np.sum(distanceProb)
+    distanceProb = list(distanceProb)
+
+    options = list(range(len(res)))
+    sample = list(
+        np.random.choice(options, size=50, p=distanceProb)
+    )  # sample based on the probability value
+
+    get_elements = itemgetter(*sample)
+    random_elements = get_elements(res)
+
+    # normalize the weight to become the true probability value
+    weightSum = sum(item[2] for item in random_elements)
+    final = [
+        (item[0], item[1], item[2] / weightSum, item[3]) for item in random_elements
+    ]
+    return final
+
 class PlaceSelectionBlock(Block):
     """
-    选择目的地
+    Select destination
     PlaceSelectionBlock
     """
     configurable_fields: List[str] = ["search_limit"]
     default_values = {
-        "search_limit": 10
+        "search_limit": 10000
     }
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
@@ -59,7 +127,7 @@ class PlaceSelectionBlock(Block):
         self.secondTypeSelectionPrompt = FormatPrompt(PLACE_SECOND_TYPE_SELECTION_PROMPT)
         self.radiusPrompt = FormatPrompt(RADIUS_PROMPT)
         # configurable fields
-        self.search_limit = 10
+        self.search_limit = 10000
 
     async def forward(self, step, context):
         self.typeSelectionPrompt.format(
@@ -106,9 +174,15 @@ class PlaceSelectionBlock(Block):
                 limit=self.search_limit
             )
         if len(pois) > 0:
-            poi = random.choice(pois)[0]
-            nextPlace = (poi['name'], poi['aoi_id'])
-            # 将地点信息保存到context中
+            pois = gravity_model(pois)
+            probabilities = [item[2] for item in pois]
+            options = list(range(len(pois)))
+            sample = np.random.choice(
+                options, size=1, p=probabilities
+            )  # sample based on the probability value
+            nextPlace = pois[sample[0]]
+            nextPlace = (nextPlace[0], nextPlace[1])
+            # save the destination to context
             context['next_place'] = nextPlace
             node_id = await self.memory.stream.add_mobility(description=f"For {step['intention']}, I selected the destination: {nextPlace}")
             return {
@@ -121,7 +195,7 @@ class PlaceSelectionBlock(Block):
             simmap = self.simulator.map
             poi = random.choice(list(simmap.pois.values()))
             nextPlace = (poi['name'], poi['aoi_id'])
-            # 将地点信息保存到context中
+            # save the destination to context
             context['next_place'] = nextPlace
             node_id = await self.memory.stream.add_mobility(description=f"For {step['intention']}, I selected the destination: {nextPlace}")
             return {
@@ -133,7 +207,7 @@ class PlaceSelectionBlock(Block):
 
 class MoveBlock(Block):
     """
-    移动操作
+    Execute mobility operations
     MoveBlock
     """
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):

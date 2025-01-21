@@ -186,7 +186,7 @@ class AgentGroup:
         self.message_dispatch_task.cancel()  # type: ignore
         await asyncio.gather(self.message_dispatch_task, return_exceptions=True)  # type: ignore
 
-    async def insert_agents(self):
+    async def insert_agent(self):
         bind_tasks = []
         for agent in self.agents:
             bind_tasks.append(agent.bind_to_simulator())  # type: ignore
@@ -200,7 +200,7 @@ class AgentGroup:
             if day == 0:
                 break
             await asyncio.sleep(1)
-        await self.insert_agents()
+        await self.insert_agent()
         self.id2agent = {agent._uuid: agent for agent in self.agents}
         logger.debug(f"-----Binding Agents to Messager in AgentGroup {self._uuid} ...")
         assert self.messager is not None
@@ -704,6 +704,9 @@ class AgentGroup:
                     to_update_statues
                 )
             )
+
+    def get_llm_consumption(self):
+        return self.llm.get_consumption()
 
     async def step(self):
         try:

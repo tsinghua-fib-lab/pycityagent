@@ -234,7 +234,8 @@ class SocietyAgent(CitizenAgent):
         await self.update_with_sim()
 
         # check last step
-        if not await self.check_and_update_step():
+        ifpass = await self.check_and_update_step()
+        if not ifpass:
             return
         
         await self.planAndActionBlock.forward()

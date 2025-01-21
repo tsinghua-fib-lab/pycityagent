@@ -210,16 +210,6 @@ class FindPersonBlock(Block):
 
 class MessageBlock(Block):
     """生成并发送消息"""
-    configurable_fields: List[str] = ["default_message_template", "to_discuss"]
-    default_values = {
-        "default_message_template": """
-        As a {gender} {occupation} with {education} education and {personality} personality,
-        generate a message for a friend (relationship strength: {relationship_score}/100)
-        about {intention}.
-        """,
-        "to_discuss": []
-    }
-    
     def __init__(self, agent, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__("MessageBlock", llm=llm, memory=memory, simulator=simulator)
         self.agent = agent

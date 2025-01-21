@@ -330,7 +330,7 @@ class StreamMemory:
         # 找到所有对应的记忆
         target_memories = []
         for memory in self._memories:
-            if id(memory) in memory_ids:
+            if memory.id in memory_ids:
                 target_memories.append(memory)
 
         if not target_memories:

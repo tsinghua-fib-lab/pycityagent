@@ -17,9 +17,6 @@ Profile Information:
 - Age: {age}
 - Monthly Income: {income}
 
-Current Emotion: {emotion_types}
-Current Thought: {thought}
-
 Current Time: {now_time}
 
 Please initialize the agent's satisfaction levels and parameters based on the profile above. Return the values in JSON format with the following structure:
@@ -77,9 +74,6 @@ Current satisfaction:
 - safety_satisfaction: {safety_satisfaction}
 - social_satisfaction: {social_satisfaction}
 
-Current Emotion: {emotion_types}
-Current Thought: {thought}
-
 Please evaluate and adjust the value of {current_need} satisfaction based on the execution results above.
 
 Notes:
@@ -134,8 +128,6 @@ class NeedsBlock(Block):
                 occupation=await self.memory.status.get("occupation"),
                 age=await self.memory.status.get("age"),
                 income=await self.memory.status.get("income"),
-                emotion_types=await self.memory.status.get("emotion_types"),
-                thought=await self.memory.status.get("thought"),
                 now_time=await self.simulator.get_time(format_time=True)
             )
             response = await self.llm.atext_request(
@@ -285,8 +277,6 @@ class NeedsBlock(Block):
             energy_satisfaction=await self.memory.status.get("energy_satisfaction"),
             safety_satisfaction=await self.memory.status.get("safety_satisfaction"),
             social_satisfaction=await self.memory.status.get("social_satisfaction"),
-            emotion_types=await self.memory.status.get("emotion_types"),
-            thought=await self.memory.status.get("thought")
         )
 
         response = await self.llm.atext_request(

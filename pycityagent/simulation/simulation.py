@@ -14,9 +14,10 @@ from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, InstitutionAgent
 from ..cityagent import (BankAgent, FirmAgent, GovernmentAgent, NBSAgent,
-                         SocietyAgent, memory_config_bank, memory_config_firm,
+                         SocietyAgent)
+from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
                          memory_config_government, memory_config_nbs,
-                         memory_config_societyagent)
+                         memory_config_societyagent, memory_config_init)
 from ..cityagent.initial import bind_agent_info, initialize_social_network
 from ..cityagent.message_intercept import (EdgeMessageBlock,
                                            MessageBlockListener,
@@ -35,16 +36,15 @@ from .storage.pg import PgWriter, create_pg_tables
 
 logger = logging.getLogger("pycityagent")
 
-
 class AgentSimulation:
-    """城市智能体模拟器"""
+    """Agent Simulation"""
 
     def __init__(
         self,
         config: dict,
         agent_class: Union[None, type[Agent], list[type[Agent]]] = None,
         agent_config_file: Optional[dict] = None,
-        metric_extractor: Optional[list[tuple[int, Callable]]] = None,
+        metric_extractors: Optional[list[tuple[int, Callable]]] = None,
         enable_institution: bool = True,
         agent_prefix: str = "agent_",
         exp_name: str = "default_experiment",
@@ -52,10 +52,14 @@ class AgentSimulation:
     ):
         """
         Args:
-            agent_class: 智能体类
-            config: 配置
-            agent_prefix: 智能体名称前缀
-            exp_name: 实验名称
+            config: Configuration
+            agent_class: Agent class
+            agent_config_file: Agent configuration file
+            metric_extractors: Metric extractor
+            enable_institution: Whether to enable institution
+            agent_prefix: Agent name prefix
+            exp_name: Experiment name
+            logging_level: Logging level
         """
         self.exp_id = str(uuid.uuid4())
         if isinstance(agent_class, list):
@@ -166,11 +170,12 @@ class AgentSimulation:
                 experiment_name=exp_name,
                 run_id=mlflow_run_id,
             )
-            self.metric_extractor = metric_extractor
+            if metric_extractors is not None:
+                self.metric_extractors = metric_extractors
         else:
             logger.warning("Mlflow is not enabled, NO MLFLOW STORAGE")
             self.mlflow_client = None
-            self.metric_extractor = None
+            self.metric_extractors = None
 
         # pg
         _pgsql_config: dict[str, Any] = _storage_config.get("pgsql", {})
@@ -216,8 +221,9 @@ class AgentSimulation:
         - enable_institution: bool, default is True
         - agent_config:
             - agent_config_file: Optional[dict[type[Agent], str]]
+            - memory_config_init_func: Optional[Callable]
             - memory_config_func: Optional[dict[type[Agent], Callable]]
-            - metric_extractor: Optional[list[tuple[int, Callable]]]
+            - metric_extractors: Optional[list[tuple[int, Callable]]]
             - init_func: Optional[list[Callable[AgentSimulation, None]]]
             - group_size: Optional[int]
             - embedding_model: Optional[EmbeddingModel]
@@ -258,7 +264,7 @@ class AgentSimulation:
         simulation = cls(
             config=simulation_config,
             agent_config_file=config["agent_config"].get("agent_config_file", None),
-            metric_extractor=config["agent_config"].get("metric_extractor", None),
+            metric_extractors=config["agent_config"].get("metric_extractors", None),
             enable_institution=config.get("enable_institution", True),
             exp_name=config.get("exp_name", "default_experiment"),
             logging_level=config.get("logging_level", logging.WARNING),
@@ -274,12 +280,16 @@ class AgentSimulation:
         )
         simulation._simulator.set_environment(environment)
         logger.info("Initializing Agents...")
-        agent_count = []
-        agent_count.append(config["agent_config"]["number_of_citizen"])
-        agent_count.append(config["agent_config"]["number_of_firm"])
-        agent_count.append(config["agent_config"]["number_of_government"])
-        agent_count.append(config["agent_config"]["number_of_bank"])
-        agent_count.append(config["agent_config"]["number_of_nbs"])
+        agent_count = {
+            SocietyAgent: config["agent_config"].get("number_of_citizen", 0),
+            FirmAgent: config["agent_config"].get("number_of_firm", 0),
+            GovernmentAgent: config["agent_config"].get("number_of_government", 0),
+            BankAgent: config["agent_config"].get("number_of_bank", 0),
+            NBSAgent: config["agent_config"].get("number_of_nbs", 0),
+        }
+        if agent_count.get(SocietyAgent, 0) == 0:
+            raise ValueError("number_of_citizen is required")
+        
         # support MessageInterceptor
         if "message_intercept" in config:
             _intercept_config = config["message_intercept"]
@@ -318,7 +328,8 @@ class AgentSimulation:
             embedding_model=config["agent_config"].get(
                 "embedding_model", SimpleEmbedding()
             ),
-            memory_config_func=config["agent_config"].get("memory_config_func", None),
+            memory_config_func=config["agent_config"].get("memory_config_func", None),  
+            memory_config_init_func=config["agent_config"].get("memory_config_init_func", None),
             **_message_intercept_kwargs,
             environment=environment,
         )
@@ -465,7 +476,7 @@ class AgentSimulation:
 
     async def init_agents(
         self,
-        agent_count: Union[int, list[int]],
+        agent_count: dict[type[Agent], int],
         group_size: int = 10000,
         pg_sql_writers: int = 32,
         message_interceptors: int = 1,
@@ -473,6 +484,7 @@ class AgentSimulation:
         social_black_list: Optional[list[tuple[str, str]]] = None,
         message_listener: Optional[MessageBlockListenerBase] = None,
         embedding_model: Embeddings = SimpleEmbedding(),
+        memory_config_init_func: Optional[Callable] = None,
         memory_config_func: Optional[dict[type[Agent], Callable]] = None,
         environment: Optional[dict[str, str]] = None,
     ) -> None:
@@ -486,12 +498,13 @@ class AgentSimulation:
             memory_config_func: 返回Memory配置的函数，需要返回(EXTRA_ATTRIBUTES, PROFILE, BASE)元组, 每个元素表示一个智能体类创建的Memory配置函数
             environment: 环境变量，用于更新模拟器的环境变量
         """
-        if not isinstance(agent_count, list):
-            agent_count = [agent_count]
+        self.agent_count = agent_count
 
         if len(self.agent_class) != len(agent_count):
-            raise ValueError("agent_class和agent_count的长度不一致")
+            raise ValueError("The length of agent_class and agent_count does not match")
 
+        if memory_config_init_func is not None:
+            await memory_config_init(self)
         if memory_config_func is None:
             memory_config_func = self.default_memory_config_func  # type:ignore
 
@@ -503,9 +516,11 @@ class AgentSimulation:
         citizen_params = []
 
         # 收集所有参数
+        print(self.agent_class)
+        print(agent_count)
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
-            agent_count_i = agent_count[i]
+            agent_count_i = agent_count[agent_class]
             assert memory_config_func is not None
             memory_config_func_i = memory_config_func.get(
                 agent_class, self.default_memory_config_func[agent_class]  # type:ignore
