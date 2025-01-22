@@ -21,7 +21,7 @@ class ParserBase(ABC):
         Parameters:
             response (str): The raw string returned by the model.
 
-        Returns:
+        - **Returns**:
             Any: The converted data, the specific type depends on the parsing result.
         """
         pass
@@ -37,7 +37,7 @@ class ParserBase(ABC):
             tag_start (str): The start tag.
             tag_end (str): The end tag.
 
-        Returns:
+        - **Returns**:
             str: The string between the start and end tags.
         """
 

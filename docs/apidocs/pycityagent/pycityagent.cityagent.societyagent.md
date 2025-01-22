@@ -287,9 +287,6 @@ Bases: {py:obj}`pycityagent.CitizenAgent`
 :canonical: pycityagent.cityagent.societyagent.SocietyAgent.process_agent_chat_response
 :async:
 
-```{autodoc2-docstring} pycityagent.cityagent.societyagent.SocietyAgent.process_agent_chat_response
-```
-
 ````
 
 `````

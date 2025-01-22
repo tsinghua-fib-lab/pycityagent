@@ -16,9 +16,7 @@
 :align: left
 
 * - {py:obj}`CognitionBlock <pycityagent.cityagent.blocks.cognition_block.CognitionBlock>`
-  - ```{autodoc2-docstring} pycityagent.cityagent.blocks.cognition_block.CognitionBlock
-    :summary:
-    ```
+  -
 ````
 
 ### Functions
@@ -68,15 +66,6 @@
 :canonical: pycityagent.cityagent.blocks.cognition_block.CognitionBlock
 
 Bases: {py:obj}`pycityagent.workflow.block.Block`
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.cognition_block.CognitionBlock
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.cognition_block.CognitionBlock.__init__
-```
 
 ````{py:attribute} configurable_fields
 :canonical: pycityagent.cityagent.blocks.cognition_block.CognitionBlock.configurable_fields

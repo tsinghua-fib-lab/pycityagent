@@ -36,7 +36,7 @@ pycityagent.simulation.agentgroup
 ````{py:data} __all__
 :canonical: pycityagent.simulation.__all__
 :value: >
-   ['AgentSimulation', 'PgWriter', 'create_pg_tables']
+   ['AgentSimulation']
 
 ```{autodoc2-docstring} pycityagent.simulation.__all__
 ```

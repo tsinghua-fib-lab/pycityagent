@@ -26,7 +26,7 @@ class JsonObjectParser(ParserBase):
         Parameters:
             response (str): The response string containing the JSON object.
 
-        Returns:
+        - **Returns**:
             Any: The parsed JSON object.
         """
         extract_text = self._extract_text_within_tags(
@@ -73,7 +73,7 @@ class JsonDictParser(JsonObjectParser):
         Parameters:
             response (str): The response string containing the JSON object.
 
-        Returns:
+        - **Returns**:
             dict: The parsed JSON object as a dictionary.
         """
         parsed_json = super().parse(response)

@@ -24,7 +24,9 @@
     :summary:
     ```
 * - {py:obj}`MessageBlockListenerBase <pycityagent.message.message_interceptor.MessageBlockListenerBase>`
-  -
+  - ```{autodoc2-docstring} pycityagent.message.message_interceptor.MessageBlockListenerBase
+    :summary:
+    ```
 ````
 
 ### Data
@@ -39,6 +41,10 @@
     ```
 * - {py:obj}`logger <pycityagent.message.message_interceptor.logger>`
   - ```{autodoc2-docstring} pycityagent.message.message_interceptor.logger
+    :summary:
+    ```
+* - {py:obj}`__all__ <pycityagent.message.message_interceptor.__all__>`
+  - ```{autodoc2-docstring} pycityagent.message.message_interceptor.__all__
     :summary:
     ```
 ````
@@ -60,6 +66,16 @@
    'getLogger(...)'
 
 ```{autodoc2-docstring} pycityagent.message.message_interceptor.logger
+```
+
+````
+
+````{py:data} __all__
+:canonical: pycityagent.message.message_interceptor.__all__
+:value: >
+   ['MessageBlockBase', 'MessageInterceptor', 'MessageBlockListenerBase']
+
+```{autodoc2-docstring} pycityagent.message.message_interceptor.__all__
 ```
 
 ````
@@ -295,6 +311,15 @@ Bases: {py:obj}`abc.ABC`
 :canonical: pycityagent.message.message_interceptor.MessageBlockListenerBase
 
 Bases: {py:obj}`abc.ABC`
+
+```{autodoc2-docstring} pycityagent.message.message_interceptor.MessageBlockListenerBase
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} pycityagent.message.message_interceptor.MessageBlockListenerBase.__init__
+```
 
 ````{py:property} queue
 :canonical: pycityagent.message.message_interceptor.MessageBlockListenerBase.queue

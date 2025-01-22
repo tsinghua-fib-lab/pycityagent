@@ -31,6 +31,10 @@
   - ```{autodoc2-docstring} pycityagent.simulation.simulation.logger
     :summary:
     ```
+* - {py:obj}`__all__ <pycityagent.simulation.simulation.__all__>`
+  - ```{autodoc2-docstring} pycityagent.simulation.simulation.__all__
+    :summary:
+    ```
 ````
 
 ### API
@@ -45,7 +49,17 @@
 
 ````
 
-`````{py:class} AgentSimulation(config: dict, agent_class: typing.Union[None, type[pycityagent.agent.Agent], list[type[pycityagent.agent.Agent]]] = None, agent_config_file: typing.Optional[dict] = None, metric_extractor: typing.Optional[list[tuple[int, collections.abc.Callable]]] = None, enable_institution: bool = True, agent_prefix: str = 'agent_', exp_name: str = 'default_experiment', logging_level: int = logging.WARNING)
+````{py:data} __all__
+:canonical: pycityagent.simulation.simulation.__all__
+:value: >
+   ['AgentSimulation']
+
+```{autodoc2-docstring} pycityagent.simulation.simulation.__all__
+```
+
+````
+
+`````{py:class} AgentSimulation(config: dict, agent_class: typing.Union[None, type[pycityagent.agent.Agent], list[type[pycityagent.agent.Agent]]] = None, agent_config_file: typing.Optional[dict] = None, metric_extractors: typing.Optional[list[tuple[int, collections.abc.Callable]]] = None, enable_institution: bool = True, agent_prefix: str = 'agent_', exp_name: str = 'default_experiment', logging_level: int = logging.WARNING)
 :canonical: pycityagent.simulation.simulation.AgentSimulation
 
 ```{autodoc2-docstring} pycityagent.simulation.simulation.AgentSimulation
@@ -207,7 +221,7 @@
 
 ````
 
-````{py:method} init_agents(agent_count: typing.Union[int, list[int]], group_size: int = 10000, pg_sql_writers: int = 32, message_interceptors: int = 1, message_interceptor_blocks: typing.Optional[list[pycityagent.message.MessageBlockBase]] = None, social_black_list: typing.Optional[list[tuple[str, str]]] = None, message_listener: typing.Optional[pycityagent.message.MessageBlockListenerBase] = None, embedding_model: langchain_core.embeddings.Embeddings = SimpleEmbedding(), memory_config_func: typing.Optional[dict[type[pycityagent.agent.Agent], collections.abc.Callable]] = None, environment: typing.Optional[dict[str, str]] = None) -> None
+````{py:method} init_agents(agent_count: dict[type[pycityagent.agent.Agent], int], group_size: int = 10000, pg_sql_writers: int = 32, message_interceptors: int = 1, message_interceptor_blocks: typing.Optional[list[pycityagent.message.MessageBlockBase]] = None, social_black_list: typing.Optional[list[tuple[str, str]]] = None, message_listener: typing.Optional[pycityagent.message.MessageBlockListenerBase] = None, embedding_model: langchain_core.embeddings.Embeddings = SimpleEmbedding(), memory_config_init_func: typing.Optional[collections.abc.Callable] = None, memory_config_func: typing.Optional[dict[type[pycityagent.agent.Agent], collections.abc.Callable]] = None, environment: typing.Optional[dict[str, str]] = None) -> None
 :canonical: pycityagent.simulation.simulation.AgentSimulation.init_agents
 :async:
 

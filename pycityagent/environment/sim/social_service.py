@@ -27,10 +27,10 @@ class SocialService:
         发送消息
         Send message
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.social.v1.SendRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.social.v1.SendResponse
         """
         if type(req) != social_service.SendRequest:
@@ -45,10 +45,10 @@ class SocialService:
         接收消息
         Receive message
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.social.v1.ReceiveRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.social.v1.ReceiveResponse
         """
         if type(req) != social_service.ReceiveRequest:

@@ -346,7 +346,7 @@ Bases: {py:obj}`str`, {py:obj}`enum.Enum`
 
 ````
 
-````{py:method} get_related_cognition(memory_id: int) -> typing.Optional[pycityagent.memory.memory.MemoryNode]
+````{py:method} get_related_cognition(memory_id: int) -> typing.Union[pycityagent.memory.memory.MemoryNode, None]
 :canonical: pycityagent.memory.memory.StreamMemory.get_related_cognition
 :async:
 
@@ -514,7 +514,7 @@ Bases: {py:obj}`str`, {py:obj}`enum.Enum`
 
 ````
 
-````{py:method} get(key: typing.Any, mode: typing.Union[typing.Literal[read only], typing.Literal[read and write]] = 'read only') -> typing.Any
+````{py:method} get(key: typing.Any, default_value: typing.Optional[typing.Any] = None, mode: typing.Union[typing.Literal[read only], typing.Literal[read and write]] = 'read only') -> typing.Any
 :canonical: pycityagent.memory.memory.StatusMemory.get
 :async:
 

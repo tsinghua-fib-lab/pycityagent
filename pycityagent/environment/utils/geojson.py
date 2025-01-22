@@ -6,11 +6,11 @@ def wrap_feature_collection(features: list[dict], name: str):
     将 GeoJSON Feature 集合包装为 FeatureCollection
     Wrap GeoJSON Feature collection as FeatureCollection
 
-    Args:
+    - **Args**:
     - features: GeoJSON Feature 集合。GeoJSON Feature collection.
     - name: FeatureCollection 名称。FeatureCollection name.
 
-    Returns:
+    - **Returns**:
     - dict: GeoJSON FeatureCollection
     """
     return {

@@ -28,7 +28,17 @@
     :summary:
     ```
 * - {py:obj}`MobilityBlock <pycityagent.cityagent.blocks.mobility_block.MobilityBlock>`
-  - ```{autodoc2-docstring} pycityagent.cityagent.blocks.mobility_block.MobilityBlock
+  -
+````
+
+### Functions
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`gravity_model <pycityagent.cityagent.blocks.mobility_block.gravity_model>`
+  - ```{autodoc2-docstring} pycityagent.cityagent.blocks.mobility_block.gravity_model
     :summary:
     ```
 ````
@@ -107,6 +117,13 @@
 ```{autodoc2-docstring} pycityagent.cityagent.blocks.mobility_block.RADIUS_PROMPT
 ```
 
+````
+
+````{py:function} gravity_model(pois)
+:canonical: pycityagent.cityagent.blocks.mobility_block.gravity_model
+
+```{autodoc2-docstring} pycityagent.cityagent.blocks.mobility_block.gravity_model
+```
 ````
 
 `````{py:class} PlaceSelectionBlock(llm: pycityagent.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.environment.simulator.Simulator)
@@ -200,15 +217,6 @@ Bases: {py:obj}`pycityagent.workflow.block.Block`
 :canonical: pycityagent.cityagent.blocks.mobility_block.MobilityBlock
 
 Bases: {py:obj}`pycityagent.workflow.block.Block`
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.mobility_block.MobilityBlock
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.mobility_block.MobilityBlock.__init__
-```
 
 ````{py:attribute} place_selection_block
 :canonical: pycityagent.cityagent.blocks.mobility_block.MobilityBlock.place_selection_block

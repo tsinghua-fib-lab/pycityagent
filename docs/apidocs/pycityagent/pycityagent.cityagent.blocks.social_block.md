@@ -142,27 +142,6 @@ Bases: {py:obj}`pycityagent.workflow.block.Block`
 ```{autodoc2-docstring} pycityagent.cityagent.blocks.social_block.MessageBlock.__init__
 ```
 
-````{py:attribute} configurable_fields
-:canonical: pycityagent.cityagent.blocks.social_block.MessageBlock.configurable_fields
-:type: typing.List[str]
-:value: >
-   ['default_message_template', 'to_discuss']
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.social_block.MessageBlock.configurable_fields
-```
-
-````
-
-````{py:attribute} default_values
-:canonical: pycityagent.cityagent.blocks.social_block.MessageBlock.default_values
-:value: >
-   None
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.social_block.MessageBlock.default_values
-```
-
-````
-
 ````{py:method} _serialize_message(message: str, propagation_count: int) -> str
 :canonical: pycityagent.cityagent.blocks.social_block.MessageBlock._serialize_message
 

@@ -39,6 +39,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`__all__ <pycityagent.metrics.mlflow_client.__all__>`
+  - ```{autodoc2-docstring} pycityagent.metrics.mlflow_client.__all__
+    :summary:
+    ```
 * - {py:obj}`logger <pycityagent.metrics.mlflow_client.logger>`
   - ```{autodoc2-docstring} pycityagent.metrics.mlflow_client.logger
     :summary:
@@ -46,6 +50,16 @@
 ````
 
 ### API
+
+````{py:data} __all__
+:canonical: pycityagent.metrics.mlflow_client.__all__
+:value: >
+   ['init_mlflow_connection', 'MlflowClient']
+
+```{autodoc2-docstring} pycityagent.metrics.mlflow_client.__all__
+```
+
+````
 
 ````{py:data} logger
 :canonical: pycityagent.metrics.mlflow_client.logger

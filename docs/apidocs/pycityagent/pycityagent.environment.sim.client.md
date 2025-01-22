@@ -67,15 +67,6 @@
 
 ````
 
-````{py:method} from_sidecar(sidecar: pycityagent.environment.sidecar.OnlyClientSidecar, name: str = NAME)
-:canonical: pycityagent.environment.sim.client.CityClient.from_sidecar
-:staticmethod:
-
-```{autodoc2-docstring} pycityagent.environment.sim.client.CityClient.from_sidecar
-```
-
-````
-
 ````{py:property} clock_service
 :canonical: pycityagent.environment.sim.client.CityClient.clock_service
 

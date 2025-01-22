@@ -23,19 +23,41 @@
   - ```{autodoc2-docstring} pycityagent.tools.tool.GetMap
     :summary:
     ```
-* - {py:obj}`SencePOI <pycityagent.tools.tool.SencePOI>`
-  - ```{autodoc2-docstring} pycityagent.tools.tool.SencePOI
+* - {py:obj}`UpdateWithSimulator <pycityagent.tools.tool.UpdateWithSimulator>`
+  - ```{autodoc2-docstring} pycityagent.tools.tool.UpdateWithSimulator
     :summary:
     ```
-* - {py:obj}`UpdateWithSimulator <pycityagent.tools.tool.UpdateWithSimulator>`
-  -
 * - {py:obj}`ResetAgentPosition <pycityagent.tools.tool.ResetAgentPosition>`
   -
 * - {py:obj}`ExportMlflowMetrics <pycityagent.tools.tool.ExportMlflowMetrics>`
-  -
+  - ```{autodoc2-docstring} pycityagent.tools.tool.ExportMlflowMetrics
+    :summary:
+    ```
+````
+
+### Data
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`__all__ <pycityagent.tools.tool.__all__>`
+  - ```{autodoc2-docstring} pycityagent.tools.tool.__all__
+    :summary:
+    ```
 ````
 
 ### API
+
+````{py:data} __all__
+:canonical: pycityagent.tools.tool.__all__
+:value: >
+   ['Tool', 'ExportMlflowMetrics', 'GetMap', 'UpdateWithSimulator', 'ResetAgentPosition']
+
+```{autodoc2-docstring} pycityagent.tools.tool.__all__
+```
+
+````
 
 `````{py:class} Tool
 :canonical: pycityagent.tools.tool.Tool
@@ -105,35 +127,19 @@ Bases: {py:obj}`pycityagent.tools.tool.Tool`
 
 `````
 
-`````{py:class} SencePOI(radius: int = 100, category_prefix=LEVEL_ONE_PRE)
-:canonical: pycityagent.tools.tool.SencePOI
+`````{py:class} UpdateWithSimulator()
+:canonical: pycityagent.tools.tool.UpdateWithSimulator
 
 Bases: {py:obj}`pycityagent.tools.tool.Tool`
 
-```{autodoc2-docstring} pycityagent.tools.tool.SencePOI
+```{autodoc2-docstring} pycityagent.tools.tool.UpdateWithSimulator
 ```
 
 ```{rubric} Initialization
 ```
 
-```{autodoc2-docstring} pycityagent.tools.tool.SencePOI.__init__
+```{autodoc2-docstring} pycityagent.tools.tool.UpdateWithSimulator.__init__
 ```
-
-````{py:method} __call__(radius: typing.Optional[int] = None, category_prefix: typing.Optional[str] = None) -> typing.Union[typing.Any, collections.abc.Callable]
-:canonical: pycityagent.tools.tool.SencePOI.__call__
-:async:
-
-```{autodoc2-docstring} pycityagent.tools.tool.SencePOI.__call__
-```
-
-````
-
-`````
-
-`````{py:class} UpdateWithSimulator()
-:canonical: pycityagent.tools.tool.UpdateWithSimulator
-
-Bases: {py:obj}`pycityagent.tools.tool.Tool`
 
 ````{py:method} _update_motion_with_sim()
 :canonical: pycityagent.tools.tool.UpdateWithSimulator._update_motion_with_sim
@@ -175,6 +181,15 @@ Bases: {py:obj}`pycityagent.tools.tool.Tool`
 :canonical: pycityagent.tools.tool.ExportMlflowMetrics
 
 Bases: {py:obj}`pycityagent.tools.tool.Tool`
+
+```{autodoc2-docstring} pycityagent.tools.tool.ExportMlflowMetrics
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} pycityagent.tools.tool.ExportMlflowMetrics.__init__
+```
 
 ````{py:method} __call__(metric: typing.Union[collections.abc.Sequence[typing.Union[mlflow.entities.Metric, dict]], typing.Union[mlflow.entities.Metric, dict]], clear_cache: bool = False)
 :canonical: pycityagent.tools.tool.ExportMlflowMetrics.__call__

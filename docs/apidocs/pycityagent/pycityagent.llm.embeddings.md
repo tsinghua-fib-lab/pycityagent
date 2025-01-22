@@ -16,7 +16,9 @@
 :align: left
 
 * - {py:obj}`SentenceEmbedding <pycityagent.llm.embeddings.SentenceEmbedding>`
-  -
+  - ```{autodoc2-docstring} pycityagent.llm.embeddings.SentenceEmbedding
+    :summary:
+    ```
 * - {py:obj}`SimpleEmbedding <pycityagent.llm.embeddings.SimpleEmbedding>`
   - ```{autodoc2-docstring} pycityagent.llm.embeddings.SimpleEmbedding
     :summary:
@@ -51,6 +53,15 @@
 :canonical: pycityagent.llm.embeddings.SentenceEmbedding
 
 Bases: {py:obj}`langchain_core.embeddings.Embeddings`
+
+```{autodoc2-docstring} pycityagent.llm.embeddings.SentenceEmbedding
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} pycityagent.llm.embeddings.SentenceEmbedding.__init__
+```
 
 ````{py:method} _embed(texts: list[str]) -> list[list[float]]
 :canonical: pycityagent.llm.embeddings.SentenceEmbedding._embed

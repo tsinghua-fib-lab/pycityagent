@@ -39,6 +39,10 @@
   - ```{autodoc2-docstring} pycityagent.workflow.trigger.KEY_TRIGGER_COMPONENTS
     :summary:
     ```
+* - {py:obj}`__all__ <pycityagent.workflow.trigger.__all__>`
+  - ```{autodoc2-docstring} pycityagent.workflow.trigger.__all__
+    :summary:
+    ```
 ````
 
 ### API
@@ -49,6 +53,16 @@
    None
 
 ```{autodoc2-docstring} pycityagent.workflow.trigger.KEY_TRIGGER_COMPONENTS
+```
+
+````
+
+````{py:data} __all__
+:canonical: pycityagent.workflow.trigger.__all__
+:value: >
+   ['EventTrigger', 'MemoryChangeTrigger', 'TimeTrigger']
+
+```{autodoc2-docstring} pycityagent.workflow.trigger.__all__
 ```
 
 ````

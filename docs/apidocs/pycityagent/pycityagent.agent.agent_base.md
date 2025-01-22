@@ -35,6 +35,10 @@
   - ```{autodoc2-docstring} pycityagent.agent.agent_base.logger
     :summary:
     ```
+* - {py:obj}`__all__ <pycityagent.agent.agent_base.__all__>`
+  - ```{autodoc2-docstring} pycityagent.agent.agent_base.__all__
+    :summary:
+    ```
 ````
 
 ### API
@@ -45,6 +49,16 @@
    'getLogger(...)'
 
 ```{autodoc2-docstring} pycityagent.agent.agent_base.logger
+```
+
+````
+
+````{py:data} __all__
+:canonical: pycityagent.agent.agent_base.__all__
+:value: >
+   ['Agent', 'AgentType']
+
+```{autodoc2-docstring} pycityagent.agent.agent_base.__all__
 ```
 
 ````

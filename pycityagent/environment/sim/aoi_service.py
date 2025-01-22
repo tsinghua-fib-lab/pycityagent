@@ -27,10 +27,10 @@ class AoiService:
         获取AOI信息
         get AOI information
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.map.v2.GetAoiRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.map.v2.GetAoiResponse
         """
         if type(req) != aoi_service.GetAoiRequest:

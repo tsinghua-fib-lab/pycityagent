@@ -35,7 +35,7 @@ pycityagent.tools.tool
 ````{py:data} __all__
 :canonical: pycityagent.tools.__all__
 :value: >
-   ['SencePOI', 'Tool', 'ExportMlflowMetrics', 'GetMap', 'UpdateWithSimulator', 'ResetAgentPosition']
+   ['Tool', 'ExportMlflowMetrics', 'GetMap', 'UpdateWithSimulator', 'ResetAgentPosition']
 
 ```{autodoc2-docstring} pycityagent.tools.__all__
 ```

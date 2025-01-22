@@ -13,12 +13,12 @@ def point_on_line_given_distance(start_node, end_node, distance):
     Given two points (start_point and end_point) defining a line, and a distance s to travel along the line,
     return the coordinates of the point reached after traveling s units along the line, starting from start_point.
 
-    Args:
+    - **Args**:
         start_point (tuple): tuple of (x, y) representing the starting point on the line.
         end_point (tuple): tuple of (x, y) representing the ending point on the line.
         distance (float): Distance to travel along the line, starting from start_point.
 
-    Returns:
+    - **Returns**:
         tuple: tuple of (x, y) representing the new point reached after traveling s units along the line.
     """
 

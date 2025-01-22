@@ -27,6 +27,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`__all__ <pycityagent.message.messager.__all__>`
+  - ```{autodoc2-docstring} pycityagent.message.messager.__all__
+    :summary:
+    ```
 * - {py:obj}`logger <pycityagent.message.messager.logger>`
   - ```{autodoc2-docstring} pycityagent.message.messager.logger
     :summary:
@@ -34,6 +38,16 @@
 ````
 
 ### API
+
+````{py:data} __all__
+:canonical: pycityagent.message.messager.__all__
+:value: >
+   ['Messager']
+
+```{autodoc2-docstring} pycityagent.message.messager.__all__
+```
+
+````
 
 ````{py:data} logger
 :canonical: pycityagent.message.messager.logger

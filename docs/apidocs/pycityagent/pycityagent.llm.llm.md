@@ -21,7 +21,29 @@
     ```
 ````
 
+### Data
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`__all__ <pycityagent.llm.llm.__all__>`
+  - ```{autodoc2-docstring} pycityagent.llm.llm.__all__
+    :summary:
+    ```
+````
+
 ### API
+
+````{py:data} __all__
+:canonical: pycityagent.llm.llm.__all__
+:value: >
+   ['LLM']
+
+```{autodoc2-docstring} pycityagent.llm.llm.__all__
+```
+
+````
 
 `````{py:class} LLM(config: pycityagent.llm.llmconfig.LLMConfig)
 :canonical: pycityagent.llm.llm.LLM
@@ -55,6 +77,14 @@
 :canonical: pycityagent.llm.llm.LLM.clear_used
 
 ```{autodoc2-docstring} pycityagent.llm.llm.LLM.clear_used
+```
+
+````
+
+````{py:method} get_consumption()
+:canonical: pycityagent.llm.llm.LLM.get_consumption
+
+```{autodoc2-docstring} pycityagent.llm.llm.LLM.get_consumption
 ```
 
 ````

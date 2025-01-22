@@ -352,11 +352,11 @@ class LLM:
         """
         Analyzes and understands images using external APIs.
 
-        Args:
+        - **Args**:
             img_path (Union[str, list[str]]): Path or list of paths to the images for analysis.
             prompt (Optional[str]): Guidance text for understanding the images.
 
-        Returns:
+        - **Returns**:
             str: The content derived from understanding the images.
         """
         ppt = "如何理解这幅图像？"
@@ -432,12 +432,12 @@ class LLM:
         """
         Generates images based on a given prompt.
 
-        Args:
+        - **Args**:
             prompt (str): Prompt for generating images.
             size (str): Size of the generated images, default is '512*512'.
             quantity (int): Number of images to generate, default is 1.
 
-        Returns:
+        - **Returns**:
             list[PIL.Image.Image]: List of generated PIL Image objects.
         """
         rsp = ImageSynthesis.call(

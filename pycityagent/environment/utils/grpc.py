@@ -8,11 +8,11 @@ def create_channel(server_address: str, secure: bool = False) -> grpc.Channel:
     创建一个grpc的channel
     Create a grpc channel
 
-    Args:
+    - **Args**:
     - server_address (str): 服务器地址。server address.
     - secure (bool, optional): 是否使用安全连接. Defaults to False. Whether to use a secure connection. Defaults to False.
 
-    Returns:
+    - **Returns**:
     - grpc.Channel: grpc的channel。grpc channel.
     """
     if server_address.startswith("http://"):
@@ -35,11 +35,11 @@ def create_aio_channel(server_address: str, secure: bool = False) -> grpc.aio.Ch
     创建一个grpc的异步channel
     Create a grpc asynchronous channel
 
-    Args:
+    - **Args**:
     - server_address (str): 服务器地址。server address.
     - secure (bool, optional): 是否使用安全连接. Defaults to False. Whether to use a secure connection. Defaults to False.
 
-    Returns:
+    - **Returns**:
     - grpc.aio.Channel: grpc的异步channel。grpc asynchronous channel.
     """
     if server_address.startswith("http://"):

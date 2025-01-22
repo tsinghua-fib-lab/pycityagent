@@ -31,7 +31,7 @@ def init_mlflow_connection(
     """
     Initialize an MLflow connection with a new or existing experiment and run.
 
-    Args:
+    - **Args**:
         config (dict): Configuration dictionary containing MLflow credentials and URI.
         experiment_uuid (str): A unique identifier for the experiment.
         mlflow_run_name (str, optional): Name of the MLflow run. Defaults to a generated name.
@@ -39,7 +39,7 @@ def init_mlflow_connection(
         experiment_description (str, optional): Description for the experiment. Defaults to None.
         experiment_tags (dict, optional): Tags to associate with the experiment. Defaults to None.
 
-    Returns:
+    - **Returns**:
         tuple: A tuple containing the run_id and another tuple with the MLflow URI, client, run object, and run UUID.
     """
     os.environ["MLFLOW_TRACKING_USERNAME"] = config.get("username", None)
@@ -100,7 +100,7 @@ class MlflowClient:
         """
         Initialize the MlflowClient.
 
-        Args:
+        - **Args**:
             config (dict): Configuration dictionary containing MLflow credentials and URI.
             experiment_uuid (str): A unique identifier for the experiment.
             mlflow_run_name (str, optional): Name of the MLflow run. Defaults to a generated name.
@@ -177,7 +177,7 @@ class MlflowClient:
 
         This method is thread-safe due to the `@lock_decorator`.
 
-        Args:
+        - **Args**:
             key (str): The name of the metric.
             value (float): The value of the metric.
             step (int, optional): The step at which the metric was recorded. Defaults to None.

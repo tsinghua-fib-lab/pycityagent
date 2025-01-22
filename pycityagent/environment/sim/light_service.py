@@ -32,10 +32,10 @@ class LightService:
         获取路口的红绿灯信息
         Get traffic light information
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.traffic.v1.GetTrafficLightRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.traffic.v1.GetTrafficLightResponse
         """
         if type(req) != light_service.GetTrafficLightRequest:
@@ -57,10 +57,10 @@ class LightService:
         设置路口的红绿灯信息
         Set traffic light information
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.traffic.v1.SetTrafficLightRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.traffic.v1.SetTrafficLightResponse
         """
         if type(req) != light_service.SetTrafficLightRequest:
@@ -82,10 +82,10 @@ class LightService:
         设置路口的红绿灯相位
         Set traffic light phase
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.traffic.v1.SetTrafficLightPhaseRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.traffic.v1.SetTrafficLightPhaseResponse
         """
         if type(req) != light_service.SetTrafficLightPhaseRequest:
@@ -107,10 +107,10 @@ class LightService:
         设置路口的红绿灯状态
         Set traffic light status
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.traffic.v1.SetTrafficLightStatusRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.traffic.v1.SetTrafficLightStatusResponse
         """
         if type(req) != light_service.SetTrafficLightStatusRequest:

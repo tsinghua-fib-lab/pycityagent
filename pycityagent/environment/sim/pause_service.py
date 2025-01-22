@@ -26,10 +26,10 @@ class PauseService:
         暂停模拟
         Pause the simulation
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.readthedocs.io/en/latest/docs.html#pauserequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.readthedocs.io/en/latest/docs.html#pauseresponse
         """
         req = pause_service.PauseRequest()
@@ -46,10 +46,10 @@ class PauseService:
         恢复模拟
         Resume the simulation
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.readthedocs.io/en/latest/docs.html#resumerequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.readthedocs.io/en/latest/docs.html#resumeresponse
         """
         req = pause_service.ResumeRequest()

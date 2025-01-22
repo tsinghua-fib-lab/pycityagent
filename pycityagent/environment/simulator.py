@@ -157,14 +157,14 @@ class Simulator:
         """
         Find agents/persons within a specified area.
 
-        Args:
+        - **Args**:
             - `req` (`dict`): A dictionary that describes the area. Refer to
               https://cityproto.sim.fiblab.net/#city.person.1.GetPersonByLongLatBBoxRequest.
             - `status` (`Optional[int]`): An integer representing the status of the agents/persons to filter by.
               If provided, only persons with the given status will be returned.
               Refer to https://cityproto.sim.fiblab.net/#city.agent.v2.Status.
 
-        Returns:
+        - **Returns**:
             - The response from the GetPersonByLongLatBBox method, possibly filtered by status.
               Refer to https://cityproto.sim.fiblab.net/#city.person.1.GetPersonByLongLatBBoxResponse.
         """
@@ -191,12 +191,12 @@ class Simulator:
         """
         Retrieve unique categories of Points of Interest (POIs) around a central point.
 
-        Args:
+        - **Args**:
             - `center` (`Optional[Union[Tuple[float, float], Point]]`): The central point as a tuple or Point object.
               Defaults to (0, 0) if not provided.
             - `radius` (`Optional[float]`): The search radius in meters. If not provided, all POIs are considered.
 
-        Returns:
+        - **Returns**:
             - `List[str]`: A list of unique POI category names.
         """
         categories: list[str] = []
@@ -220,11 +220,11 @@ class Simulator:
 
         By default, returns the number of seconds since midnight. Supports formatted output.
 
-        Args:
+        - **Args**:
             - `format_time` (`bool`): Whether to return the time in a formatted string. Defaults to `False`.
             - `format` (`str`): The format string for formatting the time. Defaults to "%H:%M:%S".
 
-        Returns:
+        - **Returns**:
             - `Union[int, str]`: The current simulation time either as an integer representing seconds since midnight or as a formatted string.
         """
         now = await self._client.clock_service.Now({})
@@ -259,7 +259,7 @@ class Simulator:
         """
         Get the current day of the simulation.
 
-        Returns:
+        - **Returns**:
             - `int`: The day number since the start of the simulation.
         """
         now = await self._client.clock_service.Now({})
@@ -271,7 +271,7 @@ class Simulator:
         """
         Get the number of seconds elapsed from the start of the current day in the simulation.
 
-        Returns:
+        - **Returns**:
             - `int`: The number of seconds from 00:00:00 of the current day.
         """
         now = await self._client.clock_service.Now({})
@@ -282,10 +282,10 @@ class Simulator:
         """
         Retrieve information about a specific person by ID.
 
-        Args:
+        - **Args**:
             - `person_id` (`int`): The ID of the person to retrieve information for.
 
-        Returns:
+        - **Returns**:
             - `Dict`: Information about the specified person.
         """
         return await self._client.person_service.GetPerson(
@@ -296,11 +296,11 @@ class Simulator:
         """
         Add a new person to the simulation.
 
-        Args:
+        - **Args**:
             - `person` (`Any`): The person object to add. If it's an instance of `person_pb2.Person`,
               it will be wrapped in an `AddPersonRequest`. Otherwise, `person` is expected to already be a valid request object.
 
-        Returns:
+        - **Returns**:
             - `Dict`: Response from adding the person.
         """
         if isinstance(person, person_pb2.Person):
@@ -321,7 +321,7 @@ class Simulator:
         """
         Set schedules for a person to visit Areas of Interest (AOIs).
 
-        Args:
+        - **Args**:
             - `person_id` (`int`): The ID of the person whose schedule is being set.
             - `target_positions` (`Union[List[Union[int, Tuple[int, int]]], Union[int, Tuple[int, int]]]`):
               A list of AOI or POI IDs or tuples of (AOI ID, POI ID) that the person will visit.
@@ -391,7 +391,7 @@ class Simulator:
         """
         Reset the position of a person within the simulation.
 
-        Args:
+        - **Args**:
             - `person_id` (`int`): The ID of the person whose position is being reset.
             - `aoi_id` (`Optional[int]`): The ID of the Area of Interest (AOI) where the person should be placed.
             - `poi_id` (`Optional[int]`): The ID of the Point of Interest (POI) within the AOI.
@@ -436,12 +436,12 @@ class Simulator:
         """
         Get Points of Interest (POIs) around a central point based on type.
 
-        Args:
+        - **Args**:
             - `center` (`Union[Tuple[float, float], Point]`): The central point as a tuple or Point object.
             - `radius` (`float`): The search radius in meters.
             - `poi_type` (`Union[str, List[str]]`): The category or categories of POIs to filter by.
 
-        Returns:
+        - **Returns**:
             - `List[Dict]`: A list of dictionaries containing information about the POIs found.
         """
         if isinstance(poi_type, str):

@@ -437,12 +437,12 @@ class StreamMemory:
     ) -> str:
         """Search all memory events from today
 
-        Args:
+        - **Args**:
             query: Optional query text, returns all memories of the day if empty
             tag: Optional memory tag for filtering specific types of memories
             top_k: Number of most relevant memories to return, defaults to 100
 
-        Returns:
+        - **Returns**:
             str: Formatted text of today's memories
         """
         if self._simulator is None:

@@ -31,6 +31,10 @@
   - ```{autodoc2-docstring} pycityagent.environment.simulator.logger
     :summary:
     ```
+* - {py:obj}`__all__ <pycityagent.environment.simulator.__all__>`
+  - ```{autodoc2-docstring} pycityagent.environment.simulator.__all__
+    :summary:
+    ```
 ````
 
 ### API
@@ -41,6 +45,16 @@
    'getLogger(...)'
 
 ```{autodoc2-docstring} pycityagent.environment.simulator.logger
+```
+
+````
+
+````{py:data} __all__
+:canonical: pycityagent.environment.simulator.__all__
+:value: >
+   ['Simulator']
+
+```{autodoc2-docstring} pycityagent.environment.simulator.__all__
 ```
 
 ````
@@ -90,6 +104,7 @@
 
 ````{py:property} environment
 :canonical: pycityagent.environment.simulator.Simulator.environment
+:type: dict[str, str]
 
 ```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.environment
 ```
@@ -104,7 +119,7 @@
 
 ````
 
-````{py:method} sence(key: str)
+````{py:method} sence(key: str) -> str
 :canonical: pycityagent.environment.simulator.Simulator.sence
 
 ```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.sence

@@ -26,7 +26,7 @@ class CodeBlockParser(ParserBase):
         Parameters:
             response (str): The response string containing the specified language object.
 
-        Returns:
+        - **Returns**:
             str: The parsed `str` object.
         """
         extract_text = self._extract_text_within_tags(

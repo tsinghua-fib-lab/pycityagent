@@ -41,7 +41,7 @@ pycityagent.environment.utils.const
 ````{py:data} __all__
 :canonical: pycityagent.environment.utils.__all__
 :value: >
-   ['wrap_feature_collection', 'find_free_port', 'find_free_port']
+   ['wrap_feature_collection', 'find_free_port', 'encode_to_base64']
 
 ```{autodoc2-docstring} pycityagent.environment.utils.__all__
 ```

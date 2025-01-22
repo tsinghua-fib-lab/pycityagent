@@ -139,7 +139,7 @@
 
 ````
 
-````{py:method} export_class_config() -> dict[str, str]
+````{py:method} export_class_config() -> tuple[dict[str, typing.Any], dict[str, typing.Any]]
 :canonical: pycityagent.workflow.block.Block.export_class_config
 :classmethod:
 

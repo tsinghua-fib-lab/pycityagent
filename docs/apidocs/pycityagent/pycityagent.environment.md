@@ -14,9 +14,7 @@
 :maxdepth: 3
 
 pycityagent.environment.sim
-pycityagent.environment.sence
 pycityagent.environment.utils
-pycityagent.environment.sidecar
 ```
 
 ## Submodules
@@ -47,7 +45,7 @@ pycityagent.environment.simulator
 ````{py:data} __all__
 :canonical: pycityagent.environment.__all__
 :value: >
-   ['Simulator', 'POI_TYPE_DICT', 'LEVEL_ONE_PRE', 'PersonService', 'AoiService']
+   ['Simulator', 'PersonService', 'AoiService']
 
 ```{autodoc2-docstring} pycityagent.environment.__all__
 ```

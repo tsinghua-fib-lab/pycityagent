@@ -16,9 +16,7 @@
 :align: left
 
 * - {py:obj}`PlanBlock <pycityagent.cityagent.blocks.plan_block.PlanBlock>`
-  - ```{autodoc2-docstring} pycityagent.cityagent.blocks.plan_block.PlanBlock
-    :summary:
-    ```
+  -
 ````
 
 ### Data
@@ -75,15 +73,6 @@
 :canonical: pycityagent.cityagent.blocks.plan_block.PlanBlock
 
 Bases: {py:obj}`pycityagent.workflow.Block`
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.plan_block.PlanBlock
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.plan_block.PlanBlock.__init__
-```
 
 ````{py:attribute} configurable_fields
 :canonical: pycityagent.cityagent.blocks.plan_block.PlanBlock.configurable_fields

@@ -57,10 +57,10 @@ class PersonService:
         获取person信息
         Get person information
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonResponse
         """
         if type(req) != person_service.GetPersonRequest:
@@ -79,10 +79,10 @@ class PersonService:
         新增person
         Add a new person
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.AddPersonRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.person.v2.AddPersonResponse
         """
         if type(req) != person_service.AddPersonRequest:
@@ -101,10 +101,10 @@ class PersonService:
         修改person的schedule
         set person's schedule
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.SetScheduleRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.person.v2.SetScheduleResponse
         """
         if type(req) != person_service.SetScheduleRequest:
@@ -124,10 +124,10 @@ class PersonService:
         获取多个person信息
         Get information of multiple persons
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonsRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonsResponse
         """
         if type(req) != person_service.GetPersonsRequest:
@@ -149,10 +149,10 @@ class PersonService:
         获取特定区域内的person
         Get persons in a specific region
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonByLongLatBBoxRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.person.v2.GetPersonByLongLatBBoxResponse
         """
         if type(req) != person_service.GetPersonByLongLatBBoxRequest:
@@ -174,10 +174,10 @@ class PersonService:
         获取所有车辆
         Get all vehicles
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.GetAllVehiclesRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.person.v2.GetAllVehiclesResponse
         """
         if type(req) != person_service.GetAllVehiclesRequest:
@@ -199,10 +199,10 @@ class PersonService:
         重置人的位置（将停止当前正在进行的出行，转为sleep状态）
         Reset person's position (stop the current trip and switch to sleep status)
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.ResetPersonPositionRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.person.v2.ResetPersonPositionResponse
         """
         if type(req) != person_service.ResetPersonPositionRequest:
@@ -226,10 +226,10 @@ class PersonService:
         设置由外部控制行为的vehicle
         Set controlled vehicle ID
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.SetControlledVehicleIDsRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.person.v2.SetControlledVehicleIDsResponse
         """
         if type(req) != person_service.SetControlledVehicleIDsRequest:
@@ -253,10 +253,10 @@ class PersonService:
         获取由外部控制行为的vehicle的环境信息
         Fetch controlled vehicle environment information
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.FetchControlledVehicleEnvsRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.person.v2.FetchControlledVehicleEnvsResponse
         """
         if type(req) != person_service.FetchControlledVehicleEnvsRequest:
@@ -280,10 +280,10 @@ class PersonService:
         设置由外部控制行为的vehicle的行为
         Set controlled vehicle actions
 
-        Args:
+        - **Args**:
         - req (dict): https://cityproto.sim.fiblab.net/#city.person.v2.SetControlledVehicleActionsRequest
 
-        Returns:
+        - **Returns**:
         - https://cityproto.sim.fiblab.net/#city.person.v2.SetControlledVehicleActionsResponse
         """
         if type(req) != person_service.SetControlledVehicleActionsRequest:

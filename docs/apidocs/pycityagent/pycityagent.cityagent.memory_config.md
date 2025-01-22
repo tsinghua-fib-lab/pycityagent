@@ -15,6 +15,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`memory_config_init <pycityagent.cityagent.memory_config.memory_config_init>`
+  - ```{autodoc2-docstring} pycityagent.cityagent.memory_config.memory_config_init
+    :summary:
+    ```
 * - {py:obj}`memory_config_societyagent <pycityagent.cityagent.memory_config.memory_config_societyagent>`
   - ```{autodoc2-docstring} pycityagent.cityagent.memory_config.memory_config_societyagent
     :summary:
@@ -69,6 +73,10 @@
     ```
 * - {py:obj}`agent_skills <pycityagent.cityagent.memory_config.agent_skills>`
   - ```{autodoc2-docstring} pycityagent.cityagent.memory_config.agent_skills
+    :summary:
+    ```
+* - {py:obj}`work_locations <pycityagent.cityagent.memory_config.work_locations>`
+  - ```{autodoc2-docstring} pycityagent.cityagent.memory_config.work_locations
     :summary:
     ```
 ````
@@ -143,6 +151,24 @@
 ```{autodoc2-docstring} pycityagent.cityagent.memory_config.agent_skills
 ```
 
+````
+
+````{py:data} work_locations
+:canonical: pycityagent.cityagent.memory_config.work_locations
+:value: >
+   None
+
+```{autodoc2-docstring} pycityagent.cityagent.memory_config.work_locations
+```
+
+````
+
+````{py:function} memory_config_init(simulation)
+:canonical: pycityagent.cityagent.memory_config.memory_config_init
+:async:
+
+```{autodoc2-docstring} pycityagent.cityagent.memory_config.memory_config_init
+```
 ````
 
 ````{py:function} memory_config_societyagent()

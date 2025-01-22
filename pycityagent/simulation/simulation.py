@@ -471,7 +471,7 @@ class AgentSimulation:
     async def _monitor_exp_status(self, stop_event: asyncio.Event):
         """监控实验状态并更新
 
-        Args:
+        - **Args**:
             stop_event: 用于通知监控任务停止的事件
         """
         try:

@@ -16,17 +16,13 @@
 :align: left
 
 * - {py:obj}`SleepBlock <pycityagent.cityagent.blocks.other_block.SleepBlock>`
-  - ```{autodoc2-docstring} pycityagent.cityagent.blocks.other_block.SleepBlock
-    :summary:
-    ```
+  -
 * - {py:obj}`OtherNoneBlock <pycityagent.cityagent.blocks.other_block.OtherNoneBlock>`
   - ```{autodoc2-docstring} pycityagent.cityagent.blocks.other_block.OtherNoneBlock
     :summary:
     ```
 * - {py:obj}`OtherBlock <pycityagent.cityagent.blocks.other_block.OtherBlock>`
-  - ```{autodoc2-docstring} pycityagent.cityagent.blocks.other_block.OtherBlock
-    :summary:
-    ```
+  -
 ````
 
 ### Data
@@ -57,15 +53,6 @@
 :canonical: pycityagent.cityagent.blocks.other_block.SleepBlock
 
 Bases: {py:obj}`pycityagent.workflow.block.Block`
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.other_block.SleepBlock
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.other_block.SleepBlock.__init__
-```
 
 ````{py:method} forward(step, context)
 :canonical: pycityagent.cityagent.blocks.other_block.SleepBlock.forward
@@ -101,15 +88,6 @@ Bases: {py:obj}`pycityagent.workflow.block.Block`
 :canonical: pycityagent.cityagent.blocks.other_block.OtherBlock
 
 Bases: {py:obj}`pycityagent.workflow.block.Block`
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.other_block.OtherBlock
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.other_block.OtherBlock.__init__
-```
 
 ````{py:attribute} sleep_block
 :canonical: pycityagent.cityagent.blocks.other_block.OtherBlock.sleep_block

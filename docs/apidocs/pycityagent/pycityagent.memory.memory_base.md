@@ -20,7 +20,9 @@
     :summary:
     ```
 * - {py:obj}`MemoryBase <pycityagent.memory.memory_base.MemoryBase>`
-  -
+  - ```{autodoc2-docstring} pycityagent.memory.memory_base.MemoryBase
+    :summary:
+    ```
 ````
 
 ### Data
@@ -101,15 +103,6 @@
 
 ````
 
-````{py:method} top_k_values(key: typing.Any, metric: collections.abc.Callable[[typing.Any], typing.Any], top_k: typing.Optional[int] = None, preserve_order: bool = True) -> typing.Union[collections.abc.Sequence[typing.Any], typing.Any]
-:canonical: pycityagent.memory.memory_base.MemoryUnit.top_k_values
-:async:
-
-```{autodoc2-docstring} pycityagent.memory.memory_base.MemoryUnit.top_k_values
-```
-
-````
-
 ````{py:method} dict_values() -> dict[typing.Any, typing.Any]
 :canonical: pycityagent.memory.memory_base.MemoryUnit.dict_values
 :async:
@@ -125,6 +118,15 @@
 :canonical: pycityagent.memory.memory_base.MemoryBase
 
 Bases: {py:obj}`abc.ABC`
+
+```{autodoc2-docstring} pycityagent.memory.memory_base.MemoryBase
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} pycityagent.memory.memory_base.MemoryBase.__init__
+```
 
 ````{py:method} add(msg: typing.Union[typing.Any, collections.abc.Sequence[typing.Any]]) -> None
 :canonical: pycityagent.memory.memory_base.MemoryBase.add

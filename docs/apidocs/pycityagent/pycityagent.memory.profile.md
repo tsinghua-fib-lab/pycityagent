@@ -100,15 +100,6 @@ Bases: {py:obj}`pycityagent.memory.memory_base.MemoryBase`
 
 ````
 
-````{py:method} get_top_k(key: typing.Any, metric: collections.abc.Callable[[typing.Any], typing.Any], top_k: typing.Optional[int] = None, preserve_order: bool = True) -> typing.Union[collections.abc.Sequence[typing.Any], typing.Any]
-:canonical: pycityagent.memory.profile.ProfileMemory.get_top_k
-:async:
-
-```{autodoc2-docstring} pycityagent.memory.profile.ProfileMemory.get_top_k
-```
-
-````
-
 ````{py:method} update(key: typing.Any, value: typing.Any, store_snapshot: bool = False)
 :canonical: pycityagent.memory.profile.ProfileMemory.update
 :async:

@@ -28,9 +28,7 @@
     :summary:
     ```
 * - {py:obj}`EconomyBlock <pycityagent.cityagent.blocks.economy_block.EconomyBlock>`
-  - ```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.EconomyBlock
-    :summary:
-    ```
+  -
 * - {py:obj}`MonthPlanBlock <pycityagent.cityagent.blocks.economy_block.MonthPlanBlock>`
   - ```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.MonthPlanBlock
     :summary:
@@ -61,10 +59,10 @@
 
 ````
 
-`````{py:class} WorkBlock(llm: pycityagent.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.environment.simulator.Simulator)
+`````{py:class} WorkBlock(llm: pycityagent.llm.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.environment.simulator.Simulator)
 :canonical: pycityagent.cityagent.blocks.economy_block.WorkBlock
 
-Bases: {py:obj}`pycityagent.workflow.Block`
+Bases: {py:obj}`pycityagent.workflow.block.Block`
 
 ```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.WorkBlock
 ```
@@ -83,10 +81,10 @@ Bases: {py:obj}`pycityagent.workflow.Block`
 
 `````
 
-`````{py:class} ConsumptionBlock(llm: pycityagent.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.environment.simulator.Simulator, economy_client: pycityagent.economy.EconomyClient)
+`````{py:class} ConsumptionBlock(llm: pycityagent.llm.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.environment.simulator.Simulator, economy_client: pycityagent.economy.EconomyClient)
 :canonical: pycityagent.cityagent.blocks.economy_block.ConsumptionBlock
 
-Bases: {py:obj}`pycityagent.workflow.Block`
+Bases: {py:obj}`pycityagent.workflow.block.Block`
 
 ```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.ConsumptionBlock
 ```
@@ -105,10 +103,10 @@ Bases: {py:obj}`pycityagent.workflow.Block`
 
 `````
 
-`````{py:class} EconomyNoneBlock(llm: pycityagent.llm.LLM, memory: pycityagent.memory.Memory)
+`````{py:class} EconomyNoneBlock(llm: pycityagent.llm.llm.LLM, memory: pycityagent.memory.Memory)
 :canonical: pycityagent.cityagent.blocks.economy_block.EconomyNoneBlock
 
-Bases: {py:obj}`pycityagent.workflow.Block`
+Bases: {py:obj}`pycityagent.workflow.block.Block`
 
 ```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.EconomyNoneBlock
 ```
@@ -127,19 +125,10 @@ Bases: {py:obj}`pycityagent.workflow.Block`
 
 `````
 
-`````{py:class} EconomyBlock(llm: pycityagent.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.environment.simulator.Simulator, economy_client: pycityagent.economy.EconomyClient)
+`````{py:class} EconomyBlock(llm: pycityagent.llm.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.environment.simulator.Simulator, economy_client: pycityagent.economy.EconomyClient)
 :canonical: pycityagent.cityagent.blocks.economy_block.EconomyBlock
 
-Bases: {py:obj}`pycityagent.workflow.Block`
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.EconomyBlock
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.EconomyBlock.__init__
-```
+Bases: {py:obj}`pycityagent.workflow.block.Block`
 
 ````{py:attribute} work_block
 :canonical: pycityagent.cityagent.blocks.economy_block.EconomyBlock.work_block
@@ -182,10 +171,10 @@ Bases: {py:obj}`pycityagent.workflow.Block`
 
 `````
 
-`````{py:class} MonthPlanBlock(llm: pycityagent.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.environment.simulator.Simulator, economy_client: pycityagent.economy.EconomyClient)
+`````{py:class} MonthPlanBlock(llm: pycityagent.llm.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.environment.simulator.Simulator, economy_client: pycityagent.economy.EconomyClient)
 :canonical: pycityagent.cityagent.blocks.economy_block.MonthPlanBlock
 
-Bases: {py:obj}`pycityagent.workflow.Block`
+Bases: {py:obj}`pycityagent.workflow.block.Block`
 
 ```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.MonthPlanBlock
 ```
