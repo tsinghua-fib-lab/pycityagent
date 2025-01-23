@@ -20,9 +20,7 @@
 * - {py:obj}`PointMessageBlock <pycityagent.cityagent.message_intercept.PointMessageBlock>`
   -
 * - {py:obj}`MessageBlockListener <pycityagent.cityagent.message_intercept.MessageBlockListener>`
-  - ```{autodoc2-docstring} pycityagent.cityagent.message_intercept.MessageBlockListener
-    :summary:
-    ```
+  -
 ````
 
 ### Functions
@@ -84,21 +82,9 @@ Bases: {py:obj}`pycityagent.message.MessageBlockBase`
 
 Bases: {py:obj}`pycityagent.message.MessageBlockListenerBase`
 
-```{autodoc2-docstring} pycityagent.cityagent.message_intercept.MessageBlockListener
-```
-
-```{rubric} Initialization
-```
-
-```{autodoc2-docstring} pycityagent.cityagent.message_intercept.MessageBlockListener.__init__
-```
-
 ````{py:method} forward()
 :canonical: pycityagent.cityagent.message_intercept.MessageBlockListener.forward
 :async:
-
-```{autodoc2-docstring} pycityagent.cityagent.message_intercept.MessageBlockListener.forward
-```
 
 ````
 

@@ -51,6 +51,10 @@
   - ```{autodoc2-docstring} pycityagent.cityagent.memory_config.pareto_param
     :summary:
     ```
+* - {py:obj}`payment_max_skill_multiplier_base <pycityagent.cityagent.memory_config.payment_max_skill_multiplier_base>`
+  - ```{autodoc2-docstring} pycityagent.cityagent.memory_config.payment_max_skill_multiplier_base
+    :summary:
+    ```
 * - {py:obj}`payment_max_skill_multiplier <pycityagent.cityagent.memory_config.payment_max_skill_multiplier>`
   - ```{autodoc2-docstring} pycityagent.cityagent.memory_config.payment_max_skill_multiplier
     :summary:
@@ -93,10 +97,20 @@
 
 ````
 
+````{py:data} payment_max_skill_multiplier_base
+:canonical: pycityagent.cityagent.memory_config.payment_max_skill_multiplier_base
+:value: >
+   950
+
+```{autodoc2-docstring} pycityagent.cityagent.memory_config.payment_max_skill_multiplier_base
+```
+
+````
+
 ````{py:data} payment_max_skill_multiplier
 :canonical: pycityagent.cityagent.memory_config.payment_max_skill_multiplier
 :value: >
-   950
+   'float(...)'
 
 ```{autodoc2-docstring} pycityagent.cityagent.memory_config.payment_max_skill_multiplier
 ```

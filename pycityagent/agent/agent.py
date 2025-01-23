@@ -145,10 +145,16 @@ class CitizenAgent(Agent):
                 pass
             person_id = await self.status.get("id")
             currency = await self.status.get("currency")
+            skill = await self.status.get("work_skill")
+            consumption = await self.status.get("consumption")
+            income = await self.status.get("income")
             await self._economy_client.add_agents(
                 {
                     "id": person_id,
                     "currency": currency,
+                    "skill": skill,
+                    "consumption": consumption,
+                    "income": income,
                 }
             )
             self._has_bound_to_economy = True
@@ -316,6 +322,14 @@ class InstitutionAgent(Agent):
                 interest_rate = await _status.get("interest_rate", 0.0)
                 bracket_cutoffs = await _status.get("bracket_cutoffs", [])
                 bracket_rates = await _status.get("bracket_rates", [])
+                consumption_currency = await _status.get("consumption_currency", [])
+                consumption_propensity = await _status.get("consumption_propensity", [])
+                income_currency = await _status.get("income_currency", [])
+                depression = await _status.get("depression", [])
+                locus_control = await _status.get("locus_control", [])
+                working_hours = await _status.get("working_hours", [])
+                employees = await _status.get("employees", [])
+                citizens = await _status.get("citizens", [])
                 await self._economy_client.add_orgs(
                     {
                         "id": _id,
@@ -331,6 +345,14 @@ class InstitutionAgent(Agent):
                         "interest_rate": interest_rate,
                         "bracket_cutoffs": bracket_cutoffs,
                         "bracket_rates": bracket_rates,
+                        "consumption_currency": consumption_currency,
+                        "consumption_propensity": consumption_propensity,
+                        "income_currency": income_currency,
+                        "depression": depression,
+                        "locus_control": locus_control,
+                        "working_hours": working_hours,
+                        "employees": employees,
+                        "citizens": citizens,
                     }
                 )
             except Exception as e:

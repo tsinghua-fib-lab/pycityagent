@@ -172,7 +172,7 @@ class SocietyAgent(CitizenAgent):
     update_with_sim = UpdateWithSimulator()
     mindBlock: MindBlock
     planAndActionBlock: PlanAndActionBlock
-    update_with_sim = UpdateWithSimulator()
+    
     configurable_fields = [
         "enable_cognition",
         "enable_mobility",

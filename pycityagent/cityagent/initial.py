@@ -1,55 +1,67 @@
 import random
-
+import numpy as np
 from pycityagent.cityagent import (BankAgent, FirmAgent, GovernmentAgent,
                                    NBSAgent, SocietyAgent)
 
+import logging
+
+logger = logging.getLogger("pycityagent")
 
 async def initialize_social_network(simulation):
     """
-    初始化智能体之间的社交网络，包括好友关系类型、好友关系和社交关系强度
+    Initializes the social network between agents.
+
+    - **Description**:
+        - Creates friendship relationships between agents
+        - Assigns relationship types (family, colleague, friend)
+        - Sets relationship strengths based on type
+        - Initializes chat histories and interaction records
+
+    - **Returns**:
+        - None
     """
     try:
-        print("Initializing social network...")
+        logger.info("Initializing social network...")
 
-        # 定义可能的关系类型
+        # Define possible relationship types
         relation_types = ["family", "colleague", "friend"]
 
-        # 获取所有智能体ID
+        # Get all agent IDs
         agent_ids = simulation.agent_uuids
         for agent_id in agent_ids:
-            # 为每个智能体随机选择2-5个好友
+            # Randomly select 2-5 friends for each agent
             num_friends = random.randint(2, 5)
             possible_friends = [aid for aid in agent_ids if aid != agent_id]
             friends = random.sample(
                 possible_friends, min(num_friends, len(possible_friends))
             )
 
-            # 初始化好友关系
+            # Initialize friend relationships
             await simulation.update(agent_id, "friends", friends)
 
-            # 初始化与每个好友的关系类型和关系强度
+            # Initialize relationship types and strengths with each friend
             relationships = {}
             relation_type_map = {}
 
             for friend_id in friends:
-                # 随机选择关系类型
+                # Randomly select relationship type
                 relation_type = random.choice(relation_types)
-                # 根据关系类型设置初始关系强度范围
+                # Set initial relationship strength range based on type
                 if relation_type == "family":
-                    strength = random.randint(60, 90)  # 家人关系强度较高
+                    strength = random.randint(60, 90)  # Higher strength for family
                 elif relation_type == "colleague":
-                    strength = random.randint(40, 70)  # 同事关系强度中等
+                    strength = random.randint(40, 70)  # Medium strength for colleagues
                 else:  # friend
-                    strength = random.randint(30, 80)  # 朋友关系强度范围较广
+                    strength = random.randint(30, 80)  # Wide range for friends
 
                 relationships[friend_id] = strength
                 relation_type_map[friend_id] = relation_type
 
-            # 更新关系强度和类型
+            # Update relationship strengths and types
             await simulation.update(agent_id, "relationships", relationships)
             await simulation.update(agent_id, "relation_types", relation_type_map)
 
-            # 初始化空的聊天历史和互动记录
+            # Initialize empty chat histories and interaction records
             await simulation.update(
                 agent_id, "chat_histories", {friend_id: [] for friend_id in friends}
             )
@@ -64,12 +76,47 @@ async def initialize_social_network(simulation):
         print(f"Error initializing social network: {str(e)}")
         return False
 
+def zipf_distribution(N, F, s=1.0):
+    """
+    Generates employee counts for F companies following Zipf's law, with total employees N.
+
+    - **Description**:
+        - Uses Zipf's law to distribute N total employees across F companies
+        - The distribution follows a power law where employee count is proportional to 1/rank^s
+        - Normalizes the distribution to ensure total employees equals N
+
+    - **Parameters**:
+        - `N`: Total number of employees across all companies
+        - `F`: Number of companies to distribute employees across  
+        - `s`: Power law exponent for Zipf's law, typically close to 1
+
+    - **Returns**:
+        - List of integer employee counts for each company, summing to N
+    """
+    # Calculate employee count for each rank (following Zipf's law distribution)
+    ranks = np.arange(1, F + 1)  # Ranks from 1 to F
+    sizes = 1 / (ranks ** s)  # Calculate employee count ratio according to Zipf's law
+
+    # Calculate normalization coefficient to make total employees equal N
+    total_size = np.sum(sizes)
+    normalized_sizes = sizes / total_size * N  # Normalize to total employees N
+
+    # Return employee count for each company (integers)
+    return np.round(normalized_sizes).astype(int)
 
 async def bind_agent_info(simulation):
     """
-    绑定智能体的信息，包括公民、公司、政府、银行和NBS的ID
+    Binds agent information including IDs for citizens, firms, government, banks and NBS.
+
+    - **Description**:
+        - Gathers all agent IDs and maps them between UUID and agent ID
+        - Assigns employees to firms following Zipf's law distribution
+        - Links citizens to government and bank systems
+
+    - **Returns**:
+        - None
     """
-    print("Binding agent info...")
+    logger.info("Binding agent info...")
     infos = await simulation.gather("id")
     citizen_uuids = await simulation.filter(types=[SocietyAgent])
     firm_uuids = await simulation.filter(types=[FirmAgent])
@@ -77,36 +124,24 @@ async def bind_agent_info(simulation):
     bank_uuids = await simulation.filter(types=[BankAgent])
     nbs_uuids = await simulation.filter(types=[NBSAgent])
     citizen_agent_ids = []
-    firm_ids = []
-    id2uuid = {}
+    uid2agent, agent2uid = dict(), dict()
     for info in infos:
         for k, v in info.items():
             if k in citizen_uuids:
                 citizen_agent_ids.append(v)
-            elif k in firm_uuids:
-                firm_ids.append(v)
-                id2uuid[v] = k
-            elif k in government_uuids:
-                government_id = v
-            elif k in bank_uuids:
-                bank_id = v
-            elif k in nbs_uuids:
-                nbs_id = v
-    for citizen_uuid in citizen_uuids:
-        random_firm_id = random.choice(firm_ids)
-        await simulation.update(citizen_uuid, "firm_id", random_firm_id)
-        await simulation.update(citizen_uuid, "government_id", government_id)
-        await simulation.update(citizen_uuid, "bank_id", bank_id)
-        await simulation.update(citizen_uuid, "nbs_id", nbs_id)
-    for firm_uuid in firm_uuids:
-        await simulation.update(firm_uuid, "employees", citizen_uuids)
-        await simulation.update(firm_uuid, "employees_agent_id", citizen_agent_ids)
+            uid2agent[k] = v
+            agent2uid[v] = k
+    citizen_agent_ids_cp = citizen_agent_ids.copy()
+    random.shuffle(citizen_agent_ids_cp)
+    employee_sizes = zipf_distribution(len(citizen_agent_ids_cp), len(firm_uuids))
+    for firm_uuid, size in zip(firm_uuids, employee_sizes):
+        await simulation.economy_update(uid2agent[firm_uuid], "employees", citizen_agent_ids_cp[:size])
+        for citizen_agent_id in citizen_agent_ids_cp[:size]:
+            await simulation.update(agent2uid[citizen_agent_id], "firm_id", uid2agent[firm_uuid])
+        citizen_agent_ids_cp = citizen_agent_ids_cp[size:]
     for government_uuid in government_uuids:
-        await simulation.update(government_uuid, "citizens", citizen_uuids)
-        await simulation.update(government_uuid, "citizens_agent_id", citizen_agent_ids)
+        await simulation.economy_update(uid2agent[government_uuid], "citizens", citizen_agent_ids)
     for bank_uuid in bank_uuids:
-        await simulation.update(bank_uuid, "citizens", citizen_uuids)
-        await simulation.update(bank_uuid, "citizens_agent_id", citizen_agent_ids)
-    for nbs_uuid in nbs_uuids:
-        await simulation.update(nbs_uuid, "firm_id", random.choice(firm_ids))
-    print("Agent info binding completed!")
+        await simulation.economy_update(uid2agent[bank_uuid], "citizens", citizen_agent_ids)
+    logger.info("Agent info binding completed!")
+

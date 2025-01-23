@@ -102,6 +102,22 @@
 
 ````
 
+````{py:method} get_log_list()
+:canonical: pycityagent.environment.simulator.Simulator.get_log_list
+
+```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.get_log_list
+```
+
+````
+
+````{py:method} clear_log_list()
+:canonical: pycityagent.environment.simulator.Simulator.clear_log_list
+
+```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.clear_log_list
+```
+
+````
+
 ````{py:property} environment
 :canonical: pycityagent.environment.simulator.Simulator.environment
 :type: dict[str, str]

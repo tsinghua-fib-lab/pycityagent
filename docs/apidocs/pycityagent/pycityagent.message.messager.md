@@ -80,6 +80,22 @@
 
 ````
 
+````{py:method} get_log_list()
+:canonical: pycityagent.message.messager.Messager.get_log_list
+
+```{autodoc2-docstring} pycityagent.message.messager.Messager.get_log_list
+```
+
+````
+
+````{py:method} clear_log_list()
+:canonical: pycityagent.message.messager.Messager.clear_log_list
+
+```{autodoc2-docstring} pycityagent.message.messager.Messager.clear_log_list
+```
+
+````
+
 ````{py:method} set_message_interceptor(message_interceptor: ray.ObjectRef)
 :canonical: pycityagent.message.messager.Messager.set_message_interceptor
 

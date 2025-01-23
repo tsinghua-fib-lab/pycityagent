@@ -43,7 +43,7 @@
 
 ````
 
-`````{py:class} FirmAgent(name: str, llm_client: typing.Optional[pycityagent.llm.llm.LLM] = None, simulator: typing.Optional[pycityagent.Simulator] = None, memory: typing.Optional[pycityagent.memory.Memory] = None, economy_client: typing.Optional[pycityagent.economy.EconomyClient] = None, messager: typing.Optional[pycityagent.message.Messager] = None, avro_file: typing.Optional[dict] = None)
+`````{py:class} FirmAgent(name: str, llm_client: typing.Optional[pycityagent.llm.LLM] = None, simulator: typing.Optional[pycityagent.Simulator] = None, memory: typing.Optional[pycityagent.memory.Memory] = None, economy_client: typing.Optional[pycityagent.economy.EconomyClient] = None, messager: typing.Optional[pycityagent.message.Messager] = None, avro_file: typing.Optional[dict] = None)
 :canonical: pycityagent.cityagent.firmagent.FirmAgent
 
 Bases: {py:obj}`pycityagent.InstitutionAgent`
@@ -64,6 +64,16 @@ Bases: {py:obj}`pycityagent.InstitutionAgent`
    None
 
 ```{autodoc2-docstring} pycityagent.cityagent.firmagent.FirmAgent.default_values
+```
+
+````
+
+````{py:attribute} fields_description
+:canonical: pycityagent.cityagent.firmagent.FirmAgent.fields_description
+:value: >
+   None
+
+```{autodoc2-docstring} pycityagent.cityagent.firmagent.FirmAgent.fields_description
 ```
 
 ````

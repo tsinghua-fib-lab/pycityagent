@@ -9,11 +9,24 @@ from pycityagent.economy import EconomyClient
 from pycityagent.llm.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.message import Messager
+import pycityproto.city.economy.v2.economy_pb2 as economyv2
 
 logger = logging.getLogger("pycityagent")
 
 
 class NBSAgent(InstitutionAgent):
+    configurable_fields = ["time_diff", "num_labor_hours", "productivity_per_labor"]
+    default_values = {
+        "time_diff": 30 * 24 * 60 * 60,
+        "num_labor_hours": 168,
+        "productivity_per_labor": 1,
+    }
+    fields_description = {
+        "time_diff": "Time difference between each forward, day * hour * minute * second",
+        "num_labor_hours": "Number of labor hours per week",
+        "productivity_per_labor": "Productivity per labor hour",
+    }
+
     def __init__(
         self,
         name: str,
@@ -21,7 +34,7 @@ class NBSAgent(InstitutionAgent):
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,  # type:ignore
+        messager: Optional[Messager] = None,
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
@@ -46,56 +59,36 @@ class NBSAgent(InstitutionAgent):
         if self.last_time_trigger is None:
             self.last_time_trigger = now_time
             return False
-        if now_time - self.last_time_trigger >= self.time_diff:  # type:ignore
+        if now_time - self.last_time_trigger >= self.time_diff:
             self.last_time_trigger = now_time
             return True
         return False
 
-    async def gather_messages(self, agent_ids, content):  # type:ignore
+    async def gather_messages(self, agent_ids, content):
         infos = await super().gather_messages(agent_ids, content)
         return [info["content"] for info in infos]
 
     async def forward(self):
         if await self.month_trigger():
-            citizens = await self.memory.status.get("citizens")
-            agents_forward = []
-            if not np.all(np.array(agents_forward) > self.forward_times):
-                return
-            work_propensity = await self.gather_messages(citizens, "work_propensity")
+            await self.economy_client.calculate_real_gdp()
+            citizens_uuid = await self.memory.status.get("citizens")
+            citizens = await self.economy_client.get(self._agent_id, "citizens")
+            work_propensity = await self.gather_messages(citizens_uuid, "work_propensity")
             working_hours = np.mean(work_propensity) * self.num_labor_hours
-            firm_id = await self.memory.status.get("firm_id")
-            price = await self.economy_client.get(firm_id, "price")
-            prices = await self.economy_client.get(self._agent_id, "prices")
-            initial_price = prices[0]
-            nominal_gdp = (
-                working_hours * len(citizens) * self.productivity_per_labor * price
-            )
-            real_gdp = (
-                working_hours
-                * len(citizens)
-                * self.productivity_per_labor
-                * initial_price
-            )
-            await self.economy_client.update(
-                self._agent_id, "nominal_gdp", [nominal_gdp], mode="merge"
-            )
-            await self.economy_client.update(
-                self._agent_id, "real_gdp", [real_gdp], mode="merge"
-            )
             await self.economy_client.update(
                 self._agent_id, "working_hours", [working_hours], mode="merge"
             )
+            firms_id = await self.economy_client.get_org_entity_ids(economyv2.ORG_TYPE_FIRM)
+            prices = await self.economy_client.get(firms_id, "price")
             await self.economy_client.update(
-                self._agent_id, "prices", [price], mode="merge"
+                self._agent_id, "prices", [float(np.mean(prices))], mode="merge"
             )
-            depression = await self.gather_messages(citizens, "depression")
+            depression = await self.gather_messages(citizens_uuid, "depression")
             depression = np.mean(depression)
             await self.economy_client.update(
                 self._agent_id, "depression", [depression], mode="merge"
             )
-            consumption_currency = await self.gather_messages(
-                citizens, "consumption_currency"
-            )
+            consumption_currency = await self.economy_client.get(citizens, "consumption")
             consumption_currency = np.mean(consumption_currency)
             await self.economy_client.update(
                 self._agent_id,
@@ -103,13 +96,8 @@ class NBSAgent(InstitutionAgent):
                 [consumption_currency],
                 mode="merge",
             )
-            income_currency = await self.gather_messages(citizens, "income_currency")
+            income_currency = await self.economy_client.get(citizens, "income")
             income_currency = np.mean(income_currency)
             await self.economy_client.update(
                 self._agent_id, "income_currency", [income_currency], mode="merge"
             )
-            self.forward_times += 1
-            for uuid in citizens:
-                await self.send_message_to_agent(
-                    uuid, f"nbs_forward@{self.forward_times}", "economy"
-                )

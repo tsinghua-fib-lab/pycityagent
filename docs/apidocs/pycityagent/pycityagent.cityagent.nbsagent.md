@@ -48,6 +48,36 @@
 
 Bases: {py:obj}`pycityagent.InstitutionAgent`
 
+````{py:attribute} configurable_fields
+:canonical: pycityagent.cityagent.nbsagent.NBSAgent.configurable_fields
+:value: >
+   ['time_diff', 'num_labor_hours', 'productivity_per_labor']
+
+```{autodoc2-docstring} pycityagent.cityagent.nbsagent.NBSAgent.configurable_fields
+```
+
+````
+
+````{py:attribute} default_values
+:canonical: pycityagent.cityagent.nbsagent.NBSAgent.default_values
+:value: >
+   None
+
+```{autodoc2-docstring} pycityagent.cityagent.nbsagent.NBSAgent.default_values
+```
+
+````
+
+````{py:attribute} fields_description
+:canonical: pycityagent.cityagent.nbsagent.NBSAgent.fields_description
+:value: >
+   None
+
+```{autodoc2-docstring} pycityagent.cityagent.nbsagent.NBSAgent.fields_description
+```
+
+````
+
 ````{py:method} month_trigger()
 :canonical: pycityagent.cityagent.nbsagent.NBSAgent.month_trigger
 :async:

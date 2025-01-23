@@ -57,6 +57,22 @@
 ```{autodoc2-docstring} pycityagent.llm.llm.LLM.__init__
 ```
 
+````{py:method} get_log_list()
+:canonical: pycityagent.llm.llm.LLM.get_log_list
+
+```{autodoc2-docstring} pycityagent.llm.llm.LLM.get_log_list
+```
+
+````
+
+````{py:method} clear_log_list()
+:canonical: pycityagent.llm.llm.LLM.clear_log_list
+
+```{autodoc2-docstring} pycityagent.llm.llm.LLM.clear_log_list
+```
+
+````
+
 ````{py:method} set_semaphore(number_of_coroutine: int)
 :canonical: pycityagent.llm.llm.LLM.set_semaphore
 

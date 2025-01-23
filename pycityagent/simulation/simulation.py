@@ -311,6 +311,7 @@ class AgentSimulation:
                 "crime": "The crime rate is low",
                 "pollution": "The pollution level is low",
                 "temperature": "The temperature is normal",
+                "day": "Workday" 
             },
         )
         simulation._simulator.set_environment(environment)
@@ -376,6 +377,9 @@ class AgentSimulation:
         ):
             await init_func(simulation)
         logger.info("Starting Simulation...")
+        llm_log_lists = []
+        mqtt_log_lists = []
+        simulator_log_lists = []
         for step in config["workflow"]:
             logger.info(
                 f"Running step: type: {step['type']} - description: {step.get('description', 'no description')}"
@@ -383,11 +387,17 @@ class AgentSimulation:
             if step["type"] not in ["run", "step", "interview", "survey", "intervene"]:
                 raise ValueError(f"Invalid step type: {step['type']}")
             if step["type"] == "run":
-                await simulation.run(step.get("days", 1))
+                llm_log_list, mqtt_log_list, simulator_log_list = await simulation.run(step.get("days", 1))
+                llm_log_lists.extend(llm_log_list)
+                mqtt_log_lists.extend(mqtt_log_list)
+                simulator_log_lists.extend(simulator_log_list)
             elif step["type"] == "step":
                 times = step.get("times", 1)
                 for _ in range(times):
-                    await simulation.step()
+                    llm_log_list, mqtt_log_list, simulator_log_list = await simulation.step()
+                    llm_log_lists.extend(llm_log_list)
+                    mqtt_log_lists.extend(mqtt_log_list)
+                    simulator_log_lists.extend(simulator_log_list)
             elif step["type"] == "pause":
                 await simulation.pause_simulator()
             elif step["type"] == "resume":
@@ -395,7 +405,7 @@ class AgentSimulation:
             else:
                 await step["func"](simulation)
         logger.info("Simulation finished")
-
+        return llm_log_lists, mqtt_log_lists, simulator_log_lists
     @property
     def enable_avro(
         self,
@@ -570,8 +580,6 @@ class AgentSimulation:
         citizen_params = []
 
         # 收集所有参数
-        print(self.agent_class)
-        print(agent_count)
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
             agent_count_i = agent_count[agent_class]
@@ -774,6 +782,16 @@ class AgentSimulation:
             [(f"exps/{self.exp_id}/user_payback", 1)], [self.exp_id]
         )
         await self.messager.start_listening.remote()  # type:ignore
+
+        agent_ids = set()
+        org_ids = set()
+        for group in self._groups.values():
+            ids = await group.get_economy_ids.remote()
+            agent_ids.update(ids[0])
+            org_ids.update(ids[1])
+        await self.economy_client.set_ids(agent_ids, org_ids)
+        for group in self._groups.values():
+            await group.set_economy_ids.remote(agent_ids, org_ids)
 
     async def gather(
         self, content: str, target_agent_uuids: Optional[list[str]] = None
@@ -1002,7 +1020,15 @@ class AgentSimulation:
             tasks = []
             for group in self._groups.values():
                 tasks.append(group.step.remote())
-            await asyncio.gather(*tasks)
+            log_messages_groups = await asyncio.gather(*tasks)
+            llm_log_list = []
+            mqtt_log_list = []
+            simulator_log_list = []
+            for log_messages_group in log_messages_groups:
+                llm_log_list.extend(log_messages_group['llm_log'])
+                mqtt_log_list.extend(log_messages_group['mqtt_log'])
+                simulator_log_list.extend(log_messages_group['simulator_log'])
+            
             # save
             simulator_day = await self._simulator.get_simulator_day()
             simulator_time = int(await self._simulator.get_time())
@@ -1011,14 +1037,15 @@ class AgentSimulation:
                 save_tasks.append(group.save.remote(simulator_day, simulator_time))
             await asyncio.gather(*save_tasks)
             self._total_steps += 1
-            if self.metric_extractor is not None:  # type:ignore
-                print(f"total_steps: {self._total_steps}, excute metric")
+            if self.metric_extractors is not None:  # type:ignore
                 to_excute_metric = [
                     metric[1]
-                    for metric in self.metric_extractor  # type:ignore
+                    for metric in self.metric_extractors  # type:ignore
                     if self._total_steps % metric[0] == 0
                 ]
                 await self.extract_metric(to_excute_metric)
+
+            return llm_log_list, mqtt_log_list, simulator_log_list
         except Exception as e:
             import traceback
 
@@ -1046,6 +1073,9 @@ class AgentSimulation:
         - **Returns**:
             - None
         """
+        llm_log_lists = []
+        mqtt_log_lists = []
+        simulator_log_lists = []
         try:
             self._exp_info["num_day"] += day
             await self._update_exp_status(1)  # 更新状态为运行中
@@ -1063,7 +1093,10 @@ class AgentSimulation:
                     current_time = await self._simulator.get_time()
                     if current_time >= end_time:  # type:ignore
                         break
-                    await self.step()
+                    llm_log_list, mqtt_log_list, simulator_log_list = await self.step()
+                    llm_log_lists.extend(llm_log_list)
+                    mqtt_log_lists.extend(mqtt_log_list)
+                    simulator_log_lists.extend(simulator_log_list)
             finally:
                 # 设置停止事件
                 stop_event.set()
@@ -1072,7 +1105,7 @@ class AgentSimulation:
 
             # 运行成功后更新状态
             await self._update_exp_status(2)
-
+            return llm_log_lists, mqtt_log_lists, simulator_log_lists
         except Exception as e:
             error_msg = f"模拟器运行错误: {str(e)}"
             logger.error(error_msg)

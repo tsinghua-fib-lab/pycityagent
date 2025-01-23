@@ -1,9 +1,8 @@
-import asyncio
 from typing import Optional
 
 import numpy as np
 from pycityagent import Simulator, InstitutionAgent
-from pycityagent.llm.llm import LLM
+from pycityagent.llm import LLM
 from pycityagent.economy import EconomyClient
 from pycityagent.message import Messager
 from pycityagent.memory import Memory
@@ -19,6 +18,11 @@ class FirmAgent(InstitutionAgent):
         "max_price_inflation": 0.05,
         "max_wage_inflation": 0.05,
     }
+    fields_description = {
+        "time_diff": "Time difference between each forward, day * hour * minute * second",
+        "max_price_inflation": "Maximum price inflation rate",
+        "max_wage_inflation": "Maximum wage inflation rate",
+    }
 
     def __init__(
         self,
@@ -27,7 +31,7 @@ class FirmAgent(InstitutionAgent):
         simulator: Optional[Simulator] = None,
         memory: Optional[Memory] = None,
         economy_client: Optional[EconomyClient] = None,
-        messager: Optional[Messager] = None,  # type:ignore
+        messager: Optional[Messager] = None,
         avro_file: Optional[dict] = None,
     ) -> None:
         super().__init__(
@@ -51,45 +55,25 @@ class FirmAgent(InstitutionAgent):
         if self.last_time_trigger is None:
             self.last_time_trigger = now_time
             return False
-        if now_time - self.last_time_trigger >= self.time_diff:  # type:ignore
+        if now_time - self.last_time_trigger >= self.time_diff:
             self.last_time_trigger = now_time
             return True
         return False
 
-    async def gather_messages(self, agent_ids, content):  # type:ignore
+    async def gather_messages(self, agent_ids, content):
         infos = await super().gather_messages(agent_ids, content)
         return [info["content"] for info in infos]
 
     async def forward(self):
         if await self.month_trigger():
-            employees = await self.memory.status.get("employees")
-            agents_forward = []
-            if not np.all(np.array(agents_forward) > self.forward_times):
-                return
-            goods_demand = await self.gather_messages(employees, "goods_demand")
-            goods_consumption = await self.gather_messages(
-                employees, "goods_consumption"
-            )
-            print(
-                f"goods_demand: {goods_demand}, goods_consumption: {goods_consumption}"
-            )
-            total_demand = sum(goods_demand)
-            last_inventory = sum(goods_consumption) + await self.economy_client.get(
-                self._agent_id, "inventory"
-            )
-            print(
-                f"total_demand: {total_demand}, last_inventory: {last_inventory}, goods_contumption: {sum(goods_consumption)}"
-            )
-            max_change_rate = (total_demand - last_inventory) / (
-                max(total_demand, last_inventory) + 1e-8
-            )
-            skills = await self.gather_messages(employees, "work_skill")
-            for skill, uuid in zip(skills, employees):
-                await self.send_message_to_agent(
-                    uuid,
-                    f"work_skill@{max(skill*(1 + np.random.uniform(0, max_change_rate*self.max_wage_inflation)), 1)}",
-                    "economy",
-                )
+            employees = await self.economy_client.get(self._agent_id, "employees")
+            total_demand = await self.economy_client.get(self._agent_id, "demand")
+            goods_consumption = await self.economy_client.get(self._agent_id, "sales")
+            last_inventory = goods_consumption + await self.economy_client.get(self._agent_id, "inventory")
+            max_change_rate = (total_demand - last_inventory) / (max(total_demand, last_inventory) + 1e-8)
+            skills = np.array(await self.economy_client.get(employees, "skill"))
+            skill_change_ratio = np.random.uniform(0, max_change_rate*self.max_wage_inflation)
+            await self.economy_client.update(employees, "skill", list(np.maximum(skills*(1 + skill_change_ratio), 1)))
             price = await self.economy_client.get(self._agent_id, "price")
             await self.economy_client.update(
                 self._agent_id,
@@ -105,8 +89,6 @@ class FirmAgent(InstitutionAgent):
                     1,
                 ),
             )
-            self.forward_times += 1
-            for uuid in employees:
-                await self.send_message_to_agent(
-                    uuid, f"firm_forward@{self.forward_times}", "economy"
-                )
+                
+            await self.economy_client.update(self._agent_id, 'demand', 0)
+            await self.economy_client.update(self._agent_id, 'sales', 0)

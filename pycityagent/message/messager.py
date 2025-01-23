@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from typing import Any, Optional, Union
 
 import ray
@@ -55,6 +56,7 @@ class Messager:
         self.message_queue = asyncio.Queue()  # 用于存储接收到的消息
         self.receive_messages_task = None
         self._message_interceptor = message_interceptor
+        self._log_list = []
 
     @property
     def message_interceptor(
@@ -67,6 +69,12 @@ class Messager:
             - `Union[None, ray.ObjectRef]`: The message interceptor reference.
         """
         return self._message_interceptor
+    
+    def get_log_list(self):
+        return self._log_list
+    
+    def clear_log_list(self):
+        self._log_list = []
 
     def set_message_interceptor(self, message_interceptor: ray.ObjectRef):
         """
@@ -135,7 +143,6 @@ class Messager:
         """
         return self.connected
 
-    # TODO:add message interceptor
     async def subscribe(
         self, topics: Union[str, list[str]], agents: Union[Any, list[Any]]
     ):
@@ -199,6 +206,15 @@ class Messager:
             - Serializes the payload to JSON, checks it against the message interceptor (if any),
               and publishes the message to the specified topic if valid.
         """
+        start_time = time.time()
+        log = {
+            "topic": topic,
+            "payload": payload,
+            "from_uuid": from_uuid,
+            "to_uuid": to_uuid,
+            "start_time": start_time,
+            "consumption": 0
+        }
         message = json.dumps(payload, default=str)
         interceptor = self.message_interceptor
         is_valid: bool = True
@@ -211,6 +227,8 @@ class Messager:
             logger.info(f"Message sent to {topic}: {message}")
         else:
             logger.info(f"Message not sent to {topic}: {message} due to interceptor")
+        log["consumption"] = time.time() - start_time
+        self._log_list.append(log)
 
     async def start_listening(self):
         """

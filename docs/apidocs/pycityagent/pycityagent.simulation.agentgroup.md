@@ -35,6 +35,10 @@
   - ```{autodoc2-docstring} pycityagent.simulation.agentgroup.__all__
     :summary:
     ```
+* - {py:obj}`__all__ <pycityagent.simulation.agentgroup.__all__>`
+  - ```{autodoc2-docstring} pycityagent.simulation.agentgroup.__all__
+    :summary:
+    ```
 ````
 
 ### API
@@ -130,8 +134,11 @@
 
 ````{py:method} insert_agent()
 :canonical: pycityagent.simulation.agentgroup.AgentGroup.insert_agent
+````{py:method} insert_agent()
+:canonical: pycityagent.simulation.agentgroup.AgentGroup.insert_agent
 :async:
 
+```{autodoc2-docstring} pycityagent.simulation.agentgroup.AgentGroup.insert_agent
 ```{autodoc2-docstring} pycityagent.simulation.agentgroup.AgentGroup.insert_agent
 ```
 
@@ -196,6 +203,14 @@
 :async:
 
 ```{autodoc2-docstring} pycityagent.simulation.agentgroup.AgentGroup.save_status
+```
+
+````
+
+````{py:method} get_llm_consumption()
+:canonical: pycityagent.simulation.agentgroup.AgentGroup.get_llm_consumption
+
+```{autodoc2-docstring} pycityagent.simulation.agentgroup.AgentGroup.get_llm_consumption
 ```
 
 ````

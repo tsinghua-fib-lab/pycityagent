@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import time
 import os
 from http import HTTPStatus
 from io import BytesIO
@@ -50,6 +51,7 @@ class LLM:
         self.request_number = 0
         self.semaphore = None
         self._current_client_index = 0
+        self._log_list = []
 
         api_keys = self.config.text["api_key"]
         if not isinstance(api_keys, list):
@@ -85,6 +87,12 @@ class LLM:
                 "completion_tokens": 0,
                 "request_number": 0
             })
+
+    def get_log_list(self):
+        return self._log_list
+    
+    def clear_log_list(self):
+        self._log_list = []
 
     def set_semaphore(self, number_of_coroutine: int):
         """
@@ -222,6 +230,8 @@ class LLM:
             - A string containing the message content or a dictionary with tool call arguments if tools are used.
             - Raises exceptions if the request fails after all retry attempts.
         """
+        start_time = time.time()
+        log = {"request_time": start_time}
         if (
             self.config.text["request_type"] == "openai"
             or self.config.text["request_type"] == "deepseek"
@@ -230,57 +240,35 @@ class LLM:
             for attempt in range(retries):
                 try:
                     client = self._get_next_client()
-                    if self.semaphore != None:
-                        async with self.semaphore:
-                            response = await client.chat.completions.create(
-                                model=self.config.text["model"],
-                                messages=dialog,
-                                temperature=temperature,
-                                max_tokens=max_tokens,
-                                top_p=top_p,
-                                frequency_penalty=frequency_penalty,  # type: ignore
-                                presence_penalty=presence_penalty,  # type: ignore
-                                stream=False,
-                                timeout=timeout,
-                                tools=tools,
-                                tool_choice=tool_choice,
-                            )  # type: ignore
-                            self._client_usage[self._current_client_index]["prompt_tokens"] += response.usage.prompt_tokens  # type: ignore
-                            self._client_usage[self._current_client_index]["completion_tokens"] += response.usage.completion_tokens  # type: ignore
-                            self._client_usage[self._current_client_index]["request_number"] += 1
-                            if tools and response.choices[0].message.tool_calls:
-                                return json.loads(
-                                    response.choices[0]
-                                    .message.tool_calls[0]
-                                    .function.arguments
-                                )
-                            else:
-                                return response.choices[0].message.content
+                    response = await client.chat.completions.create(
+                        model=self.config.text["model"],
+                        messages=dialog,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        top_p=top_p,
+                        frequency_penalty=frequency_penalty,  # type: ignore
+                        presence_penalty=presence_penalty,  # type: ignore
+                        stream=False,
+                        timeout=timeout,
+                        tools=tools,
+                        tool_choice=tool_choice,
+                    )  # type: ignore
+                    self._client_usage[self._current_client_index]["prompt_tokens"] += response.usage.prompt_tokens  # type: ignore
+                    self._client_usage[self._current_client_index]["completion_tokens"] += response.usage.completion_tokens  # type: ignore
+                    self._client_usage[self._current_client_index]["request_number"] += 1
+                    end_time = time.time()
+                    log["consumption"] = end_time - start_time
+                    log["input_tokens"] = response.usage.prompt_tokens
+                    log["output_tokens"] = response.usage.completion_tokens
+                    self._log_list.append(log)
+                    if tools and response.choices[0].message.tool_calls:
+                        return json.loads(
+                            response.choices[0]
+                            .message.tool_calls[0]
+                            .function.arguments
+                        )
                     else:
-                        response = await client.chat.completions.create(
-                            model=self.config.text["model"],
-                            messages=dialog,
-                            temperature=temperature,
-                            max_tokens=max_tokens,
-                            top_p=top_p,
-                            frequency_penalty=frequency_penalty,  # type: ignore
-                            presence_penalty=presence_penalty,  # type: ignore
-                            stream=False,
-                            timeout=timeout,
-                            tools=tools,
-                            tool_choice=tool_choice,
-                        )  # type: ignore
-                        self._client_usage[self._current_client_index]["prompt_tokens"] += response.usage.prompt_tokens  # type: ignore
-                        self._client_usage[self._current_client_index]["completion_tokens"] += response.usage.completion_tokens  # type: ignore
-                        self._client_usage[self._current_client_index]["request_number"] += 1
-                        if tools and response.choices[0].message.tool_calls:
-                            return json.loads(
-                                response.choices[0]
-                                .message.tool_calls[0]
-                                .function.arguments
-                            )
-                        else:
-                            return response.choices[0].message.content
+                        return response.choices[0].message.content
                 except APIConnectionError as e:
                     print("API connection error:", e)
                     if attempt < retries - 1:
@@ -328,6 +316,10 @@ class LLM:
                     self._client_usage[self._current_client_index]["prompt_tokens"] += result_response.usage.prompt_tokens  # type: ignore
                     self._client_usage[self._current_client_index]["completion_tokens"] += result_response.usage.completion_tokens  # type: ignore
                     self._client_usage[self._current_client_index]["request_number"] += 1
+                    end_time = time.time()
+                    log["used_time"] = end_time - start_time
+                    log["token_consumption"] = result_response.usage.prompt_tokens + result_response.usage.completion_tokens
+                    self._log_list.append(log)
                     if tools and result_response.choices[0].message.tool_calls:  # type: ignore
                         return json.loads(
                             result_response.choices[0]  # type: ignore

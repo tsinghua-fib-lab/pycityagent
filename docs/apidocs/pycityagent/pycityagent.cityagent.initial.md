@@ -19,6 +19,10 @@
   - ```{autodoc2-docstring} pycityagent.cityagent.initial.initialize_social_network
     :summary:
     ```
+* - {py:obj}`zipf_distribution <pycityagent.cityagent.initial.zipf_distribution>`
+  - ```{autodoc2-docstring} pycityagent.cityagent.initial.zipf_distribution
+    :summary:
+    ```
 * - {py:obj}`bind_agent_info <pycityagent.cityagent.initial.bind_agent_info>`
   - ```{autodoc2-docstring} pycityagent.cityagent.initial.bind_agent_info
     :summary:
@@ -32,6 +36,13 @@
 :async:
 
 ```{autodoc2-docstring} pycityagent.cityagent.initial.initialize_social_network
+```
+````
+
+````{py:function} zipf_distribution(N, F, s=1.0)
+:canonical: pycityagent.cityagent.initial.zipf_distribution
+
+```{autodoc2-docstring} pycityagent.cityagent.initial.zipf_distribution
 ```
 ````
 

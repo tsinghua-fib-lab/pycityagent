@@ -29,8 +29,21 @@
     ```
 * - {py:obj}`EconomyBlock <pycityagent.cityagent.blocks.economy_block.EconomyBlock>`
   -
+  -
 * - {py:obj}`MonthPlanBlock <pycityagent.cityagent.blocks.economy_block.MonthPlanBlock>`
   - ```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.MonthPlanBlock
+    :summary:
+    ```
+````
+
+### Functions
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`softmax <pycityagent.cityagent.blocks.economy_block.softmax>`
+  - ```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.softmax
     :summary:
     ```
 ````
@@ -57,6 +70,13 @@
 ```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.logger
 ```
 
+````
+
+````{py:function} softmax(x, gamma=1.0)
+:canonical: pycityagent.cityagent.blocks.economy_block.softmax
+
+```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.softmax
+```
 ````
 
 `````{py:class} WorkBlock(llm: pycityagent.llm.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.environment.simulator.Simulator)

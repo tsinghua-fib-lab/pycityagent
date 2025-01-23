@@ -171,7 +171,7 @@ class PlanBlock(Block):
         self.guidance_options = {
             "hungry": ["Eat at home", "Eat outside"],
             "tired": ["Sleep", "Take a nap"],
-            "safe": ["Work"],
+            "safe": ["Go to work"],
             "social": ["Online social", "Shopping"],
             "whatever": ["Learning", "Entertainment", "Hang out", "Exercise"],
         }

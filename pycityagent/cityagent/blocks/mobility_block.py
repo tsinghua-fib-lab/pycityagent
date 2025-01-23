@@ -9,13 +9,11 @@ import numpy as np
 from operator import itemgetter
 import random
 import logging
-
-logger = logging.getLogger("pycityagent")
 from pycityagent.workflow.prompt import FormatPrompt
-
 from .dispatcher import BlockDispatcher
 
 logger = logging.getLogger("pycityagent")
+
 
 PLACE_TYPE_SELECTION_PROMPT = """
 As an intelligent decision system, please determine the type of place the user needs to visit based on their input requirement.

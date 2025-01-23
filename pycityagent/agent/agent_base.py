@@ -931,4 +931,5 @@ class Agent(ABC):
         if self._messager is not None:
             await self._messager.ping.remote()  # type:ignore
         if not self._blocked:
-            await self.forward()
+            async with self.llm.semaphore:
+                await self.forward()

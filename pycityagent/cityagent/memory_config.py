@@ -7,8 +7,8 @@ from mosstool.map._map_util.const import AOI_START_ID
 
 from .firmagent import FirmAgent
 pareto_param = 8
-payment_max_skill_multiplier = 950
-payment_max_skill_multiplier = float(payment_max_skill_multiplier)
+payment_max_skill_multiplier_base = 950
+payment_max_skill_multiplier = float(payment_max_skill_multiplier_base)
 pmsm = payment_max_skill_multiplier
 pareto_samples = np.random.pareto(pareto_param, size=(1000, 10))
 clipped_skills = np.minimum(pmsm, (pmsm - 1) * pareto_samples + 1)
@@ -169,18 +169,14 @@ def memory_config_societyagent():
             True,
         ),
         "family_consumption": (str, random.choice(["low", "medium", "high"]), True),
-        "consumption": (
-            str,
-            random.choice(["sightly low", "low", "medium", "high"]),
-            True,
-        ),
+        "consumption": (float, 0, True),
         "personality": (
             str,
             random.choice(["outgoint", "introvert", "ambivert", "extrovert"]),
             True,
         ),
-        "income": "0",
-        "currency": random.randint(1000, 100000),
+        "income": (float, 0, True),
+        "currency": (float, random.randint(1000, 100000), True),
         "residence": (str, random.choice(["city", "suburb", "rural"]), True),
         "race": (
             str,

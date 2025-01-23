@@ -38,7 +38,7 @@ class AgentGroup:
         memory_config_function_group: dict[type[Agent], Callable],
         config: dict,
         exp_name: str,
-        exp_id: str | UUID,
+        exp_id: Union[str, UUID],
         enable_avro: bool,
         avro_path: Path,
         enable_pgsql: bool,
@@ -140,6 +140,7 @@ class AgentGroup:
         llmConfig = LLMConfig(config["llm_request"])
         logger.info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
         self.llm = LLM(llmConfig)
+        self.llm.set_semaphore(200)
 
         # prepare Simulator
         logger.info(f"-----Creating Simulator in AgentGroup {self._uuid} ...")
@@ -205,6 +206,12 @@ class AgentGroup:
     @property
     def agent_type(self):
         return self.agent_class
+    
+    async def get_economy_ids(self):
+        return await self.economy_client.get_ids()
+
+    async def set_economy_ids(self, agent_ids: set[int], org_ids: set[int]):
+        await self.economy_client.set_ids(agent_ids, org_ids)
 
     def get_agent_count(self):
         return self.agent_count
@@ -777,6 +784,17 @@ class AgentGroup:
         try:
             tasks = [agent.run() for agent in self.agents]
             await asyncio.gather(*tasks)
+            simulator_log = self.simulator.get_log_list() + self.economy_client.get_log_list()
+            group_logs = {
+                "llm_log": self.llm.get_log_list(),
+                "mqtt_log": ray.get(self.messager.get_log_list.remote()),
+                "simulator_log": simulator_log
+            }
+            self.llm.clear_log_list()
+            self.messager.clear_log_list.remote()
+            self.simulator.clear_log_list()
+            self.economy_client.clear_log_list()
+            return group_logs
         except Exception as e:
             import traceback
 

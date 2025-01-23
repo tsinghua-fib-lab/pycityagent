@@ -29,6 +29,7 @@ pycityagent.cityagent.initial
 pycityagent.cityagent.governmentagent
 pycityagent.cityagent.bankagent
 pycityagent.cityagent.firmagent
+pycityagent.cityagent.metrics
 pycityagent.cityagent.nbsagent
 ```
 
