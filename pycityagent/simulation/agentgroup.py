@@ -28,7 +28,6 @@ from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
 logger = logging.getLogger("pycityagent")
 __all__ = ["AgentGroup"]
 
-
 @ray.remote
 class AgentGroup:
     def __init__(
@@ -406,9 +405,14 @@ class AgentGroup:
         results = {}
         if target_agent_uuids is None:
             target_agent_uuids = self.agent_uuids
-        for agent in self.agents:
-            if agent._uuid in target_agent_uuids:
-                results[agent._uuid] = await agent.status.get(content)
+        if content == "stream_memory":
+            for agent in self.agents:
+                if agent._uuid in target_agent_uuids:
+                    results[agent._uuid] = await agent.stream.get_all()
+        else:
+            for agent in self.agents:
+                if agent._uuid in target_agent_uuids:
+                    results[agent._uuid] = await agent.status.get(content)
         return results
 
     async def update(self, target_agent_uuid: str, target_key: str, content: Any):

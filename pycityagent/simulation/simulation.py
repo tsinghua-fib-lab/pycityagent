@@ -273,11 +273,11 @@ class AgentSimulation:
         - workflow:
             - list[Step]
             - Step:
-                - type: str, "step", "run", "interview", "survey", "intervene", "pause", "resume"
+                - type: str, "step", "run", "interview", "survey", "intervene", "pause", "resume", "function"
                 - days: int if type is "run", else None
                 - times: int if type is "step", else None
                 - description: Optional[str], description of the step
-                - func: Optional[Callable[AgentSimulation, None]], only used when type is "interview", "survey" and "intervene"
+                - func: Optional[Callable[AgentSimulation, None]], only used when type is "interview", "survey", "intervene", "function"
         - message_intercept
             - mode: "point"|"edge"
             - max_violation_time: Optional[int], default to 3. The maximum time for someone to send bad message before banned. Used only in `point` mode.
@@ -386,7 +386,7 @@ class AgentSimulation:
             logger.info(
                 f"Running step: type: {step['type']} - description: {step.get('description', 'no description')}"
             )
-            if step["type"] not in ["run", "step", "interview", "survey", "intervene"]:
+            if step["type"] not in ["run", "step", "interview", "survey", "intervene", "pause", "resume", "function"]:
                 raise ValueError(f"Invalid step type: {step['type']}")
             if step["type"] == "run":
                 llm_log_list, mqtt_log_list, simulator_log_list = await simulation.run(step.get("days", 1))

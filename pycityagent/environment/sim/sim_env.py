@@ -67,10 +67,6 @@ class ControlSimEnv:
         self._log_dir = log_dir
         self._min_step_time = min_step_time
         self._timeout = timeout
-        self.m = Map(pb_path=map_file)
-        """
-        地图数据
-        """
 
         self._sim_config = _generate_yaml_config(map_file, start_step, total_step)
         # sim

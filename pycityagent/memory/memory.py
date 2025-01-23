@@ -484,14 +484,22 @@ class StreamMemory:
         for target_memory in target_memories:
             target_memory.cognition_id = cognition_id
 
-    async def get_all(self) -> list[MemoryNode]:
+    async def get_all(self) -> list[dict]:
         """
-        Retrieve all stream memory nodes.
+        Retrieve all stream memory nodes as dictionaries.
 
         - **Returns**:
-            - `list[MemoryNode]`: List of all MemoryNode objects.
+            - `list[dict]`: List of all memory nodes as dictionaries.
         """
-        return list(self._memories)
+        return [{
+            "id": memory.id,
+            "cognition_id": memory.cognition_id,
+            "tag": memory.tag.value,
+            "location": memory.location,
+            "description": memory.description,
+            "day": memory.day,
+            "t": memory.t,
+        } for memory in self._memories]
 
 
 class StatusMemory:
