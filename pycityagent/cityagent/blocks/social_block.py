@@ -299,6 +299,7 @@ class MessageBlock(Block):
                         "success": False,
                         "evaluation": "Could not find target for message",
                         "consumed_time": 5,
+                        "node_id": result["node_id"],
                     }
                 target = result["target"]
 

@@ -253,7 +253,8 @@ class AgentSimulation:
         """Directly run from config file
         Basic config file should contain:
         - simulation_config: file_path
-        - enable_institution: bool, default is True
+        - enable_institution: Optional[bool], default is True
+        - llm_semaphore: Optional[int], default is 200
         - agent_config:
             - agent_config_file: Optional[dict[type[Agent], str]]
             - memory_config_init_func: Optional[Callable]
@@ -268,7 +269,7 @@ class AgentSimulation:
             - number_of_bank: required, int
             - number_of_nbs: required, int
         - environment: Optional[dict[str, str]]
-            - default: {'weather': 'The weather is normal', 'crime': 'The crime rate is low', 'pollution': 'The pollution level is low', 'temperature': 'The temperature is normal'}
+            - default: {'weather': 'The weather is normal', 'crime': 'The crime rate is low', 'pollution': 'The pollution level is low', 'temperature': 'The temperature is normal', 'day': 'Workday'}
         - workflow:
             - list[Step]
             - Step:
@@ -370,6 +371,7 @@ class AgentSimulation:
             ),
             **_message_intercept_kwargs,
             environment=environment,
+            llm_semaphore=config.get("llm_semaphore", 200),
         )
         logger.info("Running Init Functions...")
         for init_func in config["agent_config"].get(
@@ -406,6 +408,7 @@ class AgentSimulation:
                 await step["func"](simulation)
         logger.info("Simulation finished")
         return llm_log_lists, mqtt_log_lists, simulator_log_lists
+    
     @property
     def enable_avro(
         self,
@@ -533,7 +536,8 @@ class AgentSimulation:
         embedding_model: Embeddings = SimpleEmbedding(),
         memory_config_init_func: Optional[Callable] = None,
         memory_config_func: Optional[dict[type[Agent], Callable]] = None,
-        environment: Optional[dict[str, str]] = None,
+        environment: dict[str, str] = {},
+        llm_semaphore: int = 200,
     ) -> None:
         """
         Initialize agents within the simulation.
@@ -750,6 +754,7 @@ class AgentSimulation:
                 self.logging_level,
                 config_file,
                 environment,
+                llm_semaphore,
             )
             creation_tasks.append((group_name, group))
 

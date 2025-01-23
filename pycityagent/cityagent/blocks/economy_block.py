@@ -110,8 +110,7 @@ class ConsumptionBlock(Block):
         consumption_each_firm = consumption*softmax(prices, gamma=-0.01)
         demand_each_firm = []
         for i in range(len(firms_id)):
-            demand_each_firm.append(int(consumption_each_firm//prices[i]))
-
+            demand_each_firm.append(int(consumption_each_firm[i]//prices[i]))
         real_consumption = await self.economy_client.calculate_consumption(firms_id, agent_id, demand_each_firm)
         node_id = await self.memory.stream.add_economy(description=f"I bought some goods, and spent {real_consumption:.1f} on {intention}")
         evaluation = {

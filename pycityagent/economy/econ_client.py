@@ -473,7 +473,7 @@ class EconomyClient:
         )
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
-        return (int(response.remain_inventory), list(response.updated_currencies))
+        return response.actual_consumption
 
     async def calculate_interest(self, org_id: int, agent_ids: list[int]):
         """

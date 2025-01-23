@@ -49,6 +49,7 @@ class AgentGroup:
         logging_level: int,
         agent_config_file: Optional[dict[type[Agent], str]] = None,
         environment: Optional[dict[str, str]] = None,
+        llm_semaphore: int = 200,
     ):
         """
         Represents a group of agents that can be deployed in a Ray distributed environment.
@@ -140,7 +141,7 @@ class AgentGroup:
         llmConfig = LLMConfig(config["llm_request"])
         logger.info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
         self.llm = LLM(llmConfig)
-        self.llm.set_semaphore(200)
+        self.llm.set_semaphore(llm_semaphore)
 
         # prepare Simulator
         logger.info(f"-----Creating Simulator in AgentGroup {self._uuid} ...")

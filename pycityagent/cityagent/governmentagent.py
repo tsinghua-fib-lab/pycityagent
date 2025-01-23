@@ -13,6 +13,13 @@ logger = logging.getLogger("pycityagent")
 
 
 class GovernmentAgent(InstitutionAgent):
+    configurable_fields = ["time_diff"]
+    default_values = {
+        "time_diff": 30 * 24 * 60 * 60,
+    }
+    fields_description = {
+        "time_diff": "Time difference between each forward, day * hour * minute * second",
+    }
     def __init__(
         self,
         name: str,
