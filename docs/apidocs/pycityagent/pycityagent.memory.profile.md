@@ -16,19 +16,30 @@
 :align: left
 
 * - {py:obj}`ProfileMemoryUnit <pycityagent.memory.profile.ProfileMemoryUnit>`
-  -
+  - ```{autodoc2-docstring} pycityagent.memory.profile.ProfileMemoryUnit
+    :summary:
+    ```
 * - {py:obj}`ProfileMemory <pycityagent.memory.profile.ProfileMemory>`
   -
 ````
 
 ### API
 
-```{py:class} ProfileMemoryUnit(content: typing.Optional[dict] = None, activate_timestamp: bool = False)
+````{py:class} ProfileMemoryUnit(content: typing.Optional[dict] = None, activate_timestamp: bool = False)
 :canonical: pycityagent.memory.profile.ProfileMemoryUnit
 
 Bases: {py:obj}`pycityagent.memory.memory_base.MemoryUnit`
 
+```{autodoc2-docstring} pycityagent.memory.profile.ProfileMemoryUnit
 ```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} pycityagent.memory.profile.ProfileMemoryUnit.__init__
+```
+
+````
 
 `````{py:class} ProfileMemory(msg: typing.Optional[typing.Union[pycityagent.memory.profile.ProfileMemoryUnit, collections.abc.Sequence[pycityagent.memory.profile.ProfileMemoryUnit], dict, collections.abc.Sequence[dict]]] = None, activate_timestamp: bool = False)
 :canonical: pycityagent.memory.profile.ProfileMemory
@@ -39,11 +50,17 @@ Bases: {py:obj}`pycityagent.memory.memory_base.MemoryBase`
 :canonical: pycityagent.memory.profile.ProfileMemory.add
 :async:
 
+```{autodoc2-docstring} pycityagent.memory.profile.ProfileMemory.add
+```
+
 ````
 
 ````{py:method} pop(index: int) -> pycityagent.memory.profile.ProfileMemoryUnit
 :canonical: pycityagent.memory.profile.ProfileMemory.pop
 :async:
+
+```{autodoc2-docstring} pycityagent.memory.profile.ProfileMemory.pop
+```
 
 ````
 
@@ -51,17 +68,26 @@ Bases: {py:obj}`pycityagent.memory.memory_base.MemoryBase`
 :canonical: pycityagent.memory.profile.ProfileMemory.load
 :async:
 
+```{autodoc2-docstring} pycityagent.memory.profile.ProfileMemory.load
+```
+
 ````
 
 ````{py:method} export() -> collections.abc.Sequence[dict]
 :canonical: pycityagent.memory.profile.ProfileMemory.export
 :async:
 
+```{autodoc2-docstring} pycityagent.memory.profile.ProfileMemory.export
+```
+
 ````
 
 ````{py:method} reset() -> None
 :canonical: pycityagent.memory.profile.ProfileMemory.reset
 :async:
+
+```{autodoc2-docstring} pycityagent.memory.profile.ProfileMemory.reset
+```
 
 ````
 
@@ -77,6 +103,9 @@ Bases: {py:obj}`pycityagent.memory.memory_base.MemoryBase`
 ````{py:method} update(key: typing.Any, value: typing.Any, store_snapshot: bool = False)
 :canonical: pycityagent.memory.profile.ProfileMemory.update
 :async:
+
+```{autodoc2-docstring} pycityagent.memory.profile.ProfileMemory.update
+```
 
 ````
 

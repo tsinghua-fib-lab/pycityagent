@@ -16,19 +16,30 @@
 :align: left
 
 * - {py:obj}`StateMemoryUnit <pycityagent.memory.state.StateMemoryUnit>`
-  -
+  - ```{autodoc2-docstring} pycityagent.memory.state.StateMemoryUnit
+    :summary:
+    ```
 * - {py:obj}`StateMemory <pycityagent.memory.state.StateMemory>`
   -
 ````
 
 ### API
 
-```{py:class} StateMemoryUnit(content: typing.Optional[dict] = None, activate_timestamp: bool = False)
+````{py:class} StateMemoryUnit(content: typing.Optional[dict] = None, activate_timestamp: bool = False)
 :canonical: pycityagent.memory.state.StateMemoryUnit
 
 Bases: {py:obj}`pycityagent.memory.memory_base.MemoryUnit`
 
+```{autodoc2-docstring} pycityagent.memory.state.StateMemoryUnit
 ```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} pycityagent.memory.state.StateMemoryUnit.__init__
+```
+
+````
 
 `````{py:class} StateMemory(msg: typing.Optional[typing.Union[pycityagent.memory.memory_base.MemoryUnit, collections.abc.Sequence[pycityagent.memory.memory_base.MemoryUnit], dict, collections.abc.Sequence[dict]]] = None, activate_timestamp: bool = False)
 :canonical: pycityagent.memory.state.StateMemory
@@ -39,11 +50,17 @@ Bases: {py:obj}`pycityagent.memory.memory_base.MemoryBase`
 :canonical: pycityagent.memory.state.StateMemory.add
 :async:
 
+```{autodoc2-docstring} pycityagent.memory.state.StateMemory.add
+```
+
 ````
 
 ````{py:method} pop(index: int) -> pycityagent.memory.memory_base.MemoryUnit
 :canonical: pycityagent.memory.state.StateMemory.pop
 :async:
+
+```{autodoc2-docstring} pycityagent.memory.state.StateMemory.pop
+```
 
 ````
 
@@ -51,17 +68,26 @@ Bases: {py:obj}`pycityagent.memory.memory_base.MemoryBase`
 :canonical: pycityagent.memory.state.StateMemory.load
 :async:
 
+```{autodoc2-docstring} pycityagent.memory.state.StateMemory.load
+```
+
 ````
 
 ````{py:method} export() -> collections.abc.Sequence[dict]
 :canonical: pycityagent.memory.state.StateMemory.export
 :async:
 
+```{autodoc2-docstring} pycityagent.memory.state.StateMemory.export
+```
+
 ````
 
 ````{py:method} reset() -> None
 :canonical: pycityagent.memory.state.StateMemory.reset
 :async:
+
+```{autodoc2-docstring} pycityagent.memory.state.StateMemory.reset
+```
 
 ````
 
@@ -77,6 +103,9 @@ Bases: {py:obj}`pycityagent.memory.memory_base.MemoryBase`
 ````{py:method} update(key: typing.Any, value: typing.Any, store_snapshot: bool = False)
 :canonical: pycityagent.memory.state.StateMemory.update
 :async:
+
+```{autodoc2-docstring} pycityagent.memory.state.StateMemory.update
+```
 
 ````
 

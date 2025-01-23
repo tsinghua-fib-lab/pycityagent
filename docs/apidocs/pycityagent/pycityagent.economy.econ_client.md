@@ -31,8 +31,8 @@
   - ```{autodoc2-docstring} pycityagent.economy.econ_client._snake_to_pascal
     :summary:
     ```
-* - {py:obj}`_get_field_type_and_repeated <pycityagent.economy.econ_client._get_field_type_and_repeated>`
-  - ```{autodoc2-docstring} pycityagent.economy.econ_client._get_field_type_and_repeated
+* - {py:obj}`camel_to_snake <pycityagent.economy.econ_client.camel_to_snake>`
+  - ```{autodoc2-docstring} pycityagent.economy.econ_client.camel_to_snake
     :summary:
     ```
 * - {py:obj}`_create_aio_channel <pycityagent.economy.econ_client._create_aio_channel>`
@@ -47,6 +47,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`logger <pycityagent.economy.econ_client.logger>`
+  - ```{autodoc2-docstring} pycityagent.economy.econ_client.logger
+    :summary:
+    ```
 * - {py:obj}`__all__ <pycityagent.economy.econ_client.__all__>`
   - ```{autodoc2-docstring} pycityagent.economy.econ_client.__all__
     :summary:
@@ -54,6 +58,16 @@
 ````
 
 ### API
+
+````{py:data} logger
+:canonical: pycityagent.economy.econ_client.logger
+:value: >
+   'getLogger(...)'
+
+```{autodoc2-docstring} pycityagent.economy.econ_client.logger
+```
+
+````
 
 ````{py:data} __all__
 :canonical: pycityagent.economy.econ_client.__all__
@@ -72,10 +86,10 @@
 ```
 ````
 
-````{py:function} _get_field_type_and_repeated(message, field_name: str) -> tuple[typing.Any, bool]
-:canonical: pycityagent.economy.econ_client._get_field_type_and_repeated
+````{py:function} camel_to_snake(d)
+:canonical: pycityagent.economy.econ_client.camel_to_snake
 
-```{autodoc2-docstring} pycityagent.economy.econ_client._get_field_type_and_repeated
+```{autodoc2-docstring} pycityagent.economy.econ_client.camel_to_snake
 ```
 ````
 
@@ -98,6 +112,22 @@
 ```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient.__init__
 ```
 
+````{py:method} get_log_list()
+:canonical: pycityagent.economy.econ_client.EconomyClient.get_log_list
+
+```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient.get_log_list
+```
+
+````
+
+````{py:method} clear_log_list()
+:canonical: pycityagent.economy.econ_client.EconomyClient.clear_log_list
+
+```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient.clear_log_list
+```
+
+````
+
 ````{py:method} __getstate__()
 :canonical: pycityagent.economy.econ_client.EconomyClient.__getstate__
 
@@ -110,6 +140,42 @@
 :canonical: pycityagent.economy.econ_client.EconomyClient.__setstate__
 
 ```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient.__setstate__
+```
+
+````
+
+````{py:method} get_ids()
+:canonical: pycityagent.economy.econ_client.EconomyClient.get_ids
+:async:
+
+```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient.get_ids
+```
+
+````
+
+````{py:method} set_ids(agent_ids: set[int], org_ids: set[int])
+:canonical: pycityagent.economy.econ_client.EconomyClient.set_ids
+:async:
+
+```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient.set_ids
+```
+
+````
+
+````{py:method} get_agent(id: int) -> pycityproto.city.economy.v2.economy_pb2.Agent
+:canonical: pycityagent.economy.econ_client.EconomyClient.get_agent
+:async:
+
+```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient.get_agent
+```
+
+````
+
+````{py:method} get_org(id: int) -> pycityproto.city.economy.v2.economy_pb2.Org
+:canonical: pycityagent.economy.econ_client.EconomyClient.get_org
+:async:
+
+```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient.get_org
 ```
 
 ````
@@ -150,7 +216,7 @@
 
 ````
 
-````{py:method} calculate_taxes_due(org_id: int, agent_ids: list[int], incomes: list[float], enable_redistribution: bool)
+````{py:method} calculate_taxes_due(org_id: typing.Union[int, list[int]], agent_ids: list[int], incomes: list[float], enable_redistribution: bool)
 :canonical: pycityagent.economy.econ_client.EconomyClient.calculate_taxes_due
 :async:
 
@@ -159,7 +225,7 @@
 
 ````
 
-````{py:method} calculate_consumption(org_id: int, agent_ids: list[int], demands: list[int])
+````{py:method} calculate_consumption(org_ids: typing.Union[int, list[int]], agent_id: int, demands: list[int])
 :canonical: pycityagent.economy.econ_client.EconomyClient.calculate_consumption
 :async:
 
@@ -222,7 +288,7 @@
 
 ````
 
-````{py:method} add_delta_value(id: int, key: str, value: typing.Any) -> typing.Any
+````{py:method} add_delta_value(id: typing.Union[int, list[int]], key: str, value: typing.Any) -> typing.Any
 :canonical: pycityagent.economy.econ_client.EconomyClient.add_delta_value
 :async:
 

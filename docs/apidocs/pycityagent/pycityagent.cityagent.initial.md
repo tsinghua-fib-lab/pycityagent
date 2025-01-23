@@ -29,7 +29,29 @@
     ```
 ````
 
+### Data
+
+````{list-table}
+:class: autosummary longtable
+:align: left
+
+* - {py:obj}`logger <pycityagent.cityagent.initial.logger>`
+  - ```{autodoc2-docstring} pycityagent.cityagent.initial.logger
+    :summary:
+    ```
+````
+
 ### API
+
+````{py:data} logger
+:canonical: pycityagent.cityagent.initial.logger
+:value: >
+   'getLogger(...)'
+
+```{autodoc2-docstring} pycityagent.cityagent.initial.logger
+```
+
+````
 
 ````{py:function} initialize_social_network(simulation)
 :canonical: pycityagent.cityagent.initial.initialize_social_network
