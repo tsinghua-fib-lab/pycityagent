@@ -13,5 +13,10 @@ pip install pycityagent
 ```{toctree}
 :maxdepth: 2
 
+01-quick-start/index
+02-custom-agents/index
+03-interact-with-environment/index
+04-experiment-record/index
+05-build-your-data/index
 apidocs/index
 ```
