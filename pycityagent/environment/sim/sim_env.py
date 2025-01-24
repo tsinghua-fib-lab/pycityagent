@@ -51,6 +51,7 @@ class ControlSimEnv:
         log_dir: str,
         min_step_time: int = 1000,
         timeout: int = 5,
+        max_process: int = 32,
         sim_addr: Optional[str] = None,
     ):
         """
@@ -67,6 +68,7 @@ class ControlSimEnv:
         self._log_dir = log_dir
         self._min_step_time = min_step_time
         self._timeout = timeout
+        self._max_procs = max_process
 
         self._sim_config = _generate_yaml_config(map_file, start_step, total_step)
         # sim
@@ -99,6 +101,7 @@ class ControlSimEnv:
             assert self._sim_proc is None
             self.sim_port = find_free_port()
             config_base64 = encode_to_base64(self._sim_config)
+            os.environ["GOMAXPROCS"] = str(self._max_procs)
             self._sim_proc = Popen(
                 [
                     "pycityagent-sim",
