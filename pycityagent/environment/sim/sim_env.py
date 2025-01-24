@@ -13,7 +13,7 @@ from ..utils import encode_to_base64, find_free_port
 __all__ = ["ControlSimEnv"]
 
 
-def _generate_yaml_config(map_file: str, start_step: int, total_step: int) -> str:
+def _generate_yaml_config(map_file: str, max_day: int, start_step: int, total_step: int) -> str:
     map_file = os.path.abspath(map_file)
     return f"""
 input:
@@ -22,6 +22,7 @@ input:
     file: "{map_file}"
 
 control:
+  day: {max_day}
   step:
     # 模拟器起始步
     start: {start_step}
@@ -46,6 +47,7 @@ class ControlSimEnv:
         self,
         task_name: str,
         map_file: str,
+        max_day: int,
         start_step: int,
         total_step: int,
         log_dir: str,
@@ -63,6 +65,7 @@ class ControlSimEnv:
         """
         self._task_name = task_name
         self._map_file = map_file
+        self._max_day = max_day
         self._start_step = start_step
         self._total_step = total_step
         self._log_dir = log_dir
@@ -70,7 +73,7 @@ class ControlSimEnv:
         self._timeout = timeout
         self._max_procs = max_process
 
-        self._sim_config = _generate_yaml_config(map_file, start_step, total_step)
+        self._sim_config = _generate_yaml_config(map_file, max_day, start_step, total_step)
         # sim
         self.sim_port = None
         self._sim_proc = None
@@ -113,6 +116,7 @@ class ControlSimEnv:
                     f":{self.sim_port}",
                     "-run.min_step_time",
                     f"{self._min_step_time}",
+                    "-run.pause_after_one_day",
                     "-output",
                     self._log_dir,
                     "-cache",

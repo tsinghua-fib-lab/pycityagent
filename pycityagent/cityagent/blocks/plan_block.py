@@ -3,6 +3,8 @@ import logging
 import random
 from typing import Dict, List
 
+import ray
+
 from pycityagent.environment.simulator import Simulator
 from pycityagent.llm import LLM
 from pycityagent.memory import Memory
@@ -196,7 +198,6 @@ class PlanBlock(Block):
         ):
             current_location = "At workplace"
         current_time = await self.simulator.get_time(format_time=True)
-        environment = await self.memory.status.get("environment")
         options = self.guidance_options.get(current_need, [])
         self.guidance_prompt.format(
             weather=self.simulator.sence("weather"),
@@ -205,7 +206,6 @@ class PlanBlock(Block):
             options=options,
             current_location=current_location,
             current_time=current_time,
-            environment=environment,
             emotion_types=await self.memory.status.get("emotion_types"),
             thought=await self.memory.status.get("thought"),
         )
@@ -240,14 +240,12 @@ class PlanBlock(Block):
         ):
             current_location = "At workplace"
         current_time = await self.simulator.get_time(format_time=True)
-        environment = await self.memory.status.get("environment")
         self.detail_prompt.format(
             weather=self.simulator.sence("weather"),
             temperature=self.simulator.sence("temperature"),
             selected_option=selected_option,
             current_location=current_location,
             current_time=current_time,
-            environment=environment,
             emotion_types=await self.memory.status.get("emotion_types"),
             thought=await self.memory.status.get("thought"),
             max_plan_steps=self.max_plan_steps,

@@ -5,6 +5,7 @@ from collections.abc import Callable, Sequence
 from typing import Any, Optional, Union
 
 from mlflow.entities import Metric
+import ray
 
 from ..agent import Agent
 from ..environment import AoiService, PersonService

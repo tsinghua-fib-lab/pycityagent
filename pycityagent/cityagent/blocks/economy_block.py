@@ -36,7 +36,7 @@ class WorkBlock(Block):
     """WorkPlace Block"""
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__("WorkBlock", llm=llm, memory=memory, simulator=simulator)
-        self.description = "Do work"
+        self.description = "Do work related tasks"
         self.guidance_prompt = FormatPrompt(template=TIME_ESTIMATE_PROMPT)
     async def forward(self, step, context):
         self.guidance_prompt.format(
@@ -157,7 +157,7 @@ class EconomyBlock(Block):
 
     async def forward(self, step, context):        
         self.trigger_time += 1
-        selected_block = self.consumption_block
+        selected_block = await self.dispatcher.dispatch(step)
         result = await selected_block.forward(step, context) # type: ignore  
         return result
     
@@ -168,7 +168,7 @@ class MonthPlanBlock(Block):
         self.economy_client = economy_client
         self.llm_error = 0
         self.last_time_trigger = None
-        self.time_diff = month_days * 24 * 60 * 60
+        self.time_diff = 30 * 24 * 60 * 60
         self.forward_times = 0
         
     async def month_trigger(self):

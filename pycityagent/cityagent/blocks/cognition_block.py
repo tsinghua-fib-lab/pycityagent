@@ -199,7 +199,8 @@ class CognitionBlock(Block):
         thought = str(response["thought"])
         await self.memory.status.update("thought", thought)
         await self.memory.stream.add_cognition(description=thought)
-        return
+
+        return thought
 
     async def end_of_day(self):
         """Cognition - end of day workflow"""

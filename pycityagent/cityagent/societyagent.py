@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from typing import Optional
 
 from pycityagent import CitizenAgent, Simulator
@@ -66,8 +67,7 @@ class PlanAndActionBlock(Block):
     async def plan_generation(self):
         """Generate plan"""
         current_plan = await self.memory.status.get("current_plan")
-        current_need = await self.memory.status.get("current_need")
-        if current_need != "none" and not current_plan:
+        if current_plan is None:
             await self.planBlock.forward()
 
     async def step_execution(self):
@@ -152,7 +152,6 @@ class PlanAndActionBlock(Block):
         # step execution
         await self.step_execution()
 
-
 class MindBlock(Block):
     """Cognition workflow"""
 
@@ -233,6 +232,7 @@ class SocietyAgent(CitizenAgent):
 
     # Main workflow
     async def forward(self):
+        start_time = time.time()
         self.step_count += 1
         # sync agent status with simulator
         await self.update_with_sim()
@@ -242,10 +242,13 @@ class SocietyAgent(CitizenAgent):
         if not ifpass:
             return
 
+        # plan and action
         await self.planAndActionBlock.forward()
 
+        # cognition
         if self.enable_cognition:
             await self.mindBlock.forward()
+        return time.time() - start_time
 
     async def check_and_update_step(self):
         """Check if the previous step has been completed"""
@@ -257,7 +260,7 @@ class SocietyAgent(CitizenAgent):
 
         # Get the previous step information
         current_step = await self.memory.status.get("current_step")
-        if current_step["intention"] == "" or current_step["type"] == "":
+        if current_step["intention"] == "":
             # No previous step, return directly
             return True
         time_now = int(await self.simulator.get_time())
@@ -304,9 +307,7 @@ class SocietyAgent(CitizenAgent):
                         conclusion = await self.mindBlock.cognitionBlock.emotion_update(
                             incident
                         )
-                        await self.memory.stream.add_cognition(
-                            description=conclusion  # type:ignore
-                        )
+                        await self.save_agent_thought(conclusion)
                         await self.memory.stream.add_cognition_to_memory(
                             current_plan["stream_nodes"], conclusion  # type:ignore
                         )
@@ -331,9 +332,7 @@ class SocietyAgent(CitizenAgent):
                     conclusion = await self.mindBlock.cognitionBlock.emotion_update(
                         incident
                     )
-                    await self.memory.stream.add_cognition(
-                        description=conclusion  # type:ignore
-                    )
+                    await self.save_agent_thought(conclusion)
                     await self.memory.stream.add_cognition_to_memory(
                         current_plan["stream_nodes"], conclusion  # type:ignore
                     )

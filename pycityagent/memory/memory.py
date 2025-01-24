@@ -341,7 +341,7 @@ class StreamMemory:
         """获取指定ID的记忆"""
         memories = [memory for memory in self._memories if memory.id in memory_ids]
         sorted_results = sorted(memories, key=lambda x: (x.day, x.t), reverse=True)
-        return self.format_memory(sorted_results)
+        return await self.format_memory(sorted_results)
 
     async def search(
         self,

@@ -130,12 +130,16 @@ class AgentSimulation:
         _simulator_config = config["simulator_request"].get("simulator", {})
         if "server" in _simulator_config:
             raise ValueError(f"Passing Traffic Simulation address is not supported!")
-        self._simulator = Simulator(config["simulator_request"])
+        simulator = Simulator(config["simulator_request"], create_map=True)
+        self._simulator = simulator
+        self._map_ref = self._simulator.map
+        server_addr = self._simulator.get_server_addr()
+        config["simulator_request"]["simulator"]["server"] = server_addr
         self._economy_client = EconomyClient(
             config["simulator_request"]["simulator"]["server"]
         )
         if enable_institution:
-            self._economy_addr = economy_addr = self._simulator.server_addr
+            self._economy_addr = economy_addr = server_addr
             if economy_addr is None:
                 raise ValueError(
                     f"`simulator` not provided in `simulator_request`, thus unable to activate economy!"
@@ -382,6 +386,7 @@ class AgentSimulation:
         llm_log_lists = []
         mqtt_log_lists = []
         simulator_log_lists = []
+        agent_time_log_lists = []
         for step in config["workflow"]:
             logger.info(
                 f"Running step: type: {step['type']} - description: {step.get('description', 'no description')}"
@@ -389,17 +394,19 @@ class AgentSimulation:
             if step["type"] not in ["run", "step", "interview", "survey", "intervene", "pause", "resume", "function"]:
                 raise ValueError(f"Invalid step type: {step['type']}")
             if step["type"] == "run":
-                llm_log_list, mqtt_log_list, simulator_log_list = await simulation.run(step.get("days", 1))
+                llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list = await simulation.run(step.get("days", 1))
                 llm_log_lists.extend(llm_log_list)
                 mqtt_log_lists.extend(mqtt_log_list)
                 simulator_log_lists.extend(simulator_log_list)
+                agent_time_log_lists.extend(agent_time_log_list)
             elif step["type"] == "step":
                 times = step.get("times", 1)
                 for _ in range(times):
-                    llm_log_list, mqtt_log_list, simulator_log_list = await simulation.step()
+                    llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list = await simulation.step()
                     llm_log_lists.extend(llm_log_list)
                     mqtt_log_lists.extend(mqtt_log_list)
                     simulator_log_lists.extend(simulator_log_list)
+                    agent_time_log_lists.extend(agent_time_log_list)
             elif step["type"] == "pause":
                 await simulation.pause_simulator()
             elif step["type"] == "resume":
@@ -407,7 +414,7 @@ class AgentSimulation:
             else:
                 await step["func"](simulation)
         logger.info("Simulation finished")
-        return llm_log_lists, mqtt_log_lists, simulator_log_lists
+        return llm_log_lists, mqtt_log_lists, simulator_log_lists, agent_time_log_lists
     
     @property
     def enable_avro(
@@ -742,6 +749,7 @@ class AgentSimulation:
                 number_of_agents,
                 memory_config_function_group,
                 self.config,
+                self._map_ref,
                 self.exp_name,
                 self.exp_id,
                 self.enable_avro,
@@ -753,8 +761,8 @@ class AgentSimulation:
                 embedding_model,
                 self.logging_level,
                 config_file,
-                environment,
                 llm_semaphore,
+                environment,
             )
             creation_tasks.append((group_name, group))
 
@@ -1018,7 +1026,7 @@ class AgentSimulation:
 
             # step
             simulator_day = await self._simulator.get_simulator_day()
-            simulator_time = int(await self._simulator.get_time())
+            simulator_time = int(await self._simulator.get_simulator_second_from_start_of_day())
             logger.info(
                 f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}"
             )
@@ -1029,14 +1037,15 @@ class AgentSimulation:
             llm_log_list = []
             mqtt_log_list = []
             simulator_log_list = []
+            agent_time_log_list = []
             for log_messages_group in log_messages_groups:
                 llm_log_list.extend(log_messages_group['llm_log'])
                 mqtt_log_list.extend(log_messages_group['mqtt_log'])
                 simulator_log_list.extend(log_messages_group['simulator_log'])
-            
+                agent_time_log_list.extend(log_messages_group['agent_time_log'])
             # save
             simulator_day = await self._simulator.get_simulator_day()
-            simulator_time = int(await self._simulator.get_time())
+            simulator_time = int(await self._simulator.get_simulator_second_from_start_of_day())
             save_tasks = []
             for group in self._groups.values():
                 save_tasks.append(group.save.remote(simulator_day, simulator_time))
@@ -1050,7 +1059,7 @@ class AgentSimulation:
                 ]
                 await self.extract_metric(to_excute_metric)
 
-            return llm_log_list, mqtt_log_list, simulator_log_list
+            return llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list
         except Exception as e:
             import traceback
 
@@ -1081,6 +1090,7 @@ class AgentSimulation:
         llm_log_lists = []
         mqtt_log_lists = []
         simulator_log_lists = []
+        agent_time_log_lists = []
         try:
             self._exp_info["num_day"] += day
             await self._update_exp_status(1)  # 更新状态为运行中
@@ -1098,10 +1108,11 @@ class AgentSimulation:
                     current_time = await self._simulator.get_time()
                     if current_time >= end_time:  # type:ignore
                         break
-                    llm_log_list, mqtt_log_list, simulator_log_list = await self.step()
+                    llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list = await self.step()
                     llm_log_lists.extend(llm_log_list)
                     mqtt_log_lists.extend(mqtt_log_list)
                     simulator_log_lists.extend(simulator_log_list)
+                    agent_time_log_lists.extend(agent_time_log_list)
             finally:
                 # 设置停止事件
                 stop_event.set()
@@ -1110,7 +1121,7 @@ class AgentSimulation:
 
             # 运行成功后更新状态
             await self._update_exp_status(2)
-            return llm_log_lists, mqtt_log_lists, simulator_log_lists
+            return llm_log_lists, mqtt_log_lists, simulator_log_lists, agent_time_log_lists
         except Exception as e:
             error_msg = f"模拟器运行错误: {str(e)}"
             logger.error(error_msg)

@@ -5,16 +5,17 @@ import logging
 import os
 from datetime import datetime, timedelta
 import time
-from typing import Any, Optional, Union, cast
+from typing import Optional, Union, cast
 
-from mosstool.type import TripMode
-from mosstool.util.format_converter import coll2pb
+from mosstool.util.format_converter import coll2pb, dict2pb
 from pycitydata.map import Map as SimMap
 from pycityproto.city.map.v2 import map_pb2 as map_pb2
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pycityproto.city.person.v2 import person_service_pb2 as person_service
 from pymongo import MongoClient
+import ray
 from shapely.geometry import Point
+from mosstool.type import TripMode
 
 from .sim import CityClient, ControlSimEnv
 from .utils.const import *
@@ -25,6 +26,42 @@ __all__ = [
     "Simulator",
 ]
 
+@ray.remote
+class CityMap:
+    def __init__(self, mongo_uri: str, mongo_db: str, mongo_coll: str, cache_dir: str):
+        self.map = SimMap(
+            mongo_uri=mongo_uri,
+            mongo_db=mongo_db,
+            mongo_coll=mongo_coll,
+            cache_dir=cache_dir,
+        )
+
+    def get_aoi(self, aoi_id: Optional[int] = None):
+        if aoi_id is None:
+            return list(self.map.aois.values())
+        else:
+            return self.map.aois[aoi_id]
+        
+    def get_poi(self, poi_id: Optional[int] = None):
+        if poi_id is None:
+            return list(self.map.pois.values())
+        else:
+            return self.map.pois[poi_id]
+
+    def query_pois(self, **kwargs):
+        return self.map.query_pois(**kwargs)
+        
+    def get_poi_cate(self):
+        return self.poi_cate
+    
+    def get_map(self):
+        return self.map
+    
+    def get_map_header(self):
+        return self.map.header
+
+    def get_projector(self):
+        return self.map.header["projection"]
 
 class Simulator:
     """
@@ -35,7 +72,7 @@ class Simulator:
         - It reads parameters from a configuration dictionary, initializes map data, and starts or connects to a simulation server as needed.
     """
 
-    def __init__(self, config: dict, secure: bool = False) -> None:
+    def __init__(self, config: dict, create_map: bool = False) -> None:
         self.config = config
         """
         - 模拟器配置
@@ -66,7 +103,8 @@ class Simulator:
                 self._sim_env = sim_env = ControlSimEnv(
                     task_name=config["simulator"].get("task", "citysim"),
                     map_file=_map_pb_path,
-                    start_step=config["simulator"].get("start_step", 0),
+                    max_day=config["simulator"].get("max_day", 1000),
+                    start_step=config["simulator"].get("start_step", 28800),
                     total_step=2147000000,
                     log_dir=config["simulator"].get("log_dir", "./log"),
                     min_step_time=config["simulator"].get("min_step_time", 1000),
@@ -88,16 +126,14 @@ class Simulator:
             logger.warning(
                 "No simulator config found, no simulator client will be used"
             )
-        self.map = SimMap(
-            mongo_uri=_mongo_uri,
-            mongo_db=_mongo_db,
-            mongo_coll=_mongo_coll,
-            cache_dir=_map_cache_dir,
-        )
+        self._map = None
         """
         - 模拟器地图对象
         - Simulator map object
         """
+        if create_map:
+            self._map = CityMap.remote(_mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir)
+            self._create_poi_id_2_aoi_id()
 
         self.time: int = 0
         """
@@ -109,12 +145,22 @@ class Simulator:
         self.map_y_gap = None
         self._bbox: tuple[float, float, float, float] = (-1, -1, -1, -1)
         self._lock = asyncio.Lock()
-        # poi id dict
-        self.poi_id_2_aoi_id: dict[int, int] = {
-            poi["id"]: poi["aoi_id"] for _, poi in self.map.pois.items()
-        }
         self._environment_prompt:dict[str, str] = {}
         self._log_list = []
+
+    def set_map(self, map: CityMap):
+        self._map = map
+        self._create_poi_id_2_aoi_id()
+
+    def _create_poi_id_2_aoi_id(self):
+        pois = ray.get(self._map.get_poi.remote())
+        self.poi_id_2_aoi_id: dict[int, int] = {
+            poi["id"]: poi["aoi_id"] for poi in pois
+        }
+
+    @property
+    def map(self):
+        return self._map
 
     def get_log_list(self):
         return self._log_list
@@ -122,12 +168,18 @@ class Simulator:
     def clear_log_list(self):
         self._log_list = []
 
+    def get_poi_cate(self):
+        return self.poi_cate
+
     @property
     def environment(self) -> dict[str, str]:
         """
         Get the current state of environment variables.
         """
         return self._environment_prompt
+    
+    def get_server_addr(self):
+        return self.server_addr
 
     def set_environment(self, environment: dict[str, str]):
         """
@@ -224,11 +276,11 @@ class Simulator:
         categories: list[str] = []
         if center is None:
             center = (0, 0)
-        _pois: list[dict] = self.map.query_pois(  # type:ignore
+        _pois: list[dict] = ray.get(self.map.query_pois.remote(  # type:ignore
             center=center,
             radius=radius,
             return_distance=False,
-        )
+        ))
         for poi in _pois:
             catg = poi["category"]
             categories.append(catg.split("|")[-1])
@@ -367,13 +419,12 @@ class Simulator:
         self._log_list.append(log)
         return person
 
-    async def add_person(self, person: Any) -> dict:
+    async def add_person(self, dict_person: dict) -> dict:
         """
         Add a new person to the simulation.
 
         - **Args**:
-            - `person` (`Any`): The person object to add. If it's an instance of `person_pb2.Person`,
-              it will be wrapped in an `AddPersonRequest`. Otherwise, `person` is expected to already be a valid request object.
+            - `dict_person` (`dict`): The person object to add.
 
         - **Returns**:
             - `Dict`: Response from adding the person.
@@ -384,6 +435,7 @@ class Simulator:
             "start_time": start_time,
             "consumption": 0
         }
+        person = dict2pb(dict_person, person_pb2.Person())
         if isinstance(person, person_pb2.Person):
             req = person_service.AddPersonRequest(person=person)
         else:
@@ -411,7 +463,7 @@ class Simulator:
               A list of AOI or POI IDs or tuples of (AOI ID, POI ID) that the person will visit.
             - `departure_times` (`Optional[List[float]]`): Departure times for each trip in the schedule.
               If not provided, current time will be used for all trips.
-            - `modes` (`Optional[List[TripMode]]`): Travel modes for each trip.
+            - `modes` (`Optional[List[int]]`): Travel modes for each trip.
               Defaults to `TRIP_MODE_DRIVE_ONLY` if not specified.
         """
         start_time = time.time()
@@ -560,11 +612,11 @@ class Simulator:
                 transformed_poi_type += self.poi_cate[t]
         poi_type_set = set(transformed_poi_type)
         # 获取半径内的poi
-        _pois: list[dict] = self.map.query_pois(  # type:ignore
+        _pois: list[dict] = ray.get(self.map.query_pois.remote(  # type:ignore
             center=center,
             radius=radius,
             return_distance=False,
-        )
+        ))
         # 过滤掉不满足类别前缀的poi
         pois = []
         for poi in _pois:

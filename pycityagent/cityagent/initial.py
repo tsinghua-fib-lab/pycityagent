@@ -68,8 +68,6 @@ async def initialize_social_network(simulation):
             await simulation.update(
                 agent_id, "interactions", {friend_id: [] for friend_id in friends}
             )
-
-        print("Social network initialization completed!")
         return True
 
     except Exception as e:

@@ -36,6 +36,7 @@ class AgentGroup:
         number_of_agents: Union[int, list[int]],
         memory_config_function_group: dict[type[Agent], Callable],
         config: dict,
+        map_ref: ray.ObjectRef,
         exp_name: str,
         exp_id: Union[str, UUID],
         enable_avro: bool,
@@ -47,8 +48,8 @@ class AgentGroup:
         embedding_model: Embeddings,
         logging_level: int,
         agent_config_file: Optional[dict[type[Agent], str]] = None,
-        environment: Optional[dict[str, str]] = None,
         llm_semaphore: int = 200,
+        environment: Optional[dict] = None,
     ):
         """
         Represents a group of agents that can be deployed in a Ray distributed environment.
@@ -64,6 +65,7 @@ class AgentGroup:
             - `number_of_agents` (Union[int, List[int]]): Number of instances to create for each agent class.
             - `memory_config_function_group` (Dict[Type[Agent], Callable]): Functions to configure memory for each agent type.
             - `config` (dict): Configuration settings for the agent group.
+            - `map_ref` (ray.ObjectRef): Reference to the map object.
             - `exp_name` (str): Name of the experiment.
             - `exp_id` (str | UUID): Identifier for the experiment.
             - `enable_avro` (bool): Flag to enable AVRO file support.
@@ -143,10 +145,10 @@ class AgentGroup:
         self.llm.set_semaphore(llm_semaphore)
 
         # prepare Simulator
-        logger.info(f"-----Creating Simulator in AgentGroup {self._uuid} ...")
+        logger.info(f"-----Initializing Simulator in AgentGroup {self._uuid} ...")
         self.simulator = Simulator(config["simulator_request"])
-        self.projector = pyproj.Proj(self.simulator.map.header["projection"])
-        self.simulator.set_environment(environment)  # type:ignore
+        self.simulator.set_map(map_ref)
+        self.projector = pyproj.Proj(ray.get(self.simulator.map.get_projector.remote()))
         # prepare Economy client
         logger.info(f"-----Creating Economy client in AgentGroup {self._uuid} ...")
         self.economy_client = EconomyClient(
@@ -429,16 +431,6 @@ class AgentGroup:
         )
         agent = self.id2agent[target_agent_uuid]
         await agent.status.update(target_key, content)
-
-    async def update_environment(self, key: str, value: str):
-        """
-        Updates the environment with a given key-value pair.
-
-        - **Args**:
-            - `key` (str): The key to update in the environment.
-            - `value` (str): The value to set for the specified key.
-        """
-        self.simulator.update_environment(key, value)
 
     async def message_dispatch(self):
         """
@@ -788,12 +780,13 @@ class AgentGroup:
         """
         try:
             tasks = [agent.run() for agent in self.agents]
-            await asyncio.gather(*tasks)
+            agent_time_log =await asyncio.gather(*tasks)
             simulator_log = self.simulator.get_log_list() + self.economy_client.get_log_list()
             group_logs = {
                 "llm_log": self.llm.get_log_list(),
                 "mqtt_log": ray.get(self.messager.get_log_list.remote()),
-                "simulator_log": simulator_log
+                "simulator_log": simulator_log,
+                "agent_time_log": agent_time_log
             }
             self.llm.clear_log_list()
             self.messager.clear_log_list.remote()

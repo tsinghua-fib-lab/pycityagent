@@ -24,7 +24,6 @@ Please return the result in JSON format (Do not return any other text):
 """
 
 num_labor_hours = 168
-month_days = 0.03
 productivity_per_labor = 1
 max_price_inflation = 0.1
 max_wage_inflation = 0.05

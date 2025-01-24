@@ -1,6 +1,8 @@
 import json
 import logging
 
+import ray
+
 from pycityagent import Simulator
 from pycityagent.llm import LLM
 from pycityagent.memory import Memory

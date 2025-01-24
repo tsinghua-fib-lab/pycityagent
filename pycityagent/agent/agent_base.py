@@ -19,7 +19,7 @@ from ..environment import Simulator
 from ..environment.sim.person_service import PersonService
 from ..llm import LLM
 from ..memory import Memory
-from ..message import MessageInterceptor, Messager
+from ..message import Messager
 from ..utils import DIALOG_SCHEMA, SURVEY_SCHEMA, process_survey_for_llm
 from ..workflow import Block
 
@@ -673,6 +673,47 @@ class Agent(ABC):
         )
         print(f"Sent payback message to {self._exp_id}")
 
+    async def save_agent_thought(self, thought: str):
+        """
+        Save the agent's thought to the memory.
+
+        - **Args**:
+            - `thought` (`str`): The thought data to be saved.
+
+        - **Description**:
+            - Saves the thought data to the memory.
+        """
+        _date_time = datetime.now(timezone.utc)
+        _thought_dict = {
+            "id": self._uuid,
+            "day": await self.simulator.get_simulator_day(),
+            "t": await self.simulator.get_simulator_second_from_start_of_day(),
+            "type": 0,
+            "speaker": "",
+            "content": thought,
+            "created_at": int(_date_time.timestamp() * 1000),
+        }
+        auros = [_thought_dict]
+        pg_list = [(_thought_dict, _date_time)]
+        # Avro
+        if self._avro_file is not None:
+            with open(self._avro_file["dialog"], "a+b") as f:
+                fastavro.writer(f, DIALOG_SCHEMA, auros, codec="snappy")
+        # Pg
+        if self._pgsql_writer is not None:
+            if self._last_asyncio_pg_task is not None:
+                await self._last_asyncio_pg_task
+            _keys = ["id", "day", "t", "type", "speaker", "content", "created_at"]
+            _data = [
+                tuple([_dict[k] if k != "created_at" else _date_time for k in _keys])
+                for _dict, _date_time in pg_list
+            ]
+            self._last_asyncio_pg_task = (
+                self._pgsql_writer.async_write_dialog.remote(  # type:ignore
+                    _data
+                )
+            )
+
     async def process_agent_chat_response(self, payload: dict) -> str:
         """
         Log the reception of an agent chat response.
@@ -931,5 +972,4 @@ class Agent(ABC):
         if self._messager is not None:
             await self._messager.ping.remote()  # type:ignore
         if not self._blocked:
-            async with self.llm.semaphore:
-                await self.forward()
+            return await self.forward()

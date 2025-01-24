@@ -28,16 +28,16 @@ def memory_config_societyagent():
         "type": (str, "citizen"),
         "city": (str, "New York", True),
         # Needs Model
-        "hunger_satisfaction": (float, random.random(), True),  # hunger satisfaction
-        "energy_satisfaction": (float, random.random(), True),  # energy satisfaction  
-        "safety_satisfaction": (float, random.random(), True),  # safety satisfaction
-        "social_satisfaction": (float, random.random(), True),  # social satisfaction
-        "current_need": (str, "none", True),
+        "hunger_satisfaction": (float, random.random(), False),  # hunger satisfaction
+        "energy_satisfaction": (float, random.random(), False),  # energy satisfaction  
+        "safety_satisfaction": (float, random.random(), False),  # safety satisfaction
+        "social_satisfaction": (float, random.random(), False),  # social satisfaction
+        "current_need": (str, "none", False),
         # Plan Behavior Model
-        "current_plan": (list, [], True),
-        "current_step": (dict, {"intention": "", "type": ""}, True),
-        "execution_context": (dict, {}, True),
-        "plan_history": (list, [], True),
+        "current_plan": (list, [], False),
+        "current_step": (dict, {"intention": "", "type": ""}, False),
+        "execution_context": (dict, {}, False),
+        "plan_history": (list, [], False),
         # cognition
         "emotion": (
             dict,
@@ -60,40 +60,39 @@ def memory_config_societyagent():
             random.choice(agent_skills),
             True,
         ),  # work skill
-        "tax_paid": (float, 0.0, True),  # tax paid
-        "consumption_currency": (float, 0.0, True),  # consumption
-        "goods_demand": (int, 0, True),
-        "goods_consumption": (int, 0, True),
-        "work_propensity": (float, 0.0, True),
-        "consumption_propensity": (float, 0.0, True),
-        "income_currency": (float, 0.0, True),  # monthly income
-        "to_income": (float, 0.0, True),
-        "to_consumption_currency": (float, 0.0, True),
-        "firm_id": (int, 0, True),
-        "government_id": (int, 0, True),
-        "bank_id": (int, 0, True),
-        "nbs_id": (int, 0, True),
-        "dialog_queue": (deque(maxlen=3), [], True),
-        "firm_forward": (int, 0, True),
-        "bank_forward": (int, 0, True),
-        "nbs_forward": (int, 0, True),
-        "government_forward": (int, 0, True),
-        "forward": (int, 0, True),
-        "depression": (float, 0.0, True),
-        "ubi_opinion": (list, [], True),
-        "working_experience": (list, [], True),
-        "work_hour_month": (float, 160, True),
-        "work_hour_finish": (float, 0, True),
+        "tax_paid": (float, 0.0, False),  # tax paid
+        "consumption_currency": (float, 0.0, False),  # consumption
+        "goods_demand": (int, 0, False),
+        "goods_consumption": (int, 0, False),
+        "work_propensity": (float, 0.0, False),
+        "consumption_propensity": (float, 0.0, False),
+        "income_currency": (float, 0.0, False),  # monthly income
+        "to_income": (float, 0.0, False),
+        "to_consumption_currency": (float, 0.0, False),
+        "firm_id": (int, 0, False),
+        "government_id": (int, 0, False),
+        "bank_id": (int, 0, False),
+        "nbs_id": (int, 0, False),
+        "dialog_queue": (deque(maxlen=3), [], False),
+        "firm_forward": (int, 0, False),
+        "bank_forward": (int, 0, False),
+        "nbs_forward": (int, 0, False),
+        "government_forward": (int, 0, False),
+        "forward": (int, 0, False),
+        "depression": (float, 0.0, False),
+        "ubi_opinion": (list, [], False),
+        "working_experience": (list, [], False),
+        "work_hour_month": (float, 160, False),
+        "work_hour_finish": (float, 0, False),
         # social
-        "friends": (list, [], True),  # friends list
-        "relationships": (dict, {}, True),  # relationship strength with each friend
-        "relation_types": (dict, {}, True),
-        "chat_histories": (dict, {}, True),  # all chat histories
-        "interactions": (dict, {}, True),  # all interaction records
-        "to_discuss": (dict, {}, True),
+        "friends": (list, [], False),  # friends list
+        "relationships": (dict, {}, False),  # relationship strength with each friend
+        "relation_types": (dict, {}, False),
+        "chat_histories": (dict, {}, False),  # all chat histories
+        "interactions": (dict, {}, False),  # all interaction records
+        "to_discuss": (dict, {}, False),
         # mobility
-        "environment": (str, "The environment outside is good", True),
-        "number_poi_visited": (int, 1, True),
+        "number_poi_visited": (int, 1, False),
     }
 
     PROFILE = {

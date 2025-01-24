@@ -8,6 +8,7 @@ from typing import Any, Optional
 
 from mosstool.util.format_converter import dict2pb
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
+import ray
 
 from ..economy import EconomyClient
 from ..environment import Simulator
@@ -120,7 +121,7 @@ class CitizenAgent(Agent):
                     dict_person[_key] = _value
             except KeyError as e:
                 continue
-        resp = await simulator.add_person(dict2pb(dict_person, person_pb2.Person()))
+        resp = await simulator.add_person(dict_person)
         person_id = resp["person_id"]
         await status.update("id", person_id, protect_llm_read_only_fields=False)
         logger.debug(f"Binding to Person `{person_id}` just added to Simulator")
@@ -280,7 +281,7 @@ class InstitutionAgent(Agent):
             _id = random.randint(100000, 999999)
             self._agent_id = _id
             self.status.set_agent_id(_id)
-            map_header = self.simulator.map.header
+            map_header = ray.get(self.simulator.map.get_map_header.remote())
             # TODO: remove random position assignment
             await self.status.update(
                 "position",

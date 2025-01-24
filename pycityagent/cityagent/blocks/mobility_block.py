@@ -1,6 +1,8 @@
 import math
 from typing import List
 
+import ray
+
 from pycityagent.environment.simulator import Simulator
 from pycityagent.llm import LLM
 from pycityagent.memory import Memory
@@ -50,7 +52,6 @@ Return only the integer number without any additional text or explanation."""
 
 
 def gravity_model(pois):
-    N = len(pois)
     pois_Dis = {
         "1k": [],
         "2k": [],
@@ -133,21 +134,22 @@ class PlaceSelectionBlock(Block):
         )
         self.radiusPrompt = FormatPrompt(RADIUS_PROMPT)
         # configurable fields
-        self.search_limit = 10000
+        self.search_limit = 100
 
     async def forward(self, step, context):
+        poi_cate = self.simulator.get_poi_cate()
         self.typeSelectionPrompt.format(
             plan=context["plan"],
             intention=step["intention"],
-            poi_category=list(self.simulator.poi_cate.keys()),
+            poi_category=list(poi_cate.keys()),
         )
         levelOneType = await self.llm.atext_request(self.typeSelectionPrompt.to_dialog())  # type: ignore
         try:
-            sub_category = self.simulator.poi_cate[levelOneType]
+            sub_category = poi_cate[levelOneType]
         except Exception as e:
             logger.warning(f"Wrong type of poi, raw response: {levelOneType}")
-            levelOneType = random.choice(list(self.simulator.poi_cate.keys()))
-            sub_category = self.simulator.poi_cate[levelOneType]
+            levelOneType = random.choice(list(poi_cate.keys()))
+            sub_category = poi_cate[levelOneType]
         self.secondTypeSelectionPrompt.format(
             plan=context["plan"], intention=step["intention"], poi_category=sub_category
         )
@@ -162,21 +164,21 @@ class PlaceSelectionBlock(Block):
         )
         radius = int(await self.llm.atext_request(self.radiusPrompt.to_dialog()))  # type: ignore
         try:
-            pois = self.simulator.map.query_pois(
+            pois = ray.get(self.simulator.map.query_pois.remote(
                 center=center,
                 category_prefix=levelTwoType,
                 radius=radius,
                 limit=self.search_limit,
-            )
+            ))
         except Exception as e:
             logger.warning(f"Error querying pois: {e}")
             levelTwoType = random.choice(sub_category)
-            pois = self.simulator.map.query_pois(
+            pois = ray.get(self.simulator.map.query_pois.remote(
                 center=center,
                 category_prefix=levelTwoType,
                 radius=radius,
                 limit=self.search_limit,
-            )
+            ))
         if len(pois) > 0:
             pois = gravity_model(pois)
             probabilities = [item[2] for item in pois]
@@ -198,8 +200,8 @@ class PlaceSelectionBlock(Block):
                 "node_id": node_id,
             }
         else:
-            simmap = self.simulator.map
-            poi = random.choice(list(simmap.pois.values()))
+            pois = ray.get(self.simulator.map.get_poi.remote())
+            poi = random.choice(pois)
             nextPlace = (poi["name"], poi["aoi_id"])
             # save the destination to context
             context["next_place"] = nextPlace
@@ -309,11 +311,12 @@ class MoveBlock(Block):
                 )
             else:
                 while True:
-                    r_aoi = random.choice(list(self.simulator.map.aois.values()))
+                    aois = ray.get(self.simulator.map.get_aoi.remote())
+                    r_aoi = random.choice(aois)
                     if len(r_aoi["poi_ids"]) > 0:
                         r_poi = random.choice(r_aoi["poi_ids"])
                         break
-                poi = self.simulator.map.pois[r_poi]
+                poi = ray.get(self.simulator.map.get_poi.remote(r_poi))
                 next_place = (poi["name"], poi["aoi_id"])
                 await self.simulator.set_aoi_schedules(
                     person_id=agent_id,
@@ -372,17 +375,11 @@ class MobilityBlock(Block):
 
     async def forward(self, step, context):
         self.trigger_time += 1
-        consumption_start = (
-            self.llm.prompt_tokens_used + self.llm.completion_tokens_used
-        )
 
         # Select the appropriate sub-block using dispatcher
         selected_block = await self.dispatcher.dispatch(step)
 
         # Execute the selected sub-block and get the result
         result = await selected_block.forward(step, context)  # type: ignore
-
-        consumption_end = self.llm.prompt_tokens_used + self.llm.completion_tokens_used
-        self.token_consumption += consumption_end - consumption_start
 
         return result
