@@ -29,13 +29,19 @@ __all__ = [
 
 @ray.remote
 class CityMap:
-    def __init__(self, mongo_uri: str, mongo_db: str, mongo_coll: str, cache_dir: str):
-        self.map = SimMap(
-            mongo_uri=mongo_uri,
-            mongo_db=mongo_db,
-            mongo_coll=mongo_coll,
-            cache_dir=cache_dir,
-        )
+    def __init__(self, mongo_input: tuple[str, str, str, str], map_cache_path: str):
+        if map_cache_path:
+            self.map = SimMap(
+                pb_path=map_cache_path,
+            )
+        else:
+            mongo_uri, mongo_db, mongo_coll, cache_dir = mongo_input
+            self.map = SimMap(
+                mongo_uri=mongo_uri,
+                mongo_db=mongo_db,
+                mongo_coll=mongo_coll,
+                cache_dir=cache_dir,
+            )
         self.poi_cate = POI_CATG_DICT
 
     def get_aoi(self, aoi_id: Optional[int] = None):
@@ -135,8 +141,10 @@ class Simulator:
         - Simulator map object
         """
         if create_map:
+            _map_cache_path = ""  # 地图pb文件路径
             self._map = CityMap.remote(
-                _mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir
+                (_mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir),
+                _map_cache_path,
             )
             self._create_poi_id_2_aoi_id()
 
@@ -153,12 +161,12 @@ class Simulator:
         self._environment_prompt: dict[str, str] = {}
         self._log_list = []
 
-    def set_map(self, map: CityMap):
+    def set_map(self, map: ray.ObjectRef):
         self._map = map
         self._create_poi_id_2_aoi_id()
 
     def _create_poi_id_2_aoi_id(self):
-        pois = ray.get(self._map.get_poi.remote())
+        pois = ray.get(self._map.get_poi.remote())  # type:ignore
         self.poi_id_2_aoi_id: dict[int, int] = {
             poi["id"]: poi["aoi_id"] for poi in pois
         }
@@ -391,7 +399,7 @@ class Simulator:
         """
         start_time = time.time()
         log = {"req": "get_person", "start_time": start_time, "consumption": 0}
-        person = await self._client.person_service.GetPerson(
+        person: dict = await self._client.person_service.GetPerson(
             req={"person_id": person_id}
         )  # type:ignore
         log["consumption"] = time.time() - start_time

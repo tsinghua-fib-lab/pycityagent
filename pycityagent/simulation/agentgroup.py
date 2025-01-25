@@ -22,11 +22,17 @@ from ..llm.llmconfig import LLMConfig
 from ..memory import FaissQuery, Memory
 from ..message import Messager
 from ..metrics import MlflowClient
-from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
-                     STATUS_SCHEMA, SURVEY_SCHEMA)
+from ..utils import (
+    DIALOG_SCHEMA,
+    INSTITUTION_STATUS_SCHEMA,
+    PROFILE_SCHEMA,
+    STATUS_SCHEMA,
+    SURVEY_SCHEMA,
+)
 
 logger = logging.getLogger("pycityagent")
 __all__ = ["AgentGroup"]
+
 
 @ray.remote
 class AgentGroup:
@@ -148,7 +154,9 @@ class AgentGroup:
         logger.info(f"-----Initializing Simulator in AgentGroup {self._uuid} ...")
         self.simulator = Simulator(config["simulator_request"])
         self.simulator.set_map(map_ref)
-        self.projector = pyproj.Proj(ray.get(self.simulator.map.get_projector.remote()))
+        self.projector = pyproj.Proj(
+            ray.get(self.simulator.map.get_projector.remote())  # type:ignore
+        )
         # prepare Economy client
         logger.info(f"-----Creating Economy client in AgentGroup {self._uuid} ...")
         self.economy_client = EconomyClient(
@@ -208,7 +216,7 @@ class AgentGroup:
     @property
     def agent_type(self):
         return self.agent_class
-    
+
     async def get_economy_ids(self):
         return await self.economy_client.get_ids()
 
@@ -780,16 +788,18 @@ class AgentGroup:
         """
         try:
             tasks = [agent.run() for agent in self.agents]
-            agent_time_log =await asyncio.gather(*tasks)
-            simulator_log = self.simulator.get_log_list() + self.economy_client.get_log_list()
+            agent_time_log = await asyncio.gather(*tasks)
+            simulator_log = (
+                self.simulator.get_log_list() + self.economy_client.get_log_list()
+            )
             group_logs = {
                 "llm_log": self.llm.get_log_list(),
-                "mqtt_log": ray.get(self.messager.get_log_list.remote()),
+                "mqtt_log": ray.get(self.messager.get_log_list.remote()),  # type:ignore
                 "simulator_log": simulator_log,
-                "agent_time_log": agent_time_log
+                "agent_time_log": agent_time_log,
             }
             self.llm.clear_log_list()
-            self.messager.clear_log_list.remote()
+            self.messager.clear_log_list.remote()  # type:ignore
             self.simulator.clear_log_list()
             self.economy_client.clear_log_list()
             return group_logs
