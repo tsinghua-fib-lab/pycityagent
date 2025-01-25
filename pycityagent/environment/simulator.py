@@ -3,19 +3,19 @@
 import asyncio
 import logging
 import os
-from datetime import datetime, timedelta
 import time
+from datetime import datetime, timedelta
 from typing import Optional, Union, cast
 
+import ray
+from mosstool.type import TripMode
 from mosstool.util.format_converter import coll2pb, dict2pb
 from pycitydata.map import Map as SimMap
 from pycityproto.city.map.v2 import map_pb2 as map_pb2
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 from pycityproto.city.person.v2 import person_service_pb2 as person_service
 from pymongo import MongoClient
-import ray
 from shapely.geometry import Point
-from mosstool.type import TripMode
 
 from .sim import CityClient, ControlSimEnv
 from .utils.const import *
@@ -26,6 +26,7 @@ __all__ = [
     "Simulator",
 ]
 
+
 @ray.remote
 class CityMap:
     def __init__(self, mongo_uri: str, mongo_db: str, mongo_coll: str, cache_dir: str):
@@ -35,13 +36,14 @@ class CityMap:
             mongo_coll=mongo_coll,
             cache_dir=cache_dir,
         )
+        self.poi_cate = POI_CATG_DICT
 
     def get_aoi(self, aoi_id: Optional[int] = None):
         if aoi_id is None:
             return list(self.map.aois.values())
         else:
             return self.map.aois[aoi_id]
-        
+
     def get_poi(self, poi_id: Optional[int] = None):
         if poi_id is None:
             return list(self.map.pois.values())
@@ -50,18 +52,19 @@ class CityMap:
 
     def query_pois(self, **kwargs):
         return self.map.query_pois(**kwargs)
-        
+
     def get_poi_cate(self):
         return self.poi_cate
-    
+
     def get_map(self):
         return self.map
-    
+
     def get_map_header(self):
         return self.map.header
 
     def get_projector(self):
         return self.map.header["projection"]
+
 
 class Simulator:
     """
@@ -132,7 +135,9 @@ class Simulator:
         - Simulator map object
         """
         if create_map:
-            self._map = CityMap.remote(_mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir)
+            self._map = CityMap.remote(
+                _mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir
+            )
             self._create_poi_id_2_aoi_id()
 
         self.time: int = 0
@@ -145,7 +150,7 @@ class Simulator:
         self.map_y_gap = None
         self._bbox: tuple[float, float, float, float] = (-1, -1, -1, -1)
         self._lock = asyncio.Lock()
-        self._environment_prompt:dict[str, str] = {}
+        self._environment_prompt: dict[str, str] = {}
         self._log_list = []
 
     def set_map(self, map: CityMap):
@@ -164,7 +169,7 @@ class Simulator:
 
     def get_log_list(self):
         return self._log_list
-    
+
     def clear_log_list(self):
         self._log_list = []
 
@@ -177,7 +182,7 @@ class Simulator:
         Get the current state of environment variables.
         """
         return self._environment_prompt
-    
+
     def get_server_addr(self):
         return self.server_addr
 
@@ -229,11 +234,7 @@ class Simulator:
               Refer to https://cityproto.sim.fiblab.net/#city.person.1.GetPersonByLongLatBBoxResponse.
         """
         start_time = time.time()
-        log = {
-            "req": "find_agents_by_area",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "find_agents_by_area", "start_time": start_time, "consumption": 0}
         loop = asyncio.get_event_loop()
         resp = loop.run_until_complete(
             self._client.person_service.GetPersonByLongLatBBox(req=req)
@@ -268,19 +269,17 @@ class Simulator:
             - `List[str]`: A list of unique POI category names.
         """
         start_time = time.time()
-        log = {
-            "req": "get_poi_categories",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "get_poi_categories", "start_time": start_time, "consumption": 0}
         categories: list[str] = []
         if center is None:
             center = (0, 0)
-        _pois: list[dict] = ray.get(self.map.query_pois.remote(  # type:ignore
-            center=center,
-            radius=radius,
-            return_distance=False,
-        ))
+        _pois: list[dict] = ray.get(
+            self.map.query_pois.remote(  # type:ignore
+                center=center,
+                radius=radius,
+                return_distance=False,
+            )
+        )
         for poi in _pois:
             catg = poi["category"]
             categories.append(catg.split("|")[-1])
@@ -304,11 +303,7 @@ class Simulator:
             - `Union[int, str]`: The current simulation time either as an integer representing seconds since midnight or as a formatted string.
         """
         start_time = time.time()
-        log = {
-            "req": "get_time",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "get_time", "start_time": start_time, "consumption": 0}
         now = await self._client.clock_service.Now({})
         now = cast(dict[str, int], now)
         self.time = now["t"]
@@ -332,11 +327,7 @@ class Simulator:
         This method sends a request to the simulator's pause service to pause the simulation.
         """
         start_time = time.time()
-        log = {
-            "req": "pause",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "pause", "start_time": start_time, "consumption": 0}
         await self._client.pause_service.pause()
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
@@ -348,11 +339,7 @@ class Simulator:
         This method sends a request to the simulator's pause service to resume the simulation.
         """
         start_time = time.time()
-        log = {
-            "req": "resume",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "resume", "start_time": start_time, "consumption": 0}
         await self._client.pause_service.resume()
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
@@ -365,11 +352,7 @@ class Simulator:
             - `int`: The day number since the start of the simulation.
         """
         start_time = time.time()
-        log = {
-            "req": "get_simulator_day",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "get_simulator_day", "start_time": start_time, "consumption": 0}
         now = await self._client.clock_service.Now({})
         now = cast(dict[str, int], now)
         day = now["day"]
@@ -388,7 +371,7 @@ class Simulator:
         log = {
             "req": "get_simulator_second_from_start_of_day",
             "start_time": start_time,
-            "consumption": 0
+            "consumption": 0,
         }
         now = await self._client.clock_service.Now({})
         now = cast(dict[str, int], now)
@@ -407,11 +390,7 @@ class Simulator:
             - `Dict`: Information about the specified person.
         """
         start_time = time.time()
-        log = {
-            "req": "get_person",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "get_person", "start_time": start_time, "consumption": 0}
         person = await self._client.person_service.GetPerson(
             req={"person_id": person_id}
         )  # type:ignore
@@ -430,20 +409,16 @@ class Simulator:
             - `Dict`: Response from adding the person.
         """
         start_time = time.time()
-        log = {
-            "req": "add_person",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "add_person", "start_time": start_time, "consumption": 0}
         person = dict2pb(dict_person, person_pb2.Person())
         if isinstance(person, person_pb2.Person):
             req = person_service.AddPersonRequest(person=person)
         else:
             req = person
-        person_id = await self._client.person_service.AddPerson(req)  # type:ignore
+        resp: dict = await self._client.person_service.AddPerson(req)  # type:ignore
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
-        return person_id
+        return resp
 
     async def set_aoi_schedules(
         self,
@@ -467,11 +442,7 @@ class Simulator:
               Defaults to `TRIP_MODE_DRIVE_ONLY` if not specified.
         """
         start_time = time.time()
-        log = {
-            "req": "set_aoi_schedules",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "set_aoi_schedules", "start_time": start_time, "consumption": 0}
         cur_time = float(await self.get_time())
         if not isinstance(target_positions, list):
             target_positions = [target_positions]
@@ -546,7 +517,7 @@ class Simulator:
         log = {
             "req": "reset_person_position",
             "start_time": start_time,
-            "consumption": 0
+            "consumption": 0,
         }
         reset_position = {}
         if aoi_id is not None:
@@ -597,11 +568,7 @@ class Simulator:
             - `List[Dict]`: A list of dictionaries containing information about the POIs found.
         """
         start_time = time.time()
-        log = {
-            "req": "get_around_poi",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "get_around_poi", "start_time": start_time, "consumption": 0}
         if isinstance(poi_type, str):
             poi_type = [poi_type]
         transformed_poi_type: list[str] = []
@@ -612,11 +579,13 @@ class Simulator:
                 transformed_poi_type += self.poi_cate[t]
         poi_type_set = set(transformed_poi_type)
         # 获取半径内的poi
-        _pois: list[dict] = ray.get(self.map.query_pois.remote(  # type:ignore
-            center=center,
-            radius=radius,
-            return_distance=False,
-        ))
+        _pois: list[dict] = ray.get(
+            self.map.query_pois.remote(  # type:ignore
+                center=center,
+                radius=radius,
+                return_distance=False,
+            )
+        )
         # 过滤掉不满足类别前缀的poi
         pois = []
         for poi in _pois:
