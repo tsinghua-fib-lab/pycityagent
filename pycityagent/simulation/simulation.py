@@ -1019,24 +1019,9 @@ class AgentSimulation:
             - None
         """
         try:
-            # check whether insert agents
-            simulator_day = await self._simulator.get_simulator_day()
-            need_insert_agents = False
-            if simulator_day > self._simulator_day:
-                need_insert_agents = True
-                self._simulator_day = simulator_day
-            if need_insert_agents:
-                await self.resume_simulator()
-                insert_tasks = []
-                for group in self._groups.values():
-                    insert_tasks.append(group.insert_agent.remote())
-                await asyncio.gather(*insert_tasks)
-
             # step
             simulator_day = await self._simulator.get_simulator_day()
-            simulator_time = int(
-                await self._simulator.get_simulator_second_from_start_of_day()
-            )
+            simulator_time = int(await self._simulator.get_simulator_second_from_start_of_day())
             logger.info(
                 f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}"
             )
@@ -1113,12 +1098,20 @@ class AgentSimulation:
             monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
 
             try:
-                end_time = (
-                    await self._simulator.get_time() + day * 24 * 3600
-                )  # type:ignore
+                end_day = self._simulator_day + day
                 while True:
-                    current_time = await self._simulator.get_time()
-                    if current_time >= end_time:  # type:ignore
+                    current_day = await self._simulator.get_simulator_day()
+                    # check whether insert agents
+                    need_insert_agents = False
+                    if current_day > self._simulator_day:
+                        self._simulator_day = current_day
+                    # if need_insert_agents:
+                    #     insert_tasks = []
+                    #     for group in self._groups.values():
+                    #         insert_tasks.append(group.insert_agent.remote())
+                    #     await asyncio.gather(*insert_tasks)
+
+                    if current_day >= end_day:  # type:ignore
                         break
                     (
                         llm_log_list,

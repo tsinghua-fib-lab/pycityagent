@@ -114,7 +114,7 @@ class Simulator:
                     map_file=_map_pb_path,
                     max_day=config["simulator"].get("max_day", 1000),
                     start_step=config["simulator"].get("start_step", 28800),
-                    total_step=24*60*60,
+                    total_step=config["simulator"].get("total_step", 24*60*60*365),
                     log_dir=config["simulator"].get("log_dir", "./log"),
                     min_step_time=config["simulator"].get("min_step_time", 1000),
                     sim_addr=config["simulator"].get("server", None),
@@ -363,7 +363,7 @@ class Simulator:
         log = {"req": "get_simulator_day", "start_time": start_time, "consumption": 0}
         now = await self._client.clock_service.Now({})
         now = cast(dict[str, int], now)
-        day = now["day"]
+        day = int(now["t"]//(24*60*60))
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
         return day
@@ -385,7 +385,7 @@ class Simulator:
         now = cast(dict[str, int], now)
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
-        return now["t"] % 86400
+        return now["t"]%(24*60*60)
 
     async def get_person(self, person_id: int) -> dict:
         """

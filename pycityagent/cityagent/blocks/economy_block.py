@@ -112,6 +112,14 @@ class ConsumptionBlock(Block):
         for i in range(len(firms_id)):
             demand_each_firm.append(int(consumption_each_firm[i]//prices[i]))
         real_consumption = await self.economy_client.calculate_consumption(firms_id, agent_id, demand_each_firm)
+        if real_consumption == -1:
+            node_id = await self.memory.stream.add_economy(description=f"I failed to buy goods, cause I do not have enough money.")
+            return {
+                'success': False, 
+                'evaluation': f"I failed to buy goods, cause I do not have enough money.", 
+                'consumed_time': 0,
+                'node_id': node_id
+            }
         node_id = await self.memory.stream.add_economy(description=f"I bought some goods, and spent {real_consumption:.1f} on {intention}")
         evaluation = {
             'success': True, 

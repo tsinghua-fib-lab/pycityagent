@@ -504,7 +504,7 @@ class EconomyClient:
 
     async def calculate_taxes_due(
         self,
-        org_id: Union[int, list[int]],
+        org_id: int,
         agent_ids: list[int],
         incomes: list[float],
         enable_redistribution: bool,
@@ -523,7 +523,6 @@ class EconomyClient:
         """
         start_time = time.time()
         log = {"req": "calculate_taxes_due", "start_time": start_time, "consumption": 0}
-        # TODO: support multiple org
         request = org_service.CalculateTaxesDueRequest(
             government_id=org_id,
             agent_ids=agent_ids,
@@ -569,7 +568,11 @@ class EconomyClient:
         )
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
-        return response.actual_consumption
+        if response.success:
+            return response.actual_consumption
+        else:
+            return -1
+        
     
     async def calculate_real_gdp(self, nbs_id: int):
         start_time = time.time()
