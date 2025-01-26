@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 import time
+from collections.abc import Sequence
 from typing import Any, Literal, Union
 
 import grpc
@@ -27,11 +28,17 @@ def _snake_to_pascal(snake_str):
             _res = _res.replace(_word, _word.upper())
     return _res
 
+
 def camel_to_snake(d):
     if not isinstance(d, dict):
         return d
-    return {re.sub('([a-z0-9])([A-Z])', r'\1_\2', k).lower(): camel_to_snake(v) if isinstance(v, dict) else v 
-            for k, v in d.items()}
+    return {
+        re.sub("([a-z0-9])([A-Z])", r"\1_\2", k).lower(): (
+            camel_to_snake(v) if isinstance(v, dict) else v
+        )
+        for k, v in d.items()
+    }
+
 
 def _create_aio_channel(server_address: str, secure: bool = False) -> grpc.aio.Channel:
     """
@@ -104,7 +111,7 @@ class EconomyClient:
 
     def get_log_list(self):
         return self._log_list
-    
+
     def clear_log_list(self):
         self._log_list = []
 
@@ -120,7 +127,7 @@ class EconomyClient:
         return state
 
     def __setstate__(self, state):
-        """ 
+        """
         Restore instance attributes (i.e., filename and mode) from the
         unpickled state dictionary.
         """
@@ -134,7 +141,7 @@ class EconomyClient:
         Get the ids of agents and orgs
         """
         return self._agent_ids, self._org_ids
-    
+
     async def set_ids(self, agent_ids: set[int], org_ids: set[int]):
         """
         Set the ids of agents and orgs
@@ -142,7 +149,7 @@ class EconomyClient:
         self._agent_ids = agent_ids
         self._org_ids = org_ids
 
-    async def get_agent(self, id: int) -> economyv2.Agent:
+    async def get_agent(self, id: int) -> dict[str, Any]:
         """
         Get agent by id
 
@@ -153,22 +160,14 @@ class EconomyClient:
             - `economyv2.Agent`: The agent object.
         """
         start_time = time.time()
-        log = {
-            "req": "get_agent",
-            "start_time": start_time,
-            "consumption": 0
-        }
-        agent = await self._aio_stub.GetAgent(
-            org_service.GetAgentRequest(
-                agent_id=id
-            )
-        )
+        log = {"req": "get_agent", "start_time": start_time, "consumption": 0}
+        agent = await self._aio_stub.GetAgent(org_service.GetAgentRequest(agent_id=id))
         agent_dict = MessageToDict(agent)["agent"]
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
         return camel_to_snake(agent_dict)
 
-    async def get_org(self, id: int) -> economyv2.Org:
+    async def get_org(self, id: int) -> dict[str, Any]:
         """
         Get org by id
 
@@ -179,16 +178,8 @@ class EconomyClient:
             - `economyv2.Org`: The org object.
         """
         start_time = time.time()
-        log = {
-            "req": "get_org",
-            "start_time": start_time,
-            "consumption": 0
-        }
-        org = await self._aio_stub.GetOrg(
-            org_service.GetOrgRequest(
-                org_id=id
-            )
-        )
+        log = {"req": "get_org", "start_time": start_time, "consumption": 0}
+        org = await self._aio_stub.GetOrg(org_service.GetOrgRequest(org_id=id))
         org_dict = MessageToDict(org)["org"]
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
@@ -210,11 +201,7 @@ class EconomyClient:
             - Any
         """
         start_time = time.time()
-        log = {
-            "req": "get",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "get", "start_time": start_time, "consumption": 0}
         if id not in self._agent_ids and id not in self._org_ids:
             raise ValueError(f"Invalid id {id}, this id does not exist!")
         request_type = "Org" if id in self._org_ids else "Agent"
@@ -245,11 +232,7 @@ class EconomyClient:
             - Any
         """
         start_time = time.time()
-        log = {
-            "req": "update",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "update", "start_time": start_time, "consumption": 0}
         if id not in self._agent_ids and id not in self._org_ids:
             raise ValueError(f"Invalid id {id}, this id does not exist!")
         request_type = "Org" if id in self._org_ids else "Agent"
@@ -283,17 +266,13 @@ class EconomyClient:
             original_value[key] = value
         if request_type == "Org":
             await self._aio_stub.UpdateOrg(
-                org_service.UpdateOrgRequest(
-                    org=original_value
-                )
+                org_service.UpdateOrgRequest(org=original_value)
             )
             log["consumption"] = time.time() - start_time
             self._log_list.append(log)
         else:
             await self._aio_stub.UpdateAgent(
-                org_service.UpdateAgentRequest(
-                    agent=original_value
-                )
+                org_service.UpdateAgentRequest(agent=original_value)
             )
             log["consumption"] = time.time() - start_time
             self._log_list.append(log)
@@ -315,11 +294,7 @@ class EconomyClient:
             - All tasks are executed concurrently, and their results are gathered and returned.
         """
         start_time = time.time()
-        log = {
-            "req": "add_agents",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "add_agents", "start_time": start_time, "consumption": 0}
         if isinstance(configs, dict):
             configs = [configs]
         for config in configs:
@@ -362,11 +337,7 @@ class EconomyClient:
             - Executes all tasks concurrently and gathers their results.
         """
         start_time = time.time()
-        log = {
-            "req": "add_orgs",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "add_orgs", "start_time": start_time, "consumption": 0}
         if isinstance(configs, dict):
             configs = [configs]
         for config in configs:
@@ -425,11 +396,8 @@ class EconomyClient:
             - `Tuple[float, List[float]]`: A tuple containing the total taxes due and updated incomes after tax calculation.
         """
         start_time = time.time()
-        log = {
-            "req": "calculate_taxes_due",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "calculate_taxes_due", "start_time": start_time, "consumption": 0}
+        # TODO: support multiple org
         request = org_service.CalculateTaxesDueRequest(
             government_id=org_id,
             agent_ids=agent_ids,
@@ -461,8 +429,10 @@ class EconomyClient:
         log = {
             "req": "calculate_consumption",
             "start_time": start_time,
-            "consumption": 0
+            "consumption": 0,
         }
+        if not isinstance(org_ids, Sequence):
+            org_ids = [org_ids]
         request = org_service.CalculateConsumptionRequest(
             firm_ids=org_ids,
             agent_id=agent_id,
@@ -487,11 +457,7 @@ class EconomyClient:
             - `Tuple[float, List[float]]`: A tuple containing the total interest and updated currencies for each agent.
         """
         start_time = time.time()
-        log = {
-            "req": "calculate_interest",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "calculate_interest", "start_time": start_time, "consumption": 0}
         request = org_service.CalculateInterestRequest(
             bank_id=org_id,
             agent_ids=agent_ids,
@@ -511,11 +477,7 @@ class EconomyClient:
             - `org_ids` (`Union[int, List[int]]`): A single ID or a list of IDs for the agents to be removed.
         """
         start_time = time.time()
-        log = {
-            "req": "remove_agents",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "remove_agents", "start_time": start_time, "consumption": 0}
         if isinstance(agent_ids, int):
             agent_ids = [agent_ids]
         tasks = [
@@ -536,11 +498,7 @@ class EconomyClient:
             - `org_ids` (`Union[int, List[int]]`): A single ID or a list of IDs for the organizations to be removed.
         """
         start_time = time.time()
-        log = {
-            "req": "remove_orgs",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "remove_orgs", "start_time": start_time, "consumption": 0}
         if isinstance(org_ids, int):
             org_ids = [org_ids]
         tasks = [
@@ -562,11 +520,7 @@ class EconomyClient:
             - `Tuple[List[int], List[int]]`: A tuple containing lists of agent IDs and organization IDs that were saved.
         """
         start_time = time.time()
-        log = {
-            "req": "save",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "save", "start_time": start_time, "consumption": 0}
         request = org_service.SaveEconomyEntitiesRequest(
             file_path=file_path,
         )
@@ -589,11 +543,7 @@ class EconomyClient:
             - `Tuple[List[int], List[int]]`: A tuple containing lists of agent IDs and organization IDs that were loaded.
         """
         start_time = time.time()
-        log = {
-            "req": "load",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "load", "start_time": start_time, "consumption": 0}
         request = org_service.LoadEconomyEntitiesRequest(
             file_path=file_path,
         )
@@ -616,11 +566,7 @@ class EconomyClient:
             - `List[int]`: A list of organization IDs matching the specified type.
         """
         start_time = time.time()
-        log = {
-            "req": "get_org_entity_ids",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "get_org_entity_ids", "start_time": start_time, "consumption": 0}
         request = org_service.GetOrgEntityIdsRequest(
             type=org_type,
         )
@@ -648,22 +594,12 @@ class EconomyClient:
             - Any
         """
         start_time = time.time()
-        log = {
-            "req": "add_delta_value",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "add_delta_value", "start_time": start_time, "consumption": 0}
         pascal_key = _snake_to_pascal(key)
         _request_type = getattr(org_service, f"Add{pascal_key}Request")
         _request_func = getattr(self._aio_stub, f"Add{pascal_key}")
 
-        _available_keys = {
-            "inventory",
-            "price",
-            "interest_rate",
-            "currency",
-            "income"
-        }
+        _available_keys = {"inventory", "price", "interest_rate", "currency", "income"}
         if key not in _available_keys:
             raise ValueError(f"Invalid key `{key}`, can only be {_available_keys}!")
         response = await _request_func(
