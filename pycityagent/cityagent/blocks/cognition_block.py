@@ -36,7 +36,7 @@ class CognitionBlock(Block):
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__("CognitionBlock", llm=llm, memory=memory, simulator=simulator)
         self.top_k = 20
-
+        self.last_check_time = 0
     async def set_status(self, status):
         for key in status:
             await self.memory.status.update(key, status[key])
@@ -75,7 +75,7 @@ class CognitionBlock(Block):
             In the following 21 words, I have chosen {emotion_types} to represent your current status:
             Joy, Distress, Resentment, Pity, Hope, Fear, Satisfaction, Relief, Disappointment, Pride, Admiration, Shame, Reproach, Liking, Disliking, Gratitude, Anger, Gratification, Remorse, Love, Hate.
             """
-            incident_str = await self.memory.stream.search_today(top_k=self.top_k)
+            incident_str = await self.memory.stream.search(query=topic, top_k=self.top_k)
             if incident_str:
                 incident_prompt = "Today, these incidents happened:"
                 incident_prompt += incident_str
@@ -202,17 +202,22 @@ class CognitionBlock(Block):
 
         return thought
 
-    async def end_of_day(self):
-        """Cognition - end of day workflow"""
+    async def cross_day(self):
+        """Cognition - cross day workflow"""
         time = await self.simulator.get_simulator_second_from_start_of_day()
-        if time >= 86400 - 10 * 60:
+        if self.last_check_time == 0:
+            self.last_check_time = time
+            return False
+        if time < self.last_check_time:
+            self.last_check_time = time
             return True
+        self.last_check_time = time
         return False
 
     async def forward(self):
         """Cognition workflow: Daily update"""
         # cognition update: thought and attitude
-        if await self.end_of_day():
+        if await self.cross_day():
             await self.thought_update()
             await self.attitude_update()
 

@@ -114,7 +114,7 @@ class Simulator:
                     map_file=_map_pb_path,
                     max_day=config["simulator"].get("max_day", 1000),
                     start_step=config["simulator"].get("start_step", 28800),
-                    total_step=2147000000,
+                    total_step=24*60*60,
                     log_dir=config["simulator"].get("log_dir", "./log"),
                     min_step_time=config["simulator"].get("min_step_time", 1000),
                     sim_addr=config["simulator"].get("server", None),

@@ -149,131 +149,243 @@ class EconomyClient:
         self._agent_ids = agent_ids
         self._org_ids = org_ids
 
-    async def get_agent(self, id: int) -> dict[str, Any]:
+    async def get_agent(self, id: Union[list[int], int]) -> economyv2.Agent:
         """
         Get agent by id
 
         - **Args**:
-            - `id` (`int`): The id of the agent.
+            - `id` (`Union[list[int], int]`): The id of the agent.
 
         - **Returns**:
             - `economyv2.Agent`: The agent object.
         """
         start_time = time.time()
-        log = {"req": "get_agent", "start_time": start_time, "consumption": 0}
-        agent = await self._aio_stub.GetAgent(org_service.GetAgentRequest(agent_id=id))
-        agent_dict = MessageToDict(agent)["agent"]
-        log["consumption"] = time.time() - start_time
-        self._log_list.append(log)
-        return camel_to_snake(agent_dict)
+        log = {
+            "req": "get_agent",
+            "start_time": start_time,
+            "consumption": 0
+        }
+        if isinstance(id, list):
+            agents = await self._aio_stub.BatchGet(
+                org_service.BatchGetRequest(
+                    ids=id,
+                    type="agent"
+                )
+            )
+            agents = MessageToDict(agents)["agents"]
+            agent_dicts = [camel_to_snake(agent) for agent in agents]
+            log["consumption"] = time.time() - start_time
+            self._log_list.append(log)
+            return agent_dicts
+        else:
+            agent = await self._aio_stub.GetAgent(
+                org_service.GetAgentRequest(
+                    agent_id=id
+                )
+            )
+            agent_dict = MessageToDict(agent)["agent"]
+            log["consumption"] = time.time() - start_time
+            self._log_list.append(log)
+            return camel_to_snake(agent_dict)
 
-    async def get_org(self, id: int) -> dict[str, Any]:
+    async def get_org(self, id: Union[list[int], int]) -> economyv2.Org:
         """
         Get org by id
 
         - **Args**:
-            - `id` (`int`): The id of the org.
+            - `id` (`Union[list[int], int]`): The id of the org.
 
         - **Returns**:
             - `economyv2.Org`: The org object.
         """
         start_time = time.time()
-        log = {"req": "get_org", "start_time": start_time, "consumption": 0}
-        org = await self._aio_stub.GetOrg(org_service.GetOrgRequest(org_id=id))
-        org_dict = MessageToDict(org)["org"]
-        log["consumption"] = time.time() - start_time
-        self._log_list.append(log)
-        return camel_to_snake(org_dict)
+        log = {
+            "req": "get_org",
+            "start_time": start_time,
+            "consumption": 0
+        }
+        if isinstance(id, list):
+            orgs = await self._aio_stub.BatchGet(
+                org_service.BatchGetRequest(
+                    ids=id,
+                    type="org"
+                )
+            )
+            orgs = MessageToDict(orgs)["orgs"]
+            org_dicts = [camel_to_snake(org) for org in orgs]
+            log["consumption"] = time.time() - start_time
+            self._log_list.append(log)
+            return org_dicts
+        else:
+            org = await self._aio_stub.GetOrg(
+                org_service.GetOrgRequest(
+                    org_id=id
+                )
+            )
+            org_dict = MessageToDict(org)["org"]
+            log["consumption"] = time.time() - start_time
+            self._log_list.append(log)
+            return camel_to_snake(org_dict)
 
     async def get(
         self,
-        id: int,
+        id: Union[list[int], int],
         key: str,
     ) -> Any:
         """
         Get specific value
 
         - **Args**:
-            - `id` (`int`): The id of `Org` or `Agent`.
+            - `id` (`Union[list[int], int]`): The id of `Org` or `Agent`.
             - `key` (`str`): The attribute to fetch.
 
         - **Returns**:
             - Any
         """
         start_time = time.time()
-        log = {"req": "get", "start_time": start_time, "consumption": 0}
-        if id not in self._agent_ids and id not in self._org_ids:
-            raise ValueError(f"Invalid id {id}, this id does not exist!")
-        request_type = "Org" if id in self._org_ids else "Agent"
-        if request_type == "Org":
-            response = await self.get_org(id)
+        log = {
+            "req": "get",
+            "start_time": start_time,
+            "consumption": 0
+        }
+        if isinstance(id, list):
+            requests = "Org" if id[0] in self._org_ids else "Agent"
+            if requests == "Org":
+                response = await self.get_org(id)
+            else:
+                response = await self.get_agent(id)
+            results = []
+            for res in response:
+                results.append(res[key])
+            log["consumption"] = time.time() - start_time
+            self._log_list.append(log)
+            return results
         else:
-            response = await self.get_agent(id)
-        log["consumption"] = time.time() - start_time
-        self._log_list.append(log)
-        return response[key]
+            if id not in self._agent_ids and id not in self._org_ids:
+                raise ValueError(f"Invalid id {id}, this id does not exist!")
+            request_type = "Org" if id in self._org_ids else "Agent"
+            if request_type == "Org":
+                response = await self.get_org(id)
+            else:
+                response = await self.get_agent(id)
+            log["consumption"] = time.time() - start_time
+            self._log_list.append(log)
+            return response[key]
+        
+    def _merge(self, original_value, key, value):
+        try:
+            orig_value = original_value[key]
+            _orig_type = type(orig_value)
+            _new_type = type(value)
+        except:
+            type_ = type(value)
+            _orig_type = type_
+            _new_type = type_
+            orig_value = type_()
+        if _orig_type != _new_type:
+            logger.debug(
+                f"Inconsistent type of original value {_orig_type.__name__} and to-update value {_new_type.__name__}"
+            )
+        else:
+            if isinstance(orig_value, set):
+                orig_value.update(set(value))
+                original_value[key] = orig_value
+            elif isinstance(orig_value, dict):
+                orig_value.update(dict(value))
+                original_value[key] = orig_value
+            elif isinstance(orig_value, list):
+                orig_value.extend(list(value))
+                original_value[key] = orig_value
+            else:
+                logger.warning(
+                    f"Type of {type(orig_value)} does not support mode `merge`, using `replace` instead!"
+                )
 
     async def update(
         self,
-        id: int,
+        id: Union[list[int], int],
         key: str,
-        value: Any,
+        value: Union[Any, list[Any]],
         mode: Union[Literal["replace"], Literal["merge"]] = "replace",
     ) -> Any:
         """
         Update key-value pair
 
         - **Args**:
-            - `id` (`int`): The id of `Org` or `Agent`.
+            - `id` (`Union[list[int], int]`): The id of `Org` or `Agent`.
             - `key` (`str`): The attribute to update.
+            - `value` (`Union[Any, list[Any]]`): The value to update.
             - `mode` (Union[Literal["replace"], Literal["merge"]], optional): Update mode. Defaults to "replace".
 
         - **Returns**:
             - Any
         """
         start_time = time.time()
-        log = {"req": "update", "start_time": start_time, "consumption": 0}
-        if id not in self._agent_ids and id not in self._org_ids:
-            raise ValueError(f"Invalid id {id}, this id does not exist!")
-        request_type = "Org" if id in self._org_ids else "Agent"
+        log = {
+            "req": "update",
+            "start_time": start_time,
+            "consumption": 0
+        }
+        if isinstance(id, list):
+            if not isinstance(value, list):
+                raise ValueError(f"Invalid value, the value must be a list!")
+            if len(id) != len(value):
+                raise ValueError(f"Invalid ids and values, the length of ids and values must be the same!")
+            request_type = "Org" if id[0] in self._org_ids else "Agent"
+        else:
+            if id not in self._agent_ids and id not in self._org_ids:
+                raise ValueError(f"Invalid id {id}, this id does not exist!")
+            request_type = "Org" if id in self._org_ids else "Agent"
         if request_type == "Org":
             original_value = await self.get_org(id)
         else:
             original_value = await self.get_agent(id)
         if mode == "merge":
-            orig_value = original_value[key]
-            _orig_type = type(orig_value)
-            _new_type = type(value)
-            if _orig_type != _new_type:
-                logger.debug(
-                    f"Inconsistent type of original value {_orig_type.__name__} and to-update value {_new_type.__name__}"
+            if isinstance(original_value, list):
+                for i in range(len(original_value)):
+                    self._merge(original_value[i], key, value[i])
+            else:
+                self._merge(original_value, key, value)
+        else:
+            if isinstance(original_value, list):
+                for i in range(len(original_value)):
+                    original_value[i][key] = value[i]
+            else:
+                original_value[key] = value
+        if request_type == "Org":
+            if isinstance(original_value, list):
+                await self._aio_stub.BatchUpdate(
+                    org_service.BatchUpdateRequest(
+                        orgs=original_value
+                    )
                 )
             else:
-                if isinstance(orig_value, set):
-                    orig_value.update(set(value))
-                    original_value[key] = orig_value
-                elif isinstance(orig_value, dict):
-                    orig_value.update(dict(value))
-                    original_value[key] = orig_value
-                elif isinstance(orig_value, list):
-                    orig_value.extend(list(value))
-                    original_value[key] = orig_value
-                else:
-                    logger.warning(
-                        f"Type of {type(orig_value)} does not support mode `merge`, using `replace` instead!"
+                try:
+                    await self._aio_stub.UpdateOrg(
+                        org_service.UpdateOrgRequest(
+                            org=original_value
+                        )
                     )
-        else:
-            original_value[key] = value
-        if request_type == "Org":
-            await self._aio_stub.UpdateOrg(
-                org_service.UpdateOrgRequest(org=original_value)
-            )
+                except Exception as e:
+                    print(e)
+                    print(original_value)
+                    await asyncio.sleep(100)
+                    raise e
             log["consumption"] = time.time() - start_time
             self._log_list.append(log)
         else:
-            await self._aio_stub.UpdateAgent(
-                org_service.UpdateAgentRequest(agent=original_value)
-            )
+            if isinstance(original_value, list):
+                await self._aio_stub.BatchUpdate(
+                    org_service.BatchUpdateRequest(
+                        agents=original_value
+                    )
+                )
+            else:
+                await self._aio_stub.UpdateAgent(
+                    org_service.UpdateAgentRequest(
+                        agent=original_value
+                    )
+                )
             log["consumption"] = time.time() - start_time
             self._log_list.append(log)
 
@@ -367,6 +479,8 @@ class EconomyClient:
                         working_hours=config.get("working_hours", []),
                         employees=config.get("employees", []),
                         citizens=config.get("citizens", []),
+                        demand=config.get("demand", 0),
+                        sales=config.get("sales", 0),
                     )
                 )
             )
@@ -444,6 +558,23 @@ class EconomyClient:
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
         return response.actual_consumption
+    
+    async def calculate_real_gdp(self, nbs_id: int):
+        start_time = time.time()
+        log = {
+            "req": "calculate_real_gdp",
+            "start_time": start_time,
+            "consumption": 0
+        }
+        request = org_service.CalculateRealGDPRequest(
+            nbs_agent_id=nbs_id
+        )
+        response: org_service.CalculateRealGDPResponse = (
+            await self._aio_stub.CalculateRealGDP(request)
+        )
+        log["consumption"] = time.time() - start_time
+        self._log_list.append(log)
+        return response.real_gdp
 
     async def calculate_interest(self, org_id: int, agent_ids: list[int]):
         """

@@ -235,6 +235,8 @@ def memory_config_firm():
         "real_gdp": (list, []),
         "unemployment": (list, []),
         "wages": (list, []),
+        "demand": (int, 0),
+        "sales": (int, 0),
         "prices": (list, [float(np.mean(agent_skills))]),
         "working_hours": (list, []),
         "depression": (list, []),

@@ -81,18 +81,22 @@ class BankAgent(InstitutionAgent):
 
     async def forward(self):
         if await self.month_trigger():
+            print("bank forward")
             interest_rate = await self.economy_client.get(self._agent_id, 'interest_rate')
             citizens = await self.economy_client.get(self._agent_id, 'citizens')
+            print("bank forward 1")
+            print(citizens)
             for citizen in citizens:
-                wealth = self.economy_client.get(citizen, 'currency')
-                await self.economy_client.add_delta_value(citizen, 'currency', interest_rate*wealth)
-                
+                wealth = await self.economy_client.get(citizen, 'currency')
+                # await self.economy_client.add_delta_value(citizen, 'currency', interest_rate*wealth)
+            print("bank forward 2")
             nbs_id = await self.economy_client.get_org_entity_ids(economyv2.ORG_TYPE_NBS)
             nbs_id = nbs_id[0]
             prices = await self.economy_client.get(nbs_id, 'prices')
             inflations = calculate_inflation(prices)
             natural_interest_rate = 0.01
             target_inflation = 0.02
+            print("bank forward 2")
             if len(inflations) > 0:
                 # natural_unemployment_rate = 0.04
                 inflation_coeff, unemployment_coeff = 0.5, 0.5
@@ -101,4 +105,6 @@ class BankAgent(InstitutionAgent):
                 interest_rate = natural_interest_rate + target_inflation + inflation_coeff * (avg_inflation - target_inflation)
             else:
                 interest_rate = natural_interest_rate + target_inflation
+            print("bank forward 3")
             await self.economy_client.update(self._agent_id, 'interest_rate', interest_rate)
+            print("bank forward end")

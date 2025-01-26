@@ -285,6 +285,12 @@ class LLM:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
+                    except Exception as e:
+                        print("An error occurred:", e)
+                        if attempt < retries - 1:
+                            await asyncio.sleep(2**attempt)
+                        else:
+                            raise e
             elif self.config.text["request_type"] == "zhipuai":
                 for attempt in range(retries):
                     try:
@@ -331,6 +337,12 @@ class LLM:
                             return result_response.choices[0].message.content  # type: ignore
                     except APIConnectionError as e:
                         print("API connection error:", e)
+                        if attempt < retries - 1:
+                            await asyncio.sleep(2**attempt)
+                        else:
+                            raise e
+                    except Exception as e:
+                        print("An error occurred:", e)
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:

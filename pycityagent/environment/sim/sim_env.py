@@ -24,11 +24,8 @@ input:
 control:
   day: {max_day}
   step:
-    # 模拟器起始步
     start: {start_step}
-    # 模拟总步数，结束步为起始步+总步数
     total: {total_step}
-    # 每步的时间间隔
     interval: 1
   skip_overtime_trip_when_init: true
   enable_platoon: false

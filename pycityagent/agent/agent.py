@@ -331,6 +331,8 @@ class InstitutionAgent(Agent):
                 working_hours = await _status.get("working_hours", [])
                 employees = await _status.get("employees", [])
                 citizens = await _status.get("citizens", [])
+                demand = await _status.get("demand", 0)
+                sales = await _status.get("sales", 0)
                 await self._economy_client.add_orgs(
                     {
                         "id": _id,
@@ -354,6 +356,8 @@ class InstitutionAgent(Agent):
                         "working_hours": working_hours,
                         "employees": employees,
                         "citizens": citizens,
+                        "demand": demand,
+                        "sales": sales,
                     }
                 )
             except Exception as e:

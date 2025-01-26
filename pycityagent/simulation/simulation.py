@@ -1029,7 +1029,7 @@ class AgentSimulation:
                 await self.resume_simulator()
                 insert_tasks = []
                 for group in self._groups.values():
-                    insert_tasks.append(group.insert_agents.remote())
+                    insert_tasks.append(group.insert_agent.remote())
                 await asyncio.gather(*insert_tasks)
 
             # step
