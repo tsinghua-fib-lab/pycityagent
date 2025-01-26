@@ -163,6 +163,22 @@ class EconomyBlock(Block):
     
 class MonthPlanBlock(Block):
     """Monthly Planning"""
+    configurable_fields = [
+        "UBI",
+        "num_labor_hours",
+        "productivity_per_labor",
+    ]
+    default_values = {
+        "UBI": 0,
+        "num_labor_hours": 168,
+        "productivity_per_labor": 1,
+    }
+    fields_description = {
+        "UBI": "Universal Basic Income",
+        "num_labor_hours": "Number of labor hours per month",
+        "productivity_per_labor": "Productivity per labor hour",
+    }
+
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator, economy_client: EconomyClient):
         super().__init__("MonthPlanBlock", llm=llm, memory=memory, simulator=simulator)
         self.economy_client = economy_client
@@ -170,6 +186,12 @@ class MonthPlanBlock(Block):
         self.last_time_trigger = None
         self.time_diff = 30 * 24 * 60 * 60
         self.forward_times = 0
+
+        # configurable fields
+        self.UBI = 0
+        self.num_labor_hours = 168
+        self.productivity_per_labor = 1
+
         
     async def month_trigger(self):
         now_time = await self.simulator.get_time()
@@ -216,8 +238,8 @@ class MonthPlanBlock(Block):
                             Besides, your consumption was ${consumption:.2f}.
                         '''
             tax_prompt = f'''Your tax deduction amounted to ${tax_paid:.2f}, and the government uses the tax revenue to provide social services to all citizens.'''
-            if UBI and self.forward_times >= 96:
-                tax_prompt = f'{tax_prompt} Specifically, the government directly provides ${UBI} per capita in each month.'
+            if self.UBI and self.forward_times >= 96:
+                tax_prompt = f'{tax_prompt} Specifically, the government directly provides ${self.UBI} per capita in each month.'
             price_prompt = f'''Meanwhile, in the consumption market, the average price of essential goods is now at ${price:.2f}.'''
             job_prompt = prettify_document(job_prompt)
             obs_prompt = f'''
@@ -250,18 +272,18 @@ class MonthPlanBlock(Block):
             work_skill = await self.economy_client.get(agent_id, 'skill')
             work_propensity = await self.memory.status.get('work_propensity')
             consumption_propensity = await self.memory.status.get('consumption_propensity')
-            work_hours = work_propensity * num_labor_hours
+            work_hours = work_propensity * self.num_labor_hours
             income = await self.economy_client.get(agent_id, 'income')
             income += work_hours * work_skill
             
             wealth = await self.economy_client.get(agent_id, 'currency')
             wealth += work_hours * work_skill
             await self.economy_client.update(agent_id, 'currency', wealth)
-            await self.economy_client.add_delta_value(firm_id, 'inventory', int(work_hours*productivity_per_labor))
+            await self.economy_client.add_delta_value(firm_id, 'inventory', int(work_hours*self.productivity_per_labor))
             
-            if UBI and self.forward_times >= 96:
-                income += UBI
-                wealth += UBI
+            if self.UBI and self.forward_times >= 96:
+                income += self.UBI
+                wealth += self.UBI
 
             await self.memory.status.update('to_consumption_currency', consumption_propensity*wealth)
             
@@ -318,7 +340,7 @@ class MonthPlanBlock(Block):
                 except:
                     self.llm_error += 1
 
-            if UBI and self.forward_times >= 96 and self.forward_times % 12:
+            if self.UBI and self.forward_times >= 96 and self.forward_times % 12:
                 obs_prompt = f'''
                                 {problem_prompt} {job_prompt} {consumption_prompt} {tax_prompt} {price_prompt}
                                 Your current savings account balance is ${wealth:.2f}. Interest rates, as set by your bank, stand at {interest_rate*100:.2f}%. 

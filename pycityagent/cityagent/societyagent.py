@@ -22,7 +22,7 @@ logger = logging.getLogger("pycityagent")
 class PlanAndActionBlock(Block):
     """Active workflow based on needs model and plan behavior model"""
 
-    longTermDecisionBlock: MonthPlanBlock
+    monthPlanBlock: MonthPlanBlock
     needsBlock: NeedsBlock
     planBlock: PlanBlock
     mobilityBlock: MobilityBlock
@@ -50,7 +50,7 @@ class PlanAndActionBlock(Block):
         self.enable_social = enable_social
         self.enable_economy = enable_economy
         self.enable_cognition = enable_cognition
-        self.longTermDecisionBlock = MonthPlanBlock(
+        self.monthPlanBlock = MonthPlanBlock(
             llm=llm, memory=memory, simulator=simulator, economy_client=economy_client
         )
         self.needsBlock = NeedsBlock(llm=llm, memory=memory, simulator=simulator)
@@ -141,7 +141,7 @@ class PlanAndActionBlock(Block):
 
     async def forward(self):
         # Long-term decision
-        await self.longTermDecisionBlock.forward()
+        await self.monthPlanBlock.forward()
 
         # update needs
         await self.needsBlock.forward()

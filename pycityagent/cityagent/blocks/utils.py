@@ -23,19 +23,6 @@ Please return the result in JSON format (Do not return any other text):
 }}
 """
 
-num_labor_hours = 168
-productivity_per_labor = 1
-max_price_inflation = 0.1
-max_wage_inflation = 0.05
-natural_interest_rate = 0.01
-target_inflation = 0.02
-natural_unemployment_rate = 0.04
-inflation_coeff, unemployment_coeff = 0.5, 0.5
-tao = 1
-period = 3
-UBI = 0
-
-
 def prettify_document(document: str) -> str:
     # Remove sequences of whitespace characters (including newlines)
     cleaned = re.sub(r"\s+", " ", document).strip()
