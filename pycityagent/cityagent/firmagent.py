@@ -71,14 +71,11 @@ class FirmAgent(InstitutionAgent):
             total_demand = await self.economy_client.get(self._agent_id, "demand")
             goods_consumption = await self.economy_client.get(self._agent_id, "sales")
             last_inventory = goods_consumption + await self.economy_client.get(self._agent_id, "inventory")
-            print("firm forward 1")
             max_change_rate = (total_demand - last_inventory) / (max(total_demand, last_inventory) + 1e-8)
             skills = await self.economy_client.get(employees, "skill")
             skills = np.array(skills)
             skill_change_ratio = np.random.uniform(0, max_change_rate*self.max_wage_inflation)
-            print("firm forward 2")
             await self.economy_client.update(employees, "skill", list(np.maximum(skills*(1 + skill_change_ratio), 1)))
-            print("firm forward 3")
             price = await self.economy_client.get(self._agent_id, "price")
             await self.economy_client.update(
                 self._agent_id,
@@ -94,7 +91,6 @@ class FirmAgent(InstitutionAgent):
                     1,
                 ),
             )
-            print("firm forward 4")
             await self.economy_client.update(self._agent_id, 'demand', 0)
             await self.economy_client.update(self._agent_id, 'sales', 0)
             print("firm forward end")

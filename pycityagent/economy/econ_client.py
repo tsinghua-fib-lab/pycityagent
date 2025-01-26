@@ -354,29 +354,41 @@ class EconomyClient:
                 original_value[key] = value
         if request_type == "Org":
             if isinstance(original_value, list):
+                # batch_update_tasks = []
+                # for org in original_value:
+                #     batch_update_tasks.append(self._aio_stub.UpdateOrg(
+                #         org_service.UpdateOrgRequest(
+                #             org=org
+                #         )
+                #     ))
+                # await asyncio.gather(*batch_update_tasks)
                 await self._aio_stub.BatchUpdate(
                     org_service.BatchUpdateRequest(
-                        orgs=original_value
+                        orgs=original_value,
+                        agents=None
                     )
                 )
             else:
-                try:
-                    await self._aio_stub.UpdateOrg(
-                        org_service.UpdateOrgRequest(
-                            org=original_value
-                        )
+                await self._aio_stub.UpdateOrg(
+                    org_service.UpdateOrgRequest(
+                        org=original_value
                     )
-                except Exception as e:
-                    print(e)
-                    print(original_value)
-                    await asyncio.sleep(100)
-                    raise e
+                )
             log["consumption"] = time.time() - start_time
             self._log_list.append(log)
         else:
             if isinstance(original_value, list):
+                # batch_update_tasks = []
+                # for agent in original_value:
+                #     batch_update_tasks.append(self._aio_stub.UpdateAgent(
+                #         org_service.UpdateAgentRequest(
+                #             agent=agent
+                #         )
+                #     ))
+                # await asyncio.gather(*batch_update_tasks)
                 await self._aio_stub.BatchUpdate(
                     org_service.BatchUpdateRequest(
+                        orgs=None,
                         agents=original_value
                     )
                 )

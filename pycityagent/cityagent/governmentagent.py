@@ -60,7 +60,6 @@ class GovernmentAgent(InstitutionAgent):
 
     async def forward(self):
         if await self.month_trigger():
-            print("government forward")
             citizens = await self.memory.status.get("citizens")
             agents_forward = await self.gather_messages(citizens, "forward")
             if not np.all(np.array(agents_forward) > self.forward_times):
@@ -80,4 +79,3 @@ class GovernmentAgent(InstitutionAgent):
                 await self.send_message_to_agent(
                     uuid, f"government_forward@{self.forward_times}", "economy"
                 )
-            print("government forward end")
