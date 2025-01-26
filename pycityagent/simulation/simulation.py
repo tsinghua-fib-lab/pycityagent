@@ -1021,7 +1021,9 @@ class AgentSimulation:
         try:
             # step
             simulator_day = await self._simulator.get_simulator_day()
-            simulator_time = int(await self._simulator.get_simulator_second_from_start_of_day())
+            simulator_time = int(
+                await self._simulator.get_simulator_second_from_start_of_day()
+            )
             logger.info(
                 f"Start simulation day {simulator_day} at {simulator_time}, step {self._total_steps}"
             )

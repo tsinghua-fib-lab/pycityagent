@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from collections.abc import Sequence
-from typing import Any, Literal, Union
+from typing import Any, Literal, Union, cast
 
 import grpc
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
@@ -149,7 +149,9 @@ class EconomyClient:
         self._agent_ids = agent_ids
         self._org_ids = org_ids
 
-    async def get_agent(self, id: Union[list[int], int]) -> economyv2.Agent:
+    async def get_agent(
+        self, id: Union[list[int], int]
+    ) -> Union[dict[str, Any], list[dict[str, Any]]]:
         """
         Get agent by id
 
@@ -160,17 +162,10 @@ class EconomyClient:
             - `economyv2.Agent`: The agent object.
         """
         start_time = time.time()
-        log = {
-            "req": "get_agent",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "get_agent", "start_time": start_time, "consumption": 0}
         if isinstance(id, list):
             agents = await self._aio_stub.BatchGet(
-                org_service.BatchGetRequest(
-                    ids=id,
-                    type="agent"
-                )
+                org_service.BatchGetRequest(ids=id, type="agent")
             )
             agents = MessageToDict(agents)["agents"]
             agent_dicts = [camel_to_snake(agent) for agent in agents]
@@ -179,16 +174,16 @@ class EconomyClient:
             return agent_dicts
         else:
             agent = await self._aio_stub.GetAgent(
-                org_service.GetAgentRequest(
-                    agent_id=id
-                )
+                org_service.GetAgentRequest(agent_id=id)
             )
             agent_dict = MessageToDict(agent)["agent"]
             log["consumption"] = time.time() - start_time
             self._log_list.append(log)
             return camel_to_snake(agent_dict)
 
-    async def get_org(self, id: Union[list[int], int]) -> economyv2.Org:
+    async def get_org(
+        self, id: Union[list[int], int]
+    ) -> Union[dict[str, Any], list[dict[str, Any]]]:
         """
         Get org by id
 
@@ -199,17 +194,10 @@ class EconomyClient:
             - `economyv2.Org`: The org object.
         """
         start_time = time.time()
-        log = {
-            "req": "get_org",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "get_org", "start_time": start_time, "consumption": 0}
         if isinstance(id, list):
             orgs = await self._aio_stub.BatchGet(
-                org_service.BatchGetRequest(
-                    ids=id,
-                    type="org"
-                )
+                org_service.BatchGetRequest(ids=id, type="org")
             )
             orgs = MessageToDict(orgs)["orgs"]
             org_dicts = [camel_to_snake(org) for org in orgs]
@@ -217,11 +205,7 @@ class EconomyClient:
             self._log_list.append(log)
             return org_dicts
         else:
-            org = await self._aio_stub.GetOrg(
-                org_service.GetOrgRequest(
-                    org_id=id
-                )
-            )
+            org = await self._aio_stub.GetOrg(org_service.GetOrgRequest(org_id=id))
             org_dict = MessageToDict(org)["org"]
             log["consumption"] = time.time() - start_time
             self._log_list.append(log)
@@ -243,18 +227,15 @@ class EconomyClient:
             - Any
         """
         start_time = time.time()
-        log = {
-            "req": "get",
-            "start_time": start_time,
-            "consumption": 0
-        }
-        if isinstance(id, list):
+        log = {"req": "get", "start_time": start_time, "consumption": 0}
+        if isinstance(id, Sequence):
             requests = "Org" if id[0] in self._org_ids else "Agent"
             if requests == "Org":
                 response = await self.get_org(id)
             else:
                 response = await self.get_agent(id)
             results = []
+            response = cast(list[dict[str, Any]], response)
             for res in response:
                 results.append(res[key])
             log["consumption"] = time.time() - start_time
@@ -268,10 +249,11 @@ class EconomyClient:
                 response = await self.get_org(id)
             else:
                 response = await self.get_agent(id)
+            response = cast(dict[str, Any], response)
             log["consumption"] = time.time() - start_time
             self._log_list.append(log)
             return response[key]
-        
+
     def _merge(self, original_value, key, value):
         try:
             orig_value = original_value[key]
@@ -321,16 +303,14 @@ class EconomyClient:
             - Any
         """
         start_time = time.time()
-        log = {
-            "req": "update",
-            "start_time": start_time,
-            "consumption": 0
-        }
+        log = {"req": "update", "start_time": start_time, "consumption": 0}
         if isinstance(id, list):
             if not isinstance(value, list):
                 raise ValueError(f"Invalid value, the value must be a list!")
             if len(id) != len(value):
-                raise ValueError(f"Invalid ids and values, the length of ids and values must be the same!")
+                raise ValueError(
+                    f"Invalid ids and values, the length of ids and values must be the same!"
+                )
             request_type = "Org" if id[0] in self._org_ids else "Agent"
         else:
             if id not in self._agent_ids and id not in self._org_ids:
@@ -363,16 +343,11 @@ class EconomyClient:
                 #     ))
                 # await asyncio.gather(*batch_update_tasks)
                 await self._aio_stub.BatchUpdate(
-                    org_service.BatchUpdateRequest(
-                        orgs=original_value,
-                        agents=None
-                    )
+                    org_service.BatchUpdateRequest(orgs=original_value, agents=None)
                 )
             else:
                 await self._aio_stub.UpdateOrg(
-                    org_service.UpdateOrgRequest(
-                        org=original_value
-                    )
+                    org_service.UpdateOrgRequest(org=original_value)
                 )
             log["consumption"] = time.time() - start_time
             self._log_list.append(log)
@@ -387,16 +362,11 @@ class EconomyClient:
                 #     ))
                 # await asyncio.gather(*batch_update_tasks)
                 await self._aio_stub.BatchUpdate(
-                    org_service.BatchUpdateRequest(
-                        orgs=None,
-                        agents=original_value
-                    )
+                    org_service.BatchUpdateRequest(orgs=None, agents=original_value)
                 )
             else:
                 await self._aio_stub.UpdateAgent(
-                    org_service.UpdateAgentRequest(
-                        agent=original_value
-                    )
+                    org_service.UpdateAgentRequest(agent=original_value)
                 )
             log["consumption"] = time.time() - start_time
             self._log_list.append(log)
@@ -572,18 +542,11 @@ class EconomyClient:
             return response.actual_consumption
         else:
             return -1
-        
-    
+
     async def calculate_real_gdp(self, nbs_id: int):
         start_time = time.time()
-        log = {
-            "req": "calculate_real_gdp",
-            "start_time": start_time,
-            "consumption": 0
-        }
-        request = org_service.CalculateRealGDPRequest(
-            nbs_agent_id=nbs_id
-        )
+        log = {"req": "calculate_real_gdp", "start_time": start_time, "consumption": 0}
+        request = org_service.CalculateRealGDPRequest(nbs_agent_id=nbs_id)
         response: org_service.CalculateRealGDPResponse = (
             await self._aio_stub.CalculateRealGDP(request)
         )

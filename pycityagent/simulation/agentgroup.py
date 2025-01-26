@@ -22,13 +22,8 @@ from ..llm.llmconfig import LLMConfig
 from ..memory import FaissQuery, Memory
 from ..message import Messager
 from ..metrics import MlflowClient
-from ..utils import (
-    DIALOG_SCHEMA,
-    INSTITUTION_STATUS_SCHEMA,
-    PROFILE_SCHEMA,
-    STATUS_SCHEMA,
-    SURVEY_SCHEMA,
-)
+from ..utils import (DIALOG_SCHEMA, INSTITUTION_STATUS_SCHEMA, PROFILE_SCHEMA,
+                     STATUS_SCHEMA, SURVEY_SCHEMA)
 
 logger = logging.getLogger("pycityagent")
 __all__ = ["AgentGroup"]
