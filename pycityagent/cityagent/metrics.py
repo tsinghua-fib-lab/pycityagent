@@ -1,5 +1,5 @@
 import pycityproto.city.economy.v2.economy_pb2 as economyv2
-from pycityagent.cityagent import SocietyAgent
+from pycityagent.cityagent import SocietyAgent, NBSAgent
 
 async def mobility_metric(simulation):
     # 使用函数属性来存储计数
@@ -22,20 +22,31 @@ async def mobility_metric(simulation):
 async def economy_metric(simulation):
     # 使用函数属性来存储计数
     if not hasattr(economy_metric, 'step_count'):
-        economy_metric.step_count = 0
+        economy_metric.nbs_id = None
+        economy_metric.nbs_uuid = None
+
+    if economy_metric.nbs_id is None:
+        nbs_id = await simulation.economy_client.get_org_entity_ids(economyv2.ORG_TYPE_NBS)
+        nbs_id = nbs_id[0]
+        economy_metric.nbs_id = nbs_id
+        nbs_uuids = await simulation.filter(types=[NBSAgent])
+        economy_metric.nbs_uuid = nbs_uuids[0]
     
-    nbs_id = await simulation.economy_client.get_org_entity_ids(economyv2.ORG_TYPE_NBS)
-    nbs_id = nbs_id[0]
     try:
         real_gdp = await simulation.economy_client.get(nbs_id, 'real_gdp')
     except:
         real_gdp = []
     if len(real_gdp) > 0:
         real_gdp = real_gdp[0]
-        await simulation.mlflow_client.log_metric(key="real_gdp", value=real_gdp, step=economy_metric.step_count)
+        forward_times_info = await simulation.gather("forward_times", [economy_metric.nbs_uuid])
+        step_count = 0
+        for group_gather in forward_times_info:
+            for agent_uuid, forward_times in group_gather.items():
+                if agent_uuid == economy_metric.nbs_uuid:
+                    step_count = forward_times
+        await simulation.mlflow_client.log_metric(key="real_gdp", value=real_gdp, step=step_count)
         other_metrics = ['prices', 'working_hours', 'depression', 'consumption_currency', 'income_currency']
         other_metrics_names = ['price', 'working_hours', 'depression', 'consumption', 'income']
         for metric, metric_name in zip(other_metrics, other_metrics_names):
             metric_value = (await simulation.economy_client.get(nbs_id, metric))[-1]
-            await simulation.mlflow_client.log_metric(key=metric_name, value=metric_value, step=economy_metric.step_count)
-    economy_metric.step_count += 1
+            await simulation.mlflow_client.log_metric(key=metric_name, value=metric_value, step=step_count)

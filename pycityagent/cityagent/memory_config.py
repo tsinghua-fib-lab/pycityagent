@@ -343,5 +343,6 @@ def memory_config_nbs():
         "price": (float, float(np.mean(agent_skills))),
         "employees": (list, []),
         "employees_agent_id": (list, []),
+        "forward_times": (int, 0),
     }
     return EXTRA_ATTRIBUTES, {}, {}

@@ -116,3 +116,5 @@ class NBSAgent(InstitutionAgent):
                 self._agent_id, "income_currency", [income_currency], mode="merge"
             )
             print("nbs forward end")
+            self.forward_times += 1
+            await self.memory.status.update("forward_times", self.forward_times)

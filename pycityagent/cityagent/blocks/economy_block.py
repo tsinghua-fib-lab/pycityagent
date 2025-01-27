@@ -112,14 +112,6 @@ class ConsumptionBlock(Block):
         for i in range(len(firms_id)):
             demand_each_firm.append(int(consumption_each_firm[i]//prices[i]))
         real_consumption = await self.economy_client.calculate_consumption(firms_id, agent_id, demand_each_firm)
-        if real_consumption == -1:
-            node_id = await self.memory.stream.add_economy(description=f"I failed to buy goods, cause I do not have enough money.")
-            return {
-                'success': False, 
-                'evaluation': f"I failed to buy goods, cause I do not have enough money.", 
-                'consumed_time': 0,
-                'node_id': node_id
-            }
         node_id = await self.memory.stream.add_economy(description=f"I bought some goods, and spent {real_consumption:.1f} on {intention}")
         evaluation = {
             'success': True, 
@@ -281,8 +273,8 @@ class MonthPlanBlock(Block):
             work_propensity = await self.memory.status.get('work_propensity')
             consumption_propensity = await self.memory.status.get('consumption_propensity')
             work_hours = work_propensity * self.num_labor_hours
-            income = await self.economy_client.get(agent_id, 'income')
-            income += work_hours * work_skill
+            # income = await self.economy_client.get(agent_id, 'income')
+            income = work_hours * work_skill
             
             wealth = await self.economy_client.get(agent_id, 'currency')
             wealth += work_hours * work_skill
@@ -348,7 +340,7 @@ class MonthPlanBlock(Block):
                 except:
                     self.llm_error += 1
 
-            if self.UBI and self.forward_times >= 96 and self.forward_times % 12:
+            if self.UBI and self.forward_times >= 96 and self.forward_times % 12 == 0:
                 obs_prompt = f'''
                                 {problem_prompt} {job_prompt} {consumption_prompt} {tax_prompt} {price_prompt}
                                 Your current savings account balance is ${wealth:.2f}. Interest rates, as set by your bank, stand at {interest_rate*100:.2f}%. 
@@ -357,4 +349,5 @@ class MonthPlanBlock(Block):
                 obs_prompt = prettify_document(obs_prompt)
                 content = await self.llm.atext_request([{'role': 'user', 'content': obs_prompt}], timeout=300)
                 await self.memory.status.update('ubi_opinion', [content], mode='merge')
-            
+
+            self.forward_times += 1
