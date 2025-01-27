@@ -128,7 +128,8 @@ class Simulator:
                     min_step_time=config["simulator"].get("min_step_time", 1000),
                     sim_addr=config["simulator"].get("server", None),
                 )
-                self.server_addr = sim_env.sim_addr
+                primary_node_ip = config["simulator"].get("ad", "http://localhost")
+                self.server_addr = primary_node_ip.rstrip("/")+f":{sim_env.sim_port}"
                 config["simulator"]["server"] = self.server_addr
                 config["simulator"]["_server_activated"] = True
                 # using local client
