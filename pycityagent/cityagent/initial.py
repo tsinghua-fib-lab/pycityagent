@@ -142,6 +142,7 @@ async def bind_agent_info(simulation):
     for bank_uuid in bank_uuids:
         await simulation.economy_update(uid2agent[bank_uuid], "citizens", citizen_agent_ids)
     for nbs_uuid in nbs_uuids:
+        await simulation.update(nbs_uuid, "citizens", citizen_uuids)
         await simulation.economy_update(uid2agent[nbs_uuid], "citizens", citizen_agent_ids)
     logger.info("Agent info binding completed!")
 

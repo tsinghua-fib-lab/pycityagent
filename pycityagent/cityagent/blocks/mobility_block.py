@@ -46,7 +46,7 @@ Current temperature: {temperature}
 Your current emotion: {emotion_types}
 Your current thought: {thought}
 
-Please analyze how these emotions would affect travel willingness and return only a single integer number between 3000-100000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
+Please analyze how these emotions would affect travel willingness and return only a single integer number between 3000-200000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
 
 Return only the integer number without any additional text or explanation."""
 
@@ -121,7 +121,7 @@ class PlaceSelectionBlock(Block):
     """
 
     configurable_fields: List[str] = ["search_limit"]
-    default_values = {"search_limit": 10000}
+    default_values = {"search_limit": 1000}
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__(
@@ -134,7 +134,7 @@ class PlaceSelectionBlock(Block):
         )
         self.radiusPrompt = FormatPrompt(RADIUS_PROMPT)
         # configurable fields
-        self.search_limit = 100
+        self.search_limit = 1000
 
     async def forward(self, step, context):
         poi_cate = self.simulator.get_poi_cate()

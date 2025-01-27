@@ -213,13 +213,19 @@ class PlanBlock(Block):
         response = await self.llm.atext_request(
             self.guidance_prompt.to_dialog()
         )  # type: ignore
-
-        try:
-            result = json.loads(self.clean_json_response(response))  # type: ignore
-            return result
-        except Exception as e:
-            logger.warning(f"Error parsing guidance selection response: {str(e)}")
-            return None  # type: ignore
+        retry = 3
+        while retry > 0:
+            try:
+                result = json.loads(self.clean_json_response(response))  # type: ignore
+                if "selected_option" not in result or "evaluation" not in result:
+                    raise ValueError("Invalid guidance selection format")
+                if "attitude" not in result["evaluation"] or "subjective_norm" not in result["evaluation"] or "perceived_control" not in result["evaluation"] or "reasoning" not in result["evaluation"]:
+                    raise ValueError("Evaluation must include attitude, subjective_norm, perceived_control, and reasoning")
+                return result
+            except Exception as e:
+                logger.warning(f"Error parsing guidance selection response: {str(e)}")
+                retry -= 1
+        return None
 
     async def generate_detailed_plan(
         self, current_need: str, selected_option: str
@@ -252,20 +258,22 @@ class PlanBlock(Block):
         )
 
         response = await self.llm.atext_request(self.detail_prompt.to_dialog())
-
-        try:
-            result = json.loads(self.clean_json_response(response))  # type: ignore
-            return result
-        except Exception as e:
-            logger.warning(f"Error parsing detailed plan: {str(e)}")
-            return None  # type: ignore
+        retry = 3
+        while retry > 0:
+            try:
+                result = json.loads(self.clean_json_response(response))  # type: ignore
+                if "plan" not in result or "target" not in result["plan"] or "steps" not in result["plan"]:
+                    raise ValueError("Invalid plan format")
+                for step in result["plan"]["steps"]:
+                    if "intention" not in step or "type" not in step:
+                        raise ValueError("Each step must have an intention and a type")
+                return result
+            except Exception as e:
+                logger.warning(f"Error parsing detailed plan: {str(e)}")
+                retry -= 1
+        return None
 
     async def forward(self):
-        self.trigger_time += 1
-        consumption_start = (
-            self.llm.prompt_tokens_used + self.llm.completion_tokens_used
-        )
-
         # Step 1: Select guidance plan
         current_need = await self.memory.status.get("current_need")
         guidance_result = await self.select_guidance(current_need)
@@ -278,7 +286,7 @@ class PlanBlock(Block):
         )
 
         if not detailed_plan or "plan" not in detailed_plan:
-            await self.memory.status.update("current_plan", [])
+            await self.memory.status.update("current_plan", None)
             await self.memory.status.update(
                 "current_step", {"intention": "", "type": ""}
             )
@@ -310,9 +318,6 @@ Execution Steps: \n{formated_steps}
             "current_step", steps[0] if steps else {"intention": "", "type": ""}
         )
         await self.memory.status.update("execution_context", {"plan": formated_plan})
-
-        consumption_end = self.llm.prompt_tokens_used + self.llm.completion_tokens_used
-        self.token_consumption += consumption_end - consumption_start
 
     def clean_json_response(self, response: str) -> str:
         """Clean special characters in LLM response"""

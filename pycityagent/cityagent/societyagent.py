@@ -73,6 +73,8 @@ class PlanAndActionBlock(Block):
     async def step_execution(self):
         """Execute the current step"""
         current_plan = await self.memory.status.get("current_plan")
+        if current_plan is None:
+            return
         execution_context = await self.memory.status.get("execution_context")
         current_step = await self.memory.status.get("current_step")
         # check current_step is valid (not empty)

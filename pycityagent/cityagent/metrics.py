@@ -33,11 +33,11 @@ async def economy_metric(simulation):
         economy_metric.nbs_uuid = nbs_uuids[0]
     
     try:
-        real_gdp = await simulation.economy_client.get(nbs_id, 'real_gdp')
+        real_gdp = await simulation.economy_client.get(economy_metric.nbs_id, 'real_gdp')
     except:
         real_gdp = []
     if len(real_gdp) > 0:
-        real_gdp = real_gdp[0]
+        real_gdp = real_gdp[-1]
         forward_times_info = await simulation.gather("forward_times", [economy_metric.nbs_uuid])
         step_count = 0
         for group_gather in forward_times_info:
@@ -48,5 +48,5 @@ async def economy_metric(simulation):
         other_metrics = ['prices', 'working_hours', 'depression', 'consumption_currency', 'income_currency']
         other_metrics_names = ['price', 'working_hours', 'depression', 'consumption', 'income']
         for metric, metric_name in zip(other_metrics, other_metrics_names):
-            metric_value = (await simulation.economy_client.get(nbs_id, metric))[-1]
+            metric_value = (await simulation.economy_client.get(economy_metric.nbs_id, metric))[-1]
             await simulation.mlflow_client.log_metric(key=metric_name, value=metric_value, step=step_count)

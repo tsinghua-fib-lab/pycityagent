@@ -333,26 +333,30 @@ class NeedsBlock(Block):
             social_satisfaction=await self.memory.status.get("social_satisfaction"),
         )
 
-        response = await self.llm.atext_request(self.evaluation_prompt.to_dialog())
-
-        try:
-            new_satisfaction = json.loads(self.clean_json_response(response))  # type: ignore
-            # 更新所有需求的数值
-            for need_type, new_value in new_satisfaction.items():
-                if need_type in [
-                    "hunger_satisfaction",
-                    "energy_satisfaction",
-                    "safety_satisfaction",
-                    "social_satisfaction",
-                ]:
-                    await self.memory.status.update(need_type, new_value)
-        except json.JSONDecodeError:
-            logger.warning(
-                f"Evaluation response is not a valid JSON format: {response}"
-            )
-        except Exception as e:
-            logger.warning(f"Error processing evaluation response: {str(e)}")
-            logger.warning(f"Original response: {response}")
+        retry = 3
+        while retry > 0:
+            response = await self.llm.atext_request(self.evaluation_prompt.to_dialog())
+            try:
+                new_satisfaction = json.loads(self.clean_json_response(response))  # type: ignore
+                # 更新所有需求的数值
+                for need_type, new_value in new_satisfaction.items():
+                    if need_type in [
+                        "hunger_satisfaction",
+                        "energy_satisfaction",
+                        "safety_satisfaction",
+                        "social_satisfaction",
+                    ]:
+                        await self.memory.status.update(need_type, new_value)
+                        return
+            except json.JSONDecodeError:
+                logger.warning(
+                    f"Evaluation response is not a valid JSON format: {response}"
+                )
+                retry -= 1
+            except Exception as e:
+                logger.warning(f"Error processing evaluation response: {str(e)}")
+                logger.warning(f"Original response: {response}")
+                retry -= 1
 
     def clean_json_response(self, response: str) -> str:
         """清理LLM响应中的特殊字符"""
