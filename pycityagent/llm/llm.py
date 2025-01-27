@@ -203,7 +203,7 @@ class LLM:
         frequency_penalty: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         timeout: int = 300,
-        retries=3,
+        retries=10,
         tools: Optional[list[dict[str, Any]]] = None,
         tool_choice: Optional[dict[str, Any]] = None,
     ):

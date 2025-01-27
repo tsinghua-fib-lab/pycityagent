@@ -167,16 +167,19 @@ class MonthPlanBlock(Block):
         "UBI",
         "num_labor_hours",
         "productivity_per_labor",
+        "time_diff"
     ]
     default_values = {
         "UBI": 0,
         "num_labor_hours": 168,
         "productivity_per_labor": 1,
+        "time_diff": 30 * 24 * 60 * 60
     }
     fields_description = {
         "UBI": "Universal Basic Income",
         "num_labor_hours": "Number of labor hours per month",
         "productivity_per_labor": "Productivity per labor hour",
+        "time_diff": "Time difference between two triggers"
     }
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator, economy_client: EconomyClient):
@@ -184,14 +187,13 @@ class MonthPlanBlock(Block):
         self.economy_client = economy_client
         self.llm_error = 0
         self.last_time_trigger = None
-        self.time_diff = 30 * 24 * 60 * 60
         self.forward_times = 0
 
         # configurable fields
         self.UBI = 0
         self.num_labor_hours = 168
         self.productivity_per_labor = 1
-
+        self.time_diff = 30 * 24 * 60 * 60
         
     async def month_trigger(self):
         now_time = await self.simulator.get_time()
@@ -254,11 +256,11 @@ class MonthPlanBlock(Block):
                             Any other output words are NOT allowed.
                         '''
             obs_prompt = prettify_document(obs_prompt)
-            await self.memory.status.update('dialog_queue', [{'role': 'user', 'content': obs_prompt}], mode='merge')
-            dialog_queue = await self.memory.status.get('dialog_queue')
-            content = await self.llm.atext_request(list(dialog_queue), timeout=300)
-            await self.memory.status.update('dialog_queue', [{'role': 'assistant', 'content': content}], mode='merge')
             try:
+                await self.memory.status.update('dialog_queue', [{'role': 'user', 'content': obs_prompt}], mode='merge')
+                dialog_queue = await self.memory.status.get('dialog_queue')
+                content = await self.llm.atext_request(list(dialog_queue), timeout=300)
+                await self.memory.status.update('dialog_queue', [{'role': 'assistant', 'content': content}], mode='merge')
                 propensity_dict = extract_dict_from_string(content)[0]
                 work_propensity, consumption_propensity = propensity_dict['work'], propensity_dict['consumption']
                 if isinstance(work_propensity, numbers.Number) and isinstance(consumption_propensity, numbers.Number):
