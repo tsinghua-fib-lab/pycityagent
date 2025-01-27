@@ -87,28 +87,35 @@ class Simulator:
         - 模拟器配置
         - simulator config
         """
-        _mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir = (
-            config["map_request"]["mongo_uri"],
-            config["map_request"]["mongo_db"],
-            config["map_request"]["mongo_coll"],
-            config["map_request"]["cache_dir"],
-        )
-        _mongo_client = MongoClient(_mongo_uri)
-        os.makedirs(_map_cache_dir, exist_ok=True)
-        _map_pb_path = os.path.join(_map_cache_dir, f"{_mongo_db}.{_mongo_coll}.pb")  # type: ignore
-        _map_pb = map_pb2.Map()
-        if os.path.exists(_map_pb_path):
-            with open(_map_pb_path, "rb") as f:
-                _map_pb.ParseFromString(f.read())
+        _map_request = config["map_request"]
+        if "file_path" not in _map_request:
+            # from mongo db
+            _mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir = (
+                _map_request["mongo_uri"],
+                _map_request["mongo_db"],
+                _map_request["mongo_coll"],
+                _map_request["cache_dir"],
+            )
+            _mongo_client = MongoClient(_mongo_uri)
+            os.makedirs(_map_cache_dir, exist_ok=True)
+            _map_pb_path = os.path.join(_map_cache_dir, f"{_mongo_db}.{_mongo_coll}.pb")  # type: ignore
+            _map_pb = map_pb2.Map()
+            if os.path.exists(_map_pb_path):
+                with open(_map_pb_path, "rb") as f:
+                    _map_pb.ParseFromString(f.read())
+            else:
+                _map_pb = coll2pb(_mongo_client[_mongo_db][_mongo_coll], _map_pb)
+                with open(_map_pb_path, "wb") as f:
+                    f.write(_map_pb.SerializeToString())
         else:
-            _map_pb = coll2pb(_mongo_client[_mongo_db][_mongo_coll], _map_pb)
-            with open(_map_pb_path, "wb") as f:
-                f.write(_map_pb.SerializeToString())
+            # from local file
+            _mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir = "", "", "", ""
+            _map_pb_path = _map_request["file_path"]
 
         if "simulator" in config:
             if config["simulator"] is None:
                 config["simulator"] = {}
-            if "server" not in config["simulator"]:
+            if not config["simulator"].get("_server_activated", False):
                 self._sim_env = sim_env = ControlSimEnv(
                     task_name=config["simulator"].get("task", "citysim"),
                     map_file=_map_pb_path,
@@ -123,15 +130,20 @@ class Simulator:
                 )
                 self.server_addr = sim_env.sim_addr
                 config["simulator"]["server"] = self.server_addr
+                config["simulator"]["_server_activated"] = True
                 # using local client
-                self._client = CityClient(sim_env.sim_addr, secure=False)
+                self._client = CityClient(
+                    sim_env.sim_addr, secure=self.server_addr.startswith("https")
+                )
                 """
                 - 模拟器grpc客户端
                 - grpc client of simulator
                 """
             else:
-                self._client = CityClient(config["simulator"]["server"], secure=False)
                 self.server_addr = config["simulator"]["server"]
+                self._client = CityClient(
+                    self.server_addr, secure=self.server_addr.startswith("https")
+                )
         else:
             self.server_addr = None
             logger.warning(
@@ -143,10 +155,9 @@ class Simulator:
         - Simulator map object
         """
         if create_map:
-            _map_cache_path = ""  # 地图pb文件路径
             self._map = CityMap.remote(
                 (_mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir),
-                _map_cache_path,
+                _map_pb_path,
             )
             self._create_poi_id_2_aoi_id()
 

@@ -83,17 +83,18 @@ class EconomyClient:
         - It establishes an asynchronous connection and provides methods to communicate with the service.
     """
 
-    def __init__(self, server_address: str, secure: bool = False):
+    def __init__(
+        self,
+        server_address: str,
+    ):
         """
         Initialize the EconomyClient.
 
         - **Args**:
             - `server_address` (`str`): The address of the Economy server to connect to.
-            - `secure` (`bool`, optional): Whether to use a secure connection. Defaults to `False`.
 
         - **Attributes**:
             - `server_address` (`str`): The address of the Economy server.
-            - `secure` (`bool`): A flag indicating if a secure connection should be used.
             - `_aio_stub` (`OrgServiceStub`): A gRPC stub used to make remote calls to the Economy service.
 
         - **Description**:
@@ -102,6 +103,8 @@ class EconomyClient:
             - Instantiates a gRPC stub (`_aio_stub`) for interacting with the Economy service.
         """
         self.server_address = server_address
+
+        secure = self.server_address.startswith("https")
         self.secure = secure
         aio_channel = _create_aio_channel(server_address, secure)
         self._aio_stub = org_grpc.OrgServiceStub(aio_channel)
