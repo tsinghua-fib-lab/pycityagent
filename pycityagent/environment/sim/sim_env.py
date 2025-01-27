@@ -13,7 +13,9 @@ from ..utils import encode_to_base64, find_free_port
 __all__ = ["ControlSimEnv"]
 
 
-def _generate_yaml_config(map_file: str, max_day: int, start_step: int, total_step: int) -> str:
+def _generate_yaml_config(
+    map_file: str, max_day: int, start_step: int, total_step: int
+) -> str:
     map_file = os.path.abspath(map_file)
     return f"""
 input:
@@ -48,6 +50,7 @@ class ControlSimEnv:
         start_step: int,
         total_step: int,
         log_dir: str,
+        primary_node_ip: str,
         min_step_time: int = 1000,
         timeout: int = 5,
         max_process: int = 32,
@@ -68,9 +71,12 @@ class ControlSimEnv:
         self._log_dir = log_dir
         self._min_step_time = min_step_time
         self._timeout = timeout
+        self._primary_node_ip = primary_node_ip
         self._max_procs = max_process
 
-        self._sim_config = _generate_yaml_config(map_file, max_day, start_step, total_step)
+        self._sim_config = _generate_yaml_config(
+            map_file, max_day, start_step, total_step
+        )
         # sim
         self.sim_port = None
         self._sim_proc = None
@@ -102,6 +108,7 @@ class ControlSimEnv:
             self.sim_port = find_free_port()
             config_base64 = encode_to_base64(self._sim_config)
             os.environ["GOMAXPROCS"] = str(self._max_procs)
+            sim_addr = self._primary_node_ip.rstrip("/") + f":{self.sim_port}"
             self._sim_proc = Popen(
                 [
                     "pycityagent-sim",
@@ -110,7 +117,7 @@ class ControlSimEnv:
                     "-job",
                     self._task_name,
                     "-listen",
-                    f":{self.sim_port}",
+                    sim_addr,
                     "-run.min_step_time",
                     f"{self._min_step_time}",
                     "-run.pause_after_one_day",
@@ -125,9 +132,8 @@ class ControlSimEnv:
                 # stdout=DEVNULL,
             )
             logging.info(
-                f"start pycityagent-sim at localhost:{self.sim_port}, PID={self._sim_proc.pid}"
+                f"start pycityagent-sim at {sim_addr}, PID={self._sim_proc.pid}"
             )
-            sim_addr = f"http://localhost:{self.sim_port}"
             atexit.register(self.close)
             time.sleep(0.3)
         else:
