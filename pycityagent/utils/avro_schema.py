@@ -12,7 +12,7 @@ PROFILE_SCHEMA = {
         {"name": "skill", "type": "string"},
         {"name": "occupation", "type": "string"},
         {"name": "family_consumption", "type": "string"},
-        {"name": "consumption", "type": "float"},
+        {"name": "consumption", "type": "string"},
         {"name": "personality", "type": "string"},
         {"name": "income", "type": "float"},
         {"name": "currency", "type": "float"},

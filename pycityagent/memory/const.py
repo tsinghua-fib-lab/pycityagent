@@ -8,7 +8,7 @@ PROFILE_ATTRIBUTES = {
     "skill": str(),
     "occupation": str(),
     "family_consumption": str(),
-    "consumption": float(),
+    "consumption": str(),
     "personality": str(),
     "income": float(),
     "currency": float(),

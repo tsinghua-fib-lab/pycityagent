@@ -280,14 +280,15 @@ class LLM:
                         if hasattr(e, "http_status"):
                             print(f"HTTP status code: {e.http_status}")  # type: ignore
                         else:
-                            print("An error occurred:", e)
+                            print("OpenAIError:", e)
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
                     except Exception as e:
-                        print("An error occurred:", e)
+                        print("LLM Error (OpenAI):", e)
                         if attempt < retries - 1:
+                            print(dialog)
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
@@ -342,7 +343,7 @@ class LLM:
                         else:
                             raise e
                     except Exception as e:
-                        print("An error occurred:", e)
+                        print("LLM Error:", e)
                         if attempt < retries - 1:
                             await asyncio.sleep(2**attempt)
                         else:

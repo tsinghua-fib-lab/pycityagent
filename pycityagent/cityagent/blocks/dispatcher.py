@@ -9,10 +9,10 @@ from pycityagent.workflow.prompt import FormatPrompt
 logger = logging.getLogger("pycityagent")
 
 DISPATCHER_PROMPT = """
-Based on the step information, select the most appropriate block to handle the task.
+Based on the task information (which describes the needs of the user), select the most appropriate block to handle the task.
 Each block has its specific functionality as described in the function schema.
         
-Step information:
+Task information:
 {step}
 """
 
@@ -60,7 +60,7 @@ class BlockDispatcher:
         """Dispatch the step to appropriate block based on LLM function call"""
         try:
             function_schema = self._get_function_schema()
-            self.prompt.format(step=step)
+            self.prompt.format(step=step["intention"])
 
             # Call LLM with tools schema
             function_args = await self.llm.atext_request(

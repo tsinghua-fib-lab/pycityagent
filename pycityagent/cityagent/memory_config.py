@@ -66,8 +66,6 @@ def memory_config_societyagent():
         "goods_consumption": (int, 0, False),
         "work_propensity": (float, 0.0, False),
         "consumption_propensity": (float, 0.0, False),
-        "income_currency": (float, 0.0, False),  # monthly income
-        "to_income": (float, 0.0, False),
         "to_consumption_currency": (float, 0.0, False),
         "firm_id": (int, 0, False),
         "government_id": (int, 0, False),
@@ -168,13 +166,13 @@ def memory_config_societyagent():
             True,
         ),
         "family_consumption": (str, random.choice(["low", "medium", "high"]), True),
-        "consumption": (float, 0, True),
+        "consumption": (str, random.choice(["low", "slightly low", "medium", "slightly high", "high"]), True),
         "personality": (
             str,
             random.choice(["outgoint", "introvert", "ambivert", "extrovert"]),
             True,
         ),
-        "income": (float, 0, True),
+        "income": (float, random.randint(1000, 20000), True),
         "currency": (float, random.randint(1000, 100000), True),
         "residence": (str, random.choice(["city", "suburb", "rural"]), True),
         "race": (

@@ -147,8 +147,8 @@ class CitizenAgent(Agent):
             person_id = await self.status.get("id")
             currency = await self.status.get("currency")
             skill = await self.status.get("work_skill")
-            consumption = await self.status.get("consumption")
-            income = await self.status.get("income")
+            consumption = 0.0
+            income = 0.0
             await self._economy_client.add_agents(
                 {
                     "id": person_id,

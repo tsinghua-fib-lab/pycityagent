@@ -250,7 +250,7 @@ class MessageBlock(Block):
     def __init__(self, agent, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__("MessageBlock", llm=llm, memory=memory, simulator=simulator)
         self.agent = agent
-        self.description = "Generate and send a message to someone"
+        self.description = "Send a message to someone"
         self.find_person_block = FindPersonBlock(llm, memory, simulator)
 
         # configurable fields
@@ -387,20 +387,12 @@ class SocialBlock(Block):
             # Execute the selected sub-block and get the result
             result = await selected_block.forward(step, context)
 
-            consumption_end = (
-                self.llm.prompt_tokens_used + self.llm.completion_tokens_used
-            )
-            self.token_consumption += consumption_end - consumption_start
-
             return result
 
-        except:
-            consumption_end = (
-                self.llm.prompt_tokens_used + self.llm.completion_tokens_used
-            )
-            self.token_consumption += consumption_end - consumption_start
+        except Exception as e:
             return {
-                "success": True,
-                "evaluation": "Completed social interaction with default behavior",
+                "success": False,
+                "evaluation": "Failed to complete social interaction with default behavior",
                 "consumed_time": 15,
+                "node_id": None,
             }

@@ -25,23 +25,11 @@ Current Time: {now_time}
 
 Please initialize the agent's satisfaction levels and parameters based on the profile above. Return the values in JSON format with the following structure:
 
-1. Current satisfaction levels (0-1 float values, lower means less satisfied):
+Current satisfaction levels (0-1 float values, lower means less satisfied):
 - hunger_satisfaction: Hunger satisfaction level (Normally, the agent will be less satisfied with hunger at eating time)
 - energy_satisfaction: Energy satisfaction level (Normally, at night, the agent will be less satisfied with energy)
 - safety_satisfaction: Safety satisfaction level (Normally, the agent will be more satisfied with safety when they have high income and currency)
 - social_satisfaction: Social satisfaction level
-
-2. Natural decay rates per hour (0-1 float values):
-- alpha_H: Hunger satisfaction decay rate
-- alpha_D: Energy satisfaction decay rate  
-- alpha_P: Safety satisfaction decay rate
-- alpha_C: Social satisfaction decay rate
-
-3. Threshold values (0-1 float values, below which the agent will try to improve):
-- T_H: Hunger satisfaction threshold
-- T_D: Energy satisfaction threshold
-- T_S: Safety satisfaction threshold  
-- T_C: Social satisfaction threshold
 
 Example response format (Do not return any other text):
 {{
@@ -50,18 +38,6 @@ Example response format (Do not return any other text):
         "energy_satisfaction": 0.7,
         "safety_satisfaction": 0.9,
         "social_satisfaction": 0.6
-    }},
-    "decay_rates": {{
-        "alpha_H": 0.2,
-        "alpha_D": 0.08,
-        "alpha_P": 0.05,
-        "alpha_C": 0.03
-    }},
-    "thresholds": {{
-        "T_H": 0.4,
-        "T_D": 0.2,
-        "T_S": 0.2,
-        "T_C": 0.2
     }}
 }}
 """
@@ -120,10 +96,10 @@ class NeedsBlock(Block):
             0.2,
             0.08,
             0.05,
-            0.03,
+            0.1,
         )  # Hunger decay rate, Energy decay rate, Safety decay rate, Social decay rate
         self.T_H, self.T_D, self.T_P, self.T_C = (
-            0.4,
+            0.3,
             0.2,
             0.2,
             0.2,
@@ -151,31 +127,28 @@ class NeedsBlock(Block):
                 now_time=await self.simulator.get_time(format_time=True),
             )
             response = await self.llm.atext_request(self.initial_prompt.to_dialog())
-            response = await self.llm.atext_request(self.initial_prompt.to_dialog())
             response = self.clean_json_response(response)
-            try:
-                satisfaction = json.loads(response)
-                satisfactions = satisfaction["current_satisfaction"]
-                await self.memory.status.update(
-                    "hunger_satisfaction", satisfactions["hunger_satisfaction"]
-                )
-                await self.memory.status.update(
-                    "energy_satisfaction", satisfactions["energy_satisfaction"]
-                )
-                await self.memory.status.update(
-                    "safety_satisfaction", satisfactions["safety_satisfaction"]
-                )
-                await self.memory.status.update(
-                    "social_satisfaction", satisfactions["social_satisfaction"]
-                )
-                self.alpha_H, self.alpha_D, self.alpha_P, self.alpha_C = satisfaction[
-                    "decay_rates"
-                ].values()
-                self.T_H, self.T_D, self.T_P, self.T_C = satisfaction[
-                    "thresholds"
-                ].values()
-            except json.JSONDecodeError:
-                logger.warning(f"初始化响应不是有效的JSON格式: {response}")
+            retry = 3
+            while retry > 0:
+                try:
+                    satisfaction = json.loads(response)
+                    satisfactions = satisfaction["current_satisfaction"]
+                    await self.memory.status.update(
+                        "hunger_satisfaction", satisfactions["hunger_satisfaction"]
+                    )
+                    await self.memory.status.update(
+                        "energy_satisfaction", satisfactions["energy_satisfaction"]
+                    )
+                    await self.memory.status.update(
+                        "safety_satisfaction", satisfactions["safety_satisfaction"]
+                    )
+                    await self.memory.status.update(
+                        "social_satisfaction", satisfactions["social_satisfaction"]
+                    )
+                    break
+                except json.JSONDecodeError:
+                    logger.warning(f"初始化响应不是有效的JSON格式: {response}")
+                    retry -= 1
 
             current_plan = await self.memory.status.get("current_plan")
             history = await self.memory.status.get("plan_history")

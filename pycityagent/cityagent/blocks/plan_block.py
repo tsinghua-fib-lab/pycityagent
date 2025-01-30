@@ -175,7 +175,7 @@ class PlanBlock(Block):
             "tired": ["Sleep", "Take a nap"],
             "safe": ["Go to work"],
             "social": ["Online social", "Shopping"],
-            "whatever": ["Learning", "Entertainment", "Hang out", "Exercise"],
+            "whatever": ["Contact with friends", "Hang out"],
         }
 
         # configurable fields

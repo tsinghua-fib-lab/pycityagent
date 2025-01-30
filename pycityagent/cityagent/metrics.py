@@ -21,14 +21,16 @@ async def mobility_metric(simulation):
 
 async def economy_metric(simulation):
     # 使用函数属性来存储计数
-    if not hasattr(economy_metric, 'step_count'):
+    if not hasattr(economy_metric, 'nbs_id'):
         economy_metric.nbs_id = None
+    if not hasattr(economy_metric, 'nbs_uuid'):
         economy_metric.nbs_uuid = None
 
     if economy_metric.nbs_id is None:
         nbs_id = await simulation.economy_client.get_org_entity_ids(economyv2.ORG_TYPE_NBS)
         nbs_id = nbs_id[0]
         economy_metric.nbs_id = nbs_id
+    if economy_metric.nbs_uuid is None:
         nbs_uuids = await simulation.filter(types=[NBSAgent])
         economy_metric.nbs_uuid = nbs_uuids[0]
     

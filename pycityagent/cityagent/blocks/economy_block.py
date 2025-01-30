@@ -104,8 +104,8 @@ class ConsumptionBlock(Block):
             }
         consumption = min(month_consumption/1, month_consumption-consumption_currency)
         prices = []
-        for firm_id in firms_id:
-            price = await self.economy_client.get(firm_id, 'price')
+        for this_firm_id in firms_id:
+            price = await self.economy_client.get(this_firm_id, 'price')
             prices.append(price)
         consumption_each_firm = consumption*softmax(prices, gamma=-0.01)
         demand_each_firm = []
@@ -217,8 +217,8 @@ class MonthPlanBlock(Block):
             consumption = await self.economy_client.get(agent_id, 'consumption')
             tax_paid = await self.memory.status.get('tax_paid')
             prices = []
-            for firm_id in firms_id:
-                price = await self.economy_client.get(firm_id, 'price')
+            for this_firm_id in firms_id:
+                price = await self.economy_client.get(this_firm_id, 'price')
                 prices.append(price)
             price = np.mean(prices)
             wealth = await self.economy_client.get(agent_id, 'currency')
