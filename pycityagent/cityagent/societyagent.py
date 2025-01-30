@@ -57,7 +57,7 @@ class PlanAndActionBlock(Block):
         self.planBlock = PlanBlock(llm=llm, memory=memory, simulator=simulator)
         self.mobilityBlock = MobilityBlock(llm=llm, memory=memory, simulator=simulator)
         self.socialBlock = SocialBlock(
-            agent=self, llm=llm, memory=memory, simulator=simulator
+            agent=agent, llm=llm, memory=memory, simulator=simulator
         )
         self.economyBlock = EconomyBlock(
             llm=llm, memory=memory, simulator=simulator, economy_client=economy_client

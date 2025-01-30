@@ -27,11 +27,11 @@ async def initialize_social_network(simulation):
         relation_types = ["family", "colleague", "friend"]
 
         # Get all agent IDs
-        agent_ids = simulation.agent_uuids
-        for agent_id in agent_ids:
+        citizen_uuids = await simulation.filter(types=[SocietyAgent])
+        for agent_id in citizen_uuids:
             # Randomly select 2-5 friends for each agent
             num_friends = random.randint(2, 5)
-            possible_friends = [aid for aid in agent_ids if aid != agent_id]
+            possible_friends = [aid for aid in citizen_uuids if aid != agent_id]
             friends = random.sample(
                 possible_friends, min(num_friends, len(possible_friends))
             )
@@ -114,7 +114,7 @@ async def bind_agent_info(simulation):
     - **Returns**:
         - None
     """
-    logger.info("Binding agent info...")
+    logger.info("Binding economy relationship...")
     infos = await simulation.gather("id")
     citizen_uuids = await simulation.filter(types=[SocietyAgent])
     firm_uuids = await simulation.filter(types=[FirmAgent])

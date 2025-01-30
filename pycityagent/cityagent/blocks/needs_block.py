@@ -99,10 +99,10 @@ class NeedsBlock(Block):
             0.1,
         )  # Hunger decay rate, Energy decay rate, Safety decay rate, Social decay rate
         self.T_H, self.T_D, self.T_P, self.T_C = (
-            0.3,
+            0.1,
             0.2,
             0.2,
-            0.2,
+            0.4,
         )  # Hunger threshold, Energy threshold, Safety threshold, Social threshold
 
     async def initialize(self):

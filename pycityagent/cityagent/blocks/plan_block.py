@@ -174,7 +174,7 @@ class PlanBlock(Block):
             "hungry": ["Eat at home", "Eat outside"],
             "tired": ["Sleep", "Take a nap"],
             "safe": ["Go to work"],
-            "social": ["Online social", "Shopping"],
+            "social": ["Contact with friends", "Shopping"],
             "whatever": ["Contact with friends", "Hang out"],
         }
 

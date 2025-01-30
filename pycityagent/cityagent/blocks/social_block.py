@@ -151,7 +151,7 @@ class FindPersonBlock(Block):
 
             if not friends:
                 node_id = await self.memory.stream.add_social(
-                    description=f"I can't find any friends to socialize with."
+                    description=f"I can't find any friends to contact with."
                 )
                 return {
                     "success": False,
@@ -327,6 +327,7 @@ class MessageBlock(Block):
 
             # Send message
             serialized_message = self._serialize_message(message, 1)
+            await self.agent.send_message_to_agent(target, serialized_message)
             node_id = await self.memory.stream.add_social(
                 description=f"I sent a message to {target}: {message}"
             )

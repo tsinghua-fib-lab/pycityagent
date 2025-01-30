@@ -779,6 +779,7 @@ class AgentSimulation:
             self._groups[group_name] = group
             group_agent_uuids = ray.get(group.get_agent_uuids.remote())
             for agent_uuid in group_agent_uuids:
+                self._agent_uuids.append(agent_uuid)
                 self._agent_uuid2group[agent_uuid] = group
                 self._user_chat_topics[agent_uuid] = (
                     f"exps/{self.exp_id}/agents/{agent_uuid}/user-chat"

@@ -259,7 +259,7 @@ class Block:
                     setattr(self, field, config["config"][field])
 
         def build_or_update_block(block_data: dict) -> Block:
-            block_name = block_data["name"].lower()  # type:ignore
+            block_name = block_data["name"]  # type:ignore
             existing_block = getattr(self, block_name, None)
 
             if existing_block:
@@ -276,7 +276,7 @@ class Block:
                 return block_instance
 
         # 递归遍历子Block配置
-        for block_data in config.get("blocks", []):
+        for block_data in config.get("children", []):
             build_or_update_block(block_data)
 
     async def forward(self):
