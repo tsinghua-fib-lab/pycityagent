@@ -44,12 +44,12 @@ class LLM:
             - `config`: An instance of `LLMConfig` containing configuration settings for the LLM.
         """
         self.config = config
-        if config.text["request_type"] not in ["openai", "deepseek", "qwen", "zhipuai"]:
+        if config.text["request_type"] not in ["openai", "deepseek", "qwen", "zhipuai", "siliconflow"]:
             raise ValueError("Invalid request type for text request")
         self.prompt_tokens_used = 0
         self.completion_tokens_used = 0
         self.request_number = 0
-        self.semaphore = None
+        self.semaphore = asyncio.Semaphore(200)
         self._current_client_index = 0
         self._log_list = []
 
@@ -73,6 +73,12 @@ class LLM:
                 client = AsyncOpenAI(
                     api_key=api_key,
                     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    timeout=300,
+                )
+            elif self.config.text["request_type"] == "siliconflow":
+                client = AsyncOpenAI(
+                    api_key=api_key,
+                    base_url="https://api.siliconflow.cn/v1",
                     timeout=300,
                 )
             elif self.config.text["request_type"] == "zhipuai":
@@ -237,6 +243,7 @@ class LLM:
                 self.config.text["request_type"] == "openai"
                 or self.config.text["request_type"] == "deepseek"
                 or self.config.text["request_type"] == "qwen"
+                or self.config.text["request_type"] == "siliconflow"
             ):
                 for attempt in range(retries):
                     try:
