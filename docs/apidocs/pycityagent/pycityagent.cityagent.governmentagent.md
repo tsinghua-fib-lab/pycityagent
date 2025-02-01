@@ -48,6 +48,36 @@
 
 Bases: {py:obj}`pycityagent.InstitutionAgent`
 
+````{py:attribute} configurable_fields
+:canonical: pycityagent.cityagent.governmentagent.GovernmentAgent.configurable_fields
+:value: >
+   ['time_diff']
+
+```{autodoc2-docstring} pycityagent.cityagent.governmentagent.GovernmentAgent.configurable_fields
+```
+
+````
+
+````{py:attribute} default_values
+:canonical: pycityagent.cityagent.governmentagent.GovernmentAgent.default_values
+:value: >
+   None
+
+```{autodoc2-docstring} pycityagent.cityagent.governmentagent.GovernmentAgent.default_values
+```
+
+````
+
+````{py:attribute} fields_description
+:canonical: pycityagent.cityagent.governmentagent.GovernmentAgent.fields_description
+:value: >
+   None
+
+```{autodoc2-docstring} pycityagent.cityagent.governmentagent.GovernmentAgent.fields_description
+```
+
+````
+
 ````{py:method} month_trigger()
 :canonical: pycityagent.cityagent.governmentagent.GovernmentAgent.month_trigger
 :async:

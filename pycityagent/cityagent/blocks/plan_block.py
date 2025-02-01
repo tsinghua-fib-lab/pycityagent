@@ -219,8 +219,15 @@ class PlanBlock(Block):
                 result = json.loads(self.clean_json_response(response))  # type: ignore
                 if "selected_option" not in result or "evaluation" not in result:
                     raise ValueError("Invalid guidance selection format")
-                if "attitude" not in result["evaluation"] or "subjective_norm" not in result["evaluation"] or "perceived_control" not in result["evaluation"] or "reasoning" not in result["evaluation"]:
-                    raise ValueError("Evaluation must include attitude, subjective_norm, perceived_control, and reasoning")
+                if (
+                    "attitude" not in result["evaluation"]
+                    or "subjective_norm" not in result["evaluation"]
+                    or "perceived_control" not in result["evaluation"]
+                    or "reasoning" not in result["evaluation"]
+                ):
+                    raise ValueError(
+                        "Evaluation must include attitude, subjective_norm, perceived_control, and reasoning"
+                    )
                 return result
             except Exception as e:
                 logger.warning(f"Error parsing guidance selection response: {str(e)}")
@@ -262,7 +269,11 @@ class PlanBlock(Block):
         while retry > 0:
             try:
                 result = json.loads(self.clean_json_response(response))  # type: ignore
-                if "plan" not in result or "target" not in result["plan"] or "steps" not in result["plan"]:
+                if (
+                    "plan" not in result
+                    or "target" not in result["plan"]
+                    or "steps" not in result["plan"]
+                ):
                     raise ValueError("Invalid plan format")
                 for step in result["plan"]["steps"]:
                     if "intention" not in step or "type" not in step:

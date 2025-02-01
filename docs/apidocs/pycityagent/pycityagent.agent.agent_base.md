@@ -416,6 +416,15 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
+````{py:method} save_agent_thought(thought: str)
+:canonical: pycityagent.agent.agent_base.Agent.save_agent_thought
+:async:
+
+```{autodoc2-docstring} pycityagent.agent.agent_base.Agent.save_agent_thought
+```
+
+````
+
 ````{py:method} process_agent_chat_response(payload: dict) -> str
 :canonical: pycityagent.agent.agent_base.Agent.process_agent_chat_response
 :async:

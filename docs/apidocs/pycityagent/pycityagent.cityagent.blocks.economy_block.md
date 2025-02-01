@@ -204,6 +204,36 @@ Bases: {py:obj}`pycityagent.workflow.Block`
 ```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.MonthPlanBlock.__init__
 ```
 
+````{py:attribute} configurable_fields
+:canonical: pycityagent.cityagent.blocks.economy_block.MonthPlanBlock.configurable_fields
+:value: >
+   ['UBI', 'num_labor_hours', 'productivity_per_labor', 'time_diff']
+
+```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.MonthPlanBlock.configurable_fields
+```
+
+````
+
+````{py:attribute} default_values
+:canonical: pycityagent.cityagent.blocks.economy_block.MonthPlanBlock.default_values
+:value: >
+   None
+
+```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.MonthPlanBlock.default_values
+```
+
+````
+
+````{py:attribute} fields_description
+:canonical: pycityagent.cityagent.blocks.economy_block.MonthPlanBlock.fields_description
+:value: >
+   None
+
+```{autodoc2-docstring} pycityagent.cityagent.blocks.economy_block.MonthPlanBlock.fields_description
+```
+
+````
+
 ````{py:method} month_trigger()
 :canonical: pycityagent.cityagent.blocks.economy_block.MonthPlanBlock.month_trigger
 :async:

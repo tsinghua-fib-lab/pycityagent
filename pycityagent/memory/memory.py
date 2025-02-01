@@ -335,9 +335,7 @@ class StreamMemory:
             )
         return "\n".join(formatted_results)
 
-    async def get_by_ids(
-        self, memory_ids: Union[int, list[int]]
-    ) -> Coroutine[Any, Any, str]:
+    async def get_by_ids(self, memory_ids: Union[int, list[int]]) -> str:
         """获取指定ID的记忆"""
         memories = [memory for memory in self._memories if memory.id in memory_ids]
         sorted_results = sorted(memories, key=lambda x: (x.day, x.t), reverse=True)
@@ -491,15 +489,18 @@ class StreamMemory:
         - **Returns**:
             - `list[dict]`: List of all memory nodes as dictionaries.
         """
-        return [{
-            "id": memory.id,
-            "cognition_id": memory.cognition_id,
-            "tag": memory.tag.value,
-            "location": memory.location,
-            "description": memory.description,
-            "day": memory.day,
-            "t": memory.t,
-        } for memory in self._memories]
+        return [
+            {
+                "id": memory.id,
+                "cognition_id": memory.cognition_id,
+                "tag": memory.tag.value,
+                "location": memory.location,
+                "description": memory.description,
+                "day": memory.day,
+                "t": memory.t,
+            }
+            for memory in self._memories
+        ]
 
 
 class StatusMemory:

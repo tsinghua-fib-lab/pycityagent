@@ -124,11 +124,11 @@ Bases: {py:obj}`pycityagent.workflow.block.Block`
 
 ````
 
-````{py:method} end_of_day()
-:canonical: pycityagent.cityagent.blocks.cognition_block.CognitionBlock.end_of_day
+````{py:method} cross_day()
+:canonical: pycityagent.cityagent.blocks.cognition_block.CognitionBlock.cross_day
 :async:
 
-```{autodoc2-docstring} pycityagent.cityagent.blocks.cognition_block.CognitionBlock.end_of_day
+```{autodoc2-docstring} pycityagent.cityagent.blocks.cognition_block.CognitionBlock.cross_day
 ```
 
 ````

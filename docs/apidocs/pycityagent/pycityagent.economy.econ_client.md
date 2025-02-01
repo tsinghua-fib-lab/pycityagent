@@ -100,7 +100,7 @@
 ```
 ````
 
-`````{py:class} EconomyClient(server_address: str, secure: bool = False)
+`````{py:class} EconomyClient(server_address: str)
 :canonical: pycityagent.economy.econ_client.EconomyClient
 
 ```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient
@@ -162,7 +162,7 @@
 
 ````
 
-````{py:method} get_agent(id: int) -> pycityproto.city.economy.v2.economy_pb2.Agent
+````{py:method} get_agent(id: typing.Union[list[int], int]) -> typing.Union[dict[str, typing.Any], list[dict[str, typing.Any]]]
 :canonical: pycityagent.economy.econ_client.EconomyClient.get_agent
 :async:
 
@@ -171,7 +171,7 @@
 
 ````
 
-````{py:method} get_org(id: int) -> pycityproto.city.economy.v2.economy_pb2.Org
+````{py:method} get_org(id: typing.Union[list[int], int]) -> typing.Union[dict[str, typing.Any], list[dict[str, typing.Any]]]
 :canonical: pycityagent.economy.econ_client.EconomyClient.get_org
 :async:
 
@@ -180,7 +180,7 @@
 
 ````
 
-````{py:method} get(id: int, key: str) -> typing.Any
+````{py:method} get(id: typing.Union[list[int], int], key: str) -> typing.Any
 :canonical: pycityagent.economy.econ_client.EconomyClient.get
 :async:
 
@@ -189,7 +189,15 @@
 
 ````
 
-````{py:method} update(id: int, key: str, value: typing.Any, mode: typing.Union[typing.Literal[replace], typing.Literal[merge]] = 'replace') -> typing.Any
+````{py:method} _merge(original_value, key, value)
+:canonical: pycityagent.economy.econ_client.EconomyClient._merge
+
+```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient._merge
+```
+
+````
+
+````{py:method} update(id: typing.Union[list[int], int], key: str, value: typing.Union[typing.Any, list[typing.Any]], mode: typing.Union[typing.Literal[replace], typing.Literal[merge]] = 'replace') -> typing.Any
 :canonical: pycityagent.economy.econ_client.EconomyClient.update
 :async:
 
@@ -216,7 +224,7 @@
 
 ````
 
-````{py:method} calculate_taxes_due(org_id: typing.Union[int, list[int]], agent_ids: list[int], incomes: list[float], enable_redistribution: bool)
+````{py:method} calculate_taxes_due(org_id: int, agent_ids: list[int], incomes: list[float], enable_redistribution: bool)
 :canonical: pycityagent.economy.econ_client.EconomyClient.calculate_taxes_due
 :async:
 
@@ -230,6 +238,15 @@
 :async:
 
 ```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient.calculate_consumption
+```
+
+````
+
+````{py:method} calculate_real_gdp(nbs_id: int)
+:canonical: pycityagent.economy.econ_client.EconomyClient.calculate_real_gdp
+:async:
+
+```{autodoc2-docstring} pycityagent.economy.econ_client.EconomyClient.calculate_real_gdp
 ```
 
 ````

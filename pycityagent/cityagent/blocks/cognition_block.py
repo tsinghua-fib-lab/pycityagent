@@ -37,6 +37,7 @@ class CognitionBlock(Block):
         super().__init__("CognitionBlock", llm=llm, memory=memory, simulator=simulator)
         self.top_k = 20
         self.last_check_time = 0
+
     async def set_status(self, status):
         for key in status:
             await self.memory.status.update(key, status[key])
@@ -75,7 +76,9 @@ class CognitionBlock(Block):
             In the following 21 words, I have chosen {emotion_types} to represent your current status:
             Joy, Distress, Resentment, Pity, Hope, Fear, Satisfaction, Relief, Disappointment, Pride, Admiration, Shame, Reproach, Liking, Disliking, Gratitude, Anger, Gratification, Remorse, Love, Hate.
             """
-            incident_str = await self.memory.stream.search(query=topic, top_k=self.top_k)
+            incident_str = await self.memory.stream.search(
+                query=topic, top_k=self.top_k
+            )
             if incident_str:
                 incident_prompt = "Today, these incidents happened:"
                 incident_prompt += incident_str

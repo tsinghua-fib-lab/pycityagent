@@ -6,22 +6,21 @@ from collections.abc import Sequence
 from typing import Any, Optional, Union
 
 import mlflow
-from mlflow.entities import (Dataset, DatasetInput, Document, Experiment,
-                             ExperimentTag, FileInfo, InputTag, LifecycleStage,
-                             LiveSpan, Metric, NoOpSpan, Param, Run, RunData,
-                             RunInfo, RunInputs, RunStatus, RunTag, SourceType,
-                             Span, SpanEvent, SpanStatus, SpanStatusCode,
-                             SpanType, Trace, TraceData, TraceInfo, ViewType)
+from mlflow.entities import Metric, Param, Run, RunTag
 
+from ..configs import MlflowConfig
 from ..utils.decorators import lock_decorator
 
-__all__ = ["init_mlflow_connection","MlflowClient",]
+__all__ = [
+    "init_mlflow_connection",
+    "MlflowClient",
+]
 
 logger = logging.getLogger("mlflow")
 
 
 def init_mlflow_connection(
-    config: dict,
+    config: MlflowConfig,
     experiment_uuid: str,
     mlflow_run_name: Optional[str] = None,
     experiment_name: Optional[str] = None,
@@ -32,7 +31,7 @@ def init_mlflow_connection(
     Initialize an MLflow connection with a new or existing experiment and run.
 
     - **Args**:
-        config (dict): Configuration dictionary containing MLflow credentials and URI.
+        config (MlflowConfig): Configuration containing MLflow credentials and URI.
         experiment_uuid (str): A unique identifier for the experiment.
         mlflow_run_name (str, optional): Name of the MLflow run. Defaults to a generated name.
         experiment_name (str, optional): Name of the experiment. Defaults to a generated name.
@@ -42,8 +41,10 @@ def init_mlflow_connection(
     - **Returns**:
         tuple: A tuple containing the run_id and another tuple with the MLflow URI, client, run object, and run UUID.
     """
-    os.environ["MLFLOW_TRACKING_USERNAME"] = config.get("username", None)
-    os.environ["MLFLOW_TRACKING_PASSWORD"] = config.get("password", None)
+    if config.username is not None:
+        os.environ["MLFLOW_TRACKING_USERNAME"] = config.username
+    if config.password is not None:
+        os.environ["MLFLOW_TRACKING_PASSWORD"] = config.password
 
     run_uuid = str(uuid.uuid4())
     # run name
@@ -61,7 +62,7 @@ def init_mlflow_connection(
         experiment_tags["mlflow.note.content"] = experiment_description
         experiment_tags["experiment_id"] = experiment_uuid
 
-    uri = config["mlflow_uri"]
+    uri = config.mlflow_uri
     client = mlflow.MlflowClient(tracking_uri=uri)
 
     # experiment
@@ -89,7 +90,7 @@ class MlflowClient:
 
     def __init__(
         self,
-        config: dict,
+        config: MlflowConfig,
         experiment_uuid: str,
         mlflow_run_name: Optional[str] = None,
         experiment_name: Optional[str] = None,
@@ -101,7 +102,7 @@ class MlflowClient:
         Initialize the MlflowClient.
 
         - **Args**:
-            config (dict): Configuration dictionary containing MLflow credentials and URI.
+            config (dict): Configuration containing MLflow credentials and URI.
             experiment_uuid (str): A unique identifier for the experiment.
             mlflow_run_name (str, optional): Name of the MLflow run. Defaults to a generated name.
             experiment_name (str, optional): Name of the experiment. Defaults to a generated name.
@@ -124,9 +125,11 @@ class MlflowClient:
                 experiment_tags=experiment_tags,
             )
         else:
-            self._mlflow_uri = uri = config["mlflow_uri"]
-            os.environ["MLFLOW_TRACKING_USERNAME"] = config.get("username", None)
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = config.get("password", None)
+            self._mlflow_uri = uri = config.mlflow_uri
+            if config.username is not None:
+                os.environ["MLFLOW_TRACKING_USERNAME"] = config.username
+            if config.password is not None:
+                os.environ["MLFLOW_TRACKING_PASSWORD"] = config.password
             self._client = client = mlflow.MlflowClient(tracking_uri=uri)
             self._run = client.get_run(run_id=run_id)
             self._run_id = run_id

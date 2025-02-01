@@ -121,7 +121,7 @@
 
 ````
 
-````{py:method} atext_request(dialog: typing.Any, temperature: float = 1, max_tokens: typing.Optional[int] = None, top_p: typing.Optional[float] = None, frequency_penalty: typing.Optional[float] = None, presence_penalty: typing.Optional[float] = None, timeout: int = 300, retries=3, tools: typing.Optional[list[dict[str, typing.Any]]] = None, tool_choice: typing.Optional[dict[str, typing.Any]] = None)
+````{py:method} atext_request(dialog: typing.Any, temperature: float = 1, max_tokens: typing.Optional[int] = None, top_p: typing.Optional[float] = None, frequency_penalty: typing.Optional[float] = None, presence_penalty: typing.Optional[float] = None, timeout: int = 300, retries=10, tools: typing.Optional[list[dict[str, typing.Any]]] = None, tool_choice: typing.Optional[dict[str, typing.Any]] = None)
 :canonical: pycityagent.llm.llm.LLM.atext_request
 :async:
 

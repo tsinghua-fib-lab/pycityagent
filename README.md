@@ -117,33 +117,15 @@ CityAgent uses a configuration file written in `.yaml` format to manage settings
 
 ```yaml
 llm_request:
-  text_request:
-    request_type: openai
-    api_key: <YOUR_API_KEY>
-    model: gpt-4o
-  img_understand_request:
-    request_type: none
-    api_key: none
-    model: none
-  img_generate_request:
-    request_type: none
-    api_key: none
-    model: none
+  request_type: openai
+  api_key: <YOUR_API_KEY>
+  model: gpt-4o
 
 simulator_request:
   simulator:
     server: https://api-opencity-2x.fiblab.net:58081
   map_request:
-    mongo_uri: <MONGO_URI>
-    mongo_db: llmsim
-    mongo_coll: map_beijing5ring_withpoi_0424
-    cache_dir: ./cache
-  route_request:
-    server: http://api-opencity-2x.fiblab.net:58082
-  streetview_request:
-    engine: baidumap / googlemap
-    mapAK: baidumap api-key (if you use baidumap engine)
-    proxy: googlemap proxy (if you use googlemap engine)
+    file_path: ./cache/map_beijing5ring_withpoi_0424.pb
 ```
 
 ### 2. Example Usage

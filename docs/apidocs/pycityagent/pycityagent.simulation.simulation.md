@@ -221,7 +221,7 @@
 
 ````
 
-````{py:method} init_agents(agent_count: dict[type[pycityagent.agent.Agent], int], group_size: int = 10000, pg_sql_writers: int = 32, message_interceptors: int = 1, message_interceptor_blocks: typing.Optional[list[pycityagent.message.MessageBlockBase]] = None, social_black_list: typing.Optional[list[tuple[str, str]]] = None, message_listener: typing.Optional[pycityagent.message.MessageBlockListenerBase] = None, embedding_model: langchain_core.embeddings.Embeddings = SimpleEmbedding(), memory_config_init_func: typing.Optional[collections.abc.Callable] = None, memory_config_func: typing.Optional[dict[type[pycityagent.agent.Agent], collections.abc.Callable]] = None, environment: typing.Optional[dict[str, str]] = None) -> None
+````{py:method} init_agents(agent_count: dict[type[pycityagent.agent.Agent], int], group_size: int = 10000, pg_sql_writers: int = 32, message_interceptors: int = 1, message_interceptor_blocks: typing.Optional[list[pycityagent.message.MessageBlockBase]] = None, social_black_list: typing.Optional[list[tuple[str, str]]] = None, message_listener: typing.Optional[pycityagent.message.MessageBlockListenerBase] = None, embedding_model: langchain_core.embeddings.Embeddings = SimpleEmbedding(), memory_config_init_func: typing.Optional[collections.abc.Callable] = None, memory_config_func: typing.Optional[dict[type[pycityagent.agent.Agent], collections.abc.Callable]] = None, environment: dict[str, str] = {}, llm_semaphore: int = 200) -> None
 :canonical: pycityagent.simulation.simulation.AgentSimulation.init_agents
 :async:
 

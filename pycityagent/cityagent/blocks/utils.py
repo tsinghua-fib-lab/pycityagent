@@ -23,6 +23,7 @@ Please return the result in JSON format (Do not return any other text):
 }}
 """
 
+
 def prettify_document(document: str) -> str:
     # Remove sequences of whitespace characters (including newlines)
     cleaned = re.sub(r"\s+", " ", document).strip()

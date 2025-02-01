@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 
 from pycityagent import InstitutionAgent, Simulator
-from pycityagent.economy import EconomyClient
+from pycityagent.environment import EconomyClient
 from pycityagent.llm.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.message import Messager

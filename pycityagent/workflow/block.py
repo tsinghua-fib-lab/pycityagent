@@ -3,11 +3,8 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
-import json
 from collections.abc import Awaitable, Callable, Coroutine
 from typing import Any, Optional, Union
-
-from pyparsing import Dict
 
 from ..environment.simulator import Simulator
 from ..llm import LLM

@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import json
 import logging
 import time
@@ -6,7 +7,7 @@ import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, Optional, Type, Union
+from typing import Any, Literal, Optional, Type, Union, cast
 
 import ray
 import yaml
@@ -23,19 +24,21 @@ from ..cityagent.memory_config import (memory_config_bank, memory_config_firm,
 from ..cityagent.message_intercept import (EdgeMessageBlock,
                                            MessageBlockListener,
                                            PointMessageBlock)
-from ..economy.econ_client import EconomyClient
-from ..environment import Simulator
+from ..configs import ExpConfig, SimConfig
+from ..environment import EconomyClient, Simulator
 from ..llm import SimpleEmbedding
 from ..message import (MessageBlockBase, MessageBlockListenerBase,
                        MessageInterceptor, Messager)
 from ..metrics import init_mlflow_connection
 from ..metrics.mlflow_client import MlflowClient
 from ..survey import Survey
-from ..utils import SURVEY_SENDER_UUID, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES
+from ..utils import (SURVEY_SENDER_UUID, TO_UPDATE_EXP_INFO_KEYS_AND_TYPES,
+                     WorkflowType)
 from .agentgroup import AgentGroup
 from .storage.pg import PgWriter, create_pg_tables
 
 logger = logging.getLogger("pycityagent")
+ExpConfig.model_rebuild()  # rebuild the schema due to circular import
 
 
 __all__ = ["AgentSimulation"]
@@ -58,9 +61,9 @@ class AgentSimulation:
 
     def __init__(
         self,
-        config: dict,
+        config: SimConfig,
         agent_class: Union[None, type[Agent], list[type[Agent]]] = None,
-        agent_config_file: Optional[dict] = None,
+        agent_class_configs: Optional[dict] = None,
         metric_extractors: Optional[list[tuple[int, Callable]]] = None,
         enable_institution: bool = True,
         agent_prefix: str = "agent_",
@@ -75,10 +78,10 @@ class AgentSimulation:
               it can include a predefined set of institutional agents. If specific agent classes are provided, those will be used instead.
 
         - **Args**:
-            - `config` (dict): The main configuration dictionary for the simulation.
+            - `config` (SimConfig): The main configuration for the simulation.
             - `agent_class` (Union[None, Type[Agent], List[Type[Agent]]], optional):
                 Either a single agent class or a list of agent classes to instantiate. Defaults to None, which implies a default set of agents.
-            - `agent_config_file` (Optional[dict], optional): An optional configuration file or dictionary used to initialize agents. Defaults to None.
+            - `agent_class_configs` (Optional[dict], optional): An optional configuration dict used to initialize agents. Defaults to None.
             - `metric_extractors` (Optional[List[Tuple[int, Callable]]], optional):
                 A list of tuples containing intervals and callables for extracting metrics from the simulation. Defaults to None.
             - `enable_institution` (bool, optional): Flag indicating whether institutional agents should be included in the simulation. Defaults to True.
@@ -115,41 +118,18 @@ class AgentSimulation:
                 }
         else:
             self.agent_class = [agent_class]
-        self.agent_config_file = agent_config_file
+        self.agent_class_configs = agent_class_configs
         self.logging_level = logging_level
         self.config = config
         self.exp_name = exp_name
-        _simulator_config = config["simulator_request"].get("simulator", {})
-        if "server" in _simulator_config:
-            raise ValueError(f"Passing Traffic Simulation address is not supported!")
-        simulator = Simulator(config["simulator_request"], create_map=True)
+        simulator = Simulator(config, create_map=True)
         self._simulator = simulator
         self._map_ref = self._simulator.map
         server_addr = self._simulator.get_server_addr()
-        config["simulator_request"]["simulator"]["server"] = server_addr
-        self._economy_client = EconomyClient(
-            config["simulator_request"]["simulator"]["server"]
-        )
+        config.SetServerAddress(server_addr)
+        self._economy_client = EconomyClient(server_addr)
         if enable_institution:
             self._economy_addr = economy_addr = server_addr
-            if economy_addr is None:
-                raise ValueError(
-                    f"`simulator` not provided in `simulator_request`, thus unable to activate economy!"
-                )
-            _req_dict: dict = self.config["simulator_request"]
-            if "economy" in _req_dict:
-                if _req_dict["economy"] is None:
-                    _req_dict["economy"] = {}
-                if "server" in _req_dict["economy"]:
-                    raise ValueError(
-                        f"Passing Economy Simulation address is not supported!"
-                    )
-                else:
-                    _req_dict["economy"]["server"] = economy_addr
-            else:
-                _req_dict["economy"] = {
-                    "server": economy_addr,
-                }
         self.agent_prefix = agent_prefix
         self._groups: dict[str, AgentGroup] = {}  # type:ignore
         self._agent_uuid2group: dict[str, AgentGroup] = {}  # type:ignore
@@ -163,40 +143,41 @@ class AgentSimulation:
         self._simulator_day = 0
         # self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
 
+        mqtt_config = config.prop_mqtt
         self._messager = Messager.remote(
-            hostname=config["simulator_request"]["mqtt"]["server"],  # type:ignore
-            port=config["simulator_request"]["mqtt"]["port"],
-            username=config["simulator_request"]["mqtt"].get("username", None),
-            password=config["simulator_request"]["mqtt"].get("password", None),
+            hostname=mqtt_config.server,  # type:ignore
+            port=mqtt_config.port,
+            username=mqtt_config.username,
+            password=mqtt_config.password,
         )
 
         # storage
-        _storage_config: dict[str, Any] = config.get("storage", {})
-        if _storage_config is None:
-            _storage_config = {}
 
         # avro
-        _avro_config: dict[str, Any] = _storage_config.get("avro", {})
-        self._enable_avro = _avro_config.get("enabled", False)
-        if not self._enable_avro:
-            self._avro_path = None
-            logger.warning("AVRO is not enabled, NO AVRO LOCAL STORAGE")
+        avro_config = config.prop_avro_config
+        if avro_config is not None:
+            self._enable_avro: bool = avro_config.enabled  # type:ignore
+            if not self._enable_avro:
+                self._avro_path = None
+                logger.warning("AVRO is not enabled, NO AVRO LOCAL STORAGE")
+            else:
+                self._avro_path = Path(avro_config.path) / f"{self.exp_id}"
+                self._avro_path.mkdir(parents=True, exist_ok=True)
         else:
-            self._avro_path = Path(_avro_config["path"]) / f"{self.exp_id}"
-            self._avro_path.mkdir(parents=True, exist_ok=True)
+            self._enable_avro = False
 
         # mlflow
-        _mlflow_config: dict[str, Any] = config.get("metric_request", {}).get("mlflow")
-        if _mlflow_config:
+        metric_config = config.prop_metric_request
+        if metric_config is not None and metric_config.mlflow is not None:
             logger.info(f"-----Creating Mlflow client...")
             mlflow_run_id, _ = init_mlflow_connection(
-                config=_mlflow_config,
+                config=metric_config.mlflow,
                 experiment_uuid=self.exp_id,
                 mlflow_run_name=f"EXP_{self.exp_name}_{1000*int(time.time())}",
                 experiment_name=self.exp_name,
             )
             self.mlflow_client = MlflowClient(
-                config=_mlflow_config,
+                config=metric_config.mlflow,
                 experiment_uuid=self.exp_id,
                 mlflow_run_name=f"EXP_{exp_name}_{1000*int(time.time())}",
                 experiment_name=exp_name,
@@ -209,17 +190,18 @@ class AgentSimulation:
             self.metric_extractors = None
 
         # pg
-        _pgsql_config: dict[str, Any] = _storage_config.get("pgsql", {})
-        self._enable_pgsql = _pgsql_config.get("enabled", False)
-        if not self._enable_pgsql:
-            logger.warning("PostgreSQL is not enabled, NO POSTGRESQL DATABASE STORAGE")
-            self._pgsql_dsn = ""
+        pgsql_config = config.prop_postgre_sql_config
+        if pgsql_config is not None:
+            self._enable_pgsql: bool = pgsql_config.enabled  # type:ignore
+            if not self._enable_pgsql:
+                logger.warning(
+                    "PostgreSQL is not enabled, NO POSTGRESQL DATABASE STORAGE"
+                )
+                self._pgsql_dsn = ""
+            else:
+                self._pgsql_dsn = pgsql_config.dsn
         else:
-            self._pgsql_dsn = (
-                _pgsql_config["data_source_name"]
-                if "data_source_name" in _pgsql_config
-                else _pgsql_config["dsn"]
-            )
+            self._enable_pgsql = False
 
         # 添加实验信息相关的属性
         self._exp_created_time = datetime.now(timezone.utc)
@@ -231,7 +213,7 @@ class AgentSimulation:
             "status": 0,
             "cur_day": 0,
             "cur_t": 0.0,
-            "config": json.dumps(config),
+            "config": str(config.model_dump()),
             "error": "",
             "created_at": self._exp_created_time.isoformat(),
             "updated_at": self._exp_updated_time.isoformat(),
@@ -245,7 +227,7 @@ class AgentSimulation:
                 yaml.dump(self._exp_info, f)
 
     @classmethod
-    async def run_from_config(cls, config: dict):
+    async def run_from_config(cls, config: ExpConfig, sim_config: SimConfig):
         """Directly run from config file
         Basic config file should contain:
         - simulation_config: file_path
@@ -280,130 +262,101 @@ class AgentSimulation:
         - logging_level: Optional[int]
         - exp_name: Optional[str]
         """
-        # required key check
-        if "simulation_config" not in config:
-            raise ValueError("simulation_config is required")
-        if "agent_config" not in config:
-            raise ValueError("agent_config is required")
-        if "workflow" not in config:
-            raise ValueError("workflow is required")
-        import yaml
 
-        logger.info("Loading config file...")
-        with open(config["simulation_config"], "r") as f:
-            simulation_config = yaml.safe_load(f)
+        agent_config = config.prop_agent_config
+
         logger.info("Creating AgentSimulation Task...")
         simulation = cls(
-            config=simulation_config,
-            agent_config_file=config["agent_config"].get("agent_config_file", None),
-            metric_extractors=config["agent_config"].get("metric_extractors", None),
-            enable_institution=config.get("enable_institution", True),
-            exp_name=config.get("exp_name", "default_experiment"),
-            logging_level=config.get("logging_level", logging.WARNING),
+            config=sim_config,
+            agent_class_configs=agent_config.agent_class_configs,
+            metric_extractors=config.prop_metric_extractors,
+            enable_institution=agent_config.enable_institution,
+            exp_name=config.exp_name,
+            logging_level=config.logging_level,
         )
-        environment = config.get(
-            "environment",
-            {
-                "weather": "The weather is normal",
-                "crime": "The crime rate is low",
-                "pollution": "The pollution level is low",
-                "temperature": "The temperature is normal",
-                "day": "Workday",
-            },
-        )
+        environment = config.prop_environment.model_dump()
         simulation._simulator.set_environment(environment)
         logger.info("Initializing Agents...")
-        agent_count = {
-            SocietyAgent: config["agent_config"].get("number_of_citizen", 0),
-            FirmAgent: config["agent_config"].get("number_of_firm", 0),
-            GovernmentAgent: config["agent_config"].get("number_of_government", 0),
-            BankAgent: config["agent_config"].get("number_of_bank", 0),
-            NBSAgent: config["agent_config"].get("number_of_nbs", 0),
+        agent_count: dict[type[Agent], int] = {
+            SocietyAgent: agent_config.number_of_citizen,
+            FirmAgent: agent_config.number_of_firm,
+            GovernmentAgent: agent_config.number_of_government,
+            BankAgent: agent_config.number_of_bank,
+            NBSAgent: agent_config.number_of_nbs,
         }
         if agent_count.get(SocietyAgent, 0) == 0:
             raise ValueError("number_of_citizen is required")
 
         # support MessageInterceptor
-        if "message_intercept" in config:
-            _intercept_config = config["message_intercept"]
-            _mode = _intercept_config.get("mode", "point")
-            if _mode == "point":
-                _kwargs = {
-                    k: v
-                    for k, v in _intercept_config.items()
-                    if k
-                    in {
-                        "max_violation_time",
-                    }
-                }
-                _interceptor_blocks = [PointMessageBlock(**_kwargs)]
-            elif _mode == "edge":
-                _kwargs = {
-                    k: v
-                    for k, v in _intercept_config.items()
-                    if k
-                    in {
-                        "max_violation_time",
-                    }
-                }
-                _interceptor_blocks = [EdgeMessageBlock(**_kwargs)]
+        if config.message_intercept is not None:
+            intercept_config = config.message_intercept
+            if intercept_config.mode == "point":
+                _interceptor_blocks = [
+                    PointMessageBlock(
+                        max_violation_time=intercept_config.max_violation_time
+                    )
+                ]
+            elif intercept_config.mode == "edge":
+                _interceptor_blocks = [
+                    EdgeMessageBlock(
+                        max_violation_time=intercept_config.max_violation_time
+                    )
+                ]
             else:
-                raise ValueError(f"Unsupported interception mode `{_mode}!`")
+                raise ValueError(
+                    f"Unsupported interception mode `{intercept_config.mode}!`"
+                )
             _message_intercept_kwargs = {
                 "message_interceptor_blocks": _interceptor_blocks,
                 "message_listener": MessageBlockListener(),
             }
         else:
             _message_intercept_kwargs = {}
+        embedding_model = agent_config.embedding_model
+        if embedding_model is None:
+            embedding_model = SimpleEmbedding()
         await simulation.init_agents(
             agent_count=agent_count,
-            group_size=config["agent_config"].get("group_size", 10000),
-            embedding_model=config["agent_config"].get(
-                "embedding_model", SimpleEmbedding()
-            ),
-            memory_config_func=config["agent_config"].get("memory_config_func", None),
-            memory_config_init_func=config["agent_config"].get(
-                "memory_config_init_func", None
-            ),
+            group_size=agent_config.group_size,
+            embedding_model=embedding_model,
+            memory_config_func=agent_config.memory_config_func,
+            memory_config_init_func=agent_config.memory_config_init_func,
             **_message_intercept_kwargs,
             environment=environment,
-            llm_semaphore=config.get("llm_semaphore", 200),
+            llm_semaphore=config.llm_semaphore,
         )
         logger.info("Running Init Functions...")
-        for init_func in config["agent_config"].get(
-            "init_func", [bind_agent_info, initialize_social_network]
-        ):
-            await init_func(simulation)
+        init_funcs = agent_config.init_func
+        if init_funcs is None:
+            init_funcs = [bind_agent_info, initialize_social_network]
+        for init_func in init_funcs:
+            if inspect.iscoroutinefunction(init_func):
+                await init_func(simulation)
+            else:
+                init_func = cast(Callable, init_func)
+                init_func(simulation)
         logger.info("Starting Simulation...")
         llm_log_lists = []
         mqtt_log_lists = []
         simulator_log_lists = []
         agent_time_log_lists = []
-        for step in config["workflow"]:
+        for step in config.prop_workflow:
             logger.info(
-                f"Running step: type: {step['type']} - description: {step.get('description', 'no description')}"
+                f"Running step: type: {step.type} - description: {step.description}"
             )
-            if step["type"] not in [
-                "run",
-                "step",
-                "interview",
-                "survey",
-                "intervene",
-                "pause",
-                "resume",
-                "function",
-            ]:
-                raise ValueError(f"Invalid step type: {step['type']}")
-            if step["type"] == "run":
+            if step.type not in {t.value for t in WorkflowType}:
+                raise ValueError(f"Invalid step type: {step.type}")
+            if step.type == WorkflowType.RUN:
+                _days = cast(int, step.days)
                 llm_log_list, mqtt_log_list, simulator_log_list, agent_time_log_list = (
-                    await simulation.run(step.get("days", 1))
+                    await simulation.run(_days)
                 )
                 llm_log_lists.extend(llm_log_list)
                 mqtt_log_lists.extend(mqtt_log_list)
                 simulator_log_lists.extend(simulator_log_list)
                 agent_time_log_lists.extend(agent_time_log_list)
-            elif step["type"] == "step":
-                times = step.get("times", 1)
+            elif step.type == WorkflowType.STEP:
+                times = cast(int, step.times)
                 for _ in range(times):
                     (
                         llm_log_list,
@@ -415,12 +368,13 @@ class AgentSimulation:
                     mqtt_log_lists.extend(mqtt_log_list)
                     simulator_log_lists.extend(simulator_log_list)
                     agent_time_log_lists.extend(agent_time_log_list)
-            elif step["type"] == "pause":
+            elif step.type == WorkflowType.PAUSE:
                 await simulation.pause_simulator()
-            elif step["type"] == "resume":
+            elif step.type == WorkflowType.RESUME:
                 await simulation.resume_simulator()
-            else:
-                await step["func"](simulation)
+            elif step.type == WorkflowType.FUNCTION:
+                _func = cast(Callable, step.func)
+                await _func(simulation)
         logger.info("Simulation finished")
         return llm_log_lists, mqtt_log_lists, simulator_log_lists, agent_time_log_lists
 
@@ -607,8 +561,8 @@ class AgentSimulation:
                 agent_class, self.default_memory_config_func[agent_class]  # type:ignore
             )
 
-            if self.agent_config_file is not None:
-                config_file = self.agent_config_file.get(agent_class, None)
+            if self.agent_class_configs is not None:
+                config_file = self.agent_class_configs.get(agent_class, None)
             else:
                 config_file = None
 
@@ -693,11 +647,11 @@ class AgentSimulation:
                     )
                 )
         # 初始化mlflow连接
-        _mlflow_config = self.config.get("metric_request", {}).get("mlflow")
-        if _mlflow_config:
+        metric_config = self.config.prop_metric_request
+        if metric_config is not None and metric_config.mlflow is not None:
             mlflow_run_id, _ = init_mlflow_connection(
                 experiment_uuid=self.exp_id,
-                config=_mlflow_config,
+                config=metric_config.mlflow,
                 mlflow_run_name=f"{self.exp_name}_{1000*int(time.time())}",
                 experiment_name=self.exp_name,
             )
@@ -726,7 +680,7 @@ class AgentSimulation:
             self._message_abort_listening_queue = _queue = None
         _interceptor_blocks = message_interceptor_blocks
         _black_list = [] if social_black_list is None else social_black_list
-        _llm_config = self.config.get("llm_request", {})
+        _llm_config = self.config.llm_request
         if message_interceptor_blocks is not None:
             _num_interceptors = min(1, message_interceptors)
             self._message_interceptors = _interceptors = [

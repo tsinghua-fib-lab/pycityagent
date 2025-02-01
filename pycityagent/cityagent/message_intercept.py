@@ -1,5 +1,4 @@
 import asyncio
-import json
 
 from pycityagent.llm import LLM
 from pycityagent.message import MessageBlockBase, MessageBlockListenerBase
@@ -8,16 +7,16 @@ from pycityagent.message import MessageBlockBase, MessageBlockListenerBase
 async def check_message(
     from_uuid: str, to_uuid: str, llm_client: LLM, content: str
 ) -> bool:
-    print(f"\n检查消息: {from_uuid} -> {to_uuid}: {content}")
+    print(f"\n Checking Message: {from_uuid} -> {to_uuid}: {content}")
     is_valid = True
     prompt = f"""
-        请判断以下消息是否具有情绪煽动性：
-        发送者ID: {from_uuid}
-        接收者ID: {to_uuid}
-        消息内容: {content}
-        
-        如果消息具有情绪煽动性，请返回 False；如果消息正常，请返回 True。
-        """
+    Please determine whether the following message is emotionally inflammatory:
+    Sender ID: {from_uuid}
+    Receiver ID: {to_uuid}
+    Message content: {content}
+
+    If the message is emotionally inflammatory, please return False; if the message is normal, please return True.
+    """
     for _ in range(10):
         try:
             response: str = await llm_client.atext_request(
@@ -33,7 +32,7 @@ async def check_message(
             pass
     else:
         raise RuntimeError(f"Request for message interception prompt=`{prompt}` failed")
-    print(f"消息检查结果: {'合规' if is_valid else '不合规'}")
+    print(f"Message Check: {'Valid' if is_valid else 'Invalid'}")
     return is_valid
 
 

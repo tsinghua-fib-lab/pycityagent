@@ -65,13 +65,13 @@ Bases: {py:obj}`pycityagent.workflow.Block`
 ```{autodoc2-docstring} pycityagent.cityagent.societyagent.PlanAndActionBlock.__init__
 ```
 
-````{py:attribute} longTermDecisionBlock
-:canonical: pycityagent.cityagent.societyagent.PlanAndActionBlock.longTermDecisionBlock
+````{py:attribute} monthPlanBlock
+:canonical: pycityagent.cityagent.societyagent.PlanAndActionBlock.monthPlanBlock
 :type: pycityagent.cityagent.blocks.economy_block.MonthPlanBlock
 :value: >
    None
 
-```{autodoc2-docstring} pycityagent.cityagent.societyagent.PlanAndActionBlock.longTermDecisionBlock
+```{autodoc2-docstring} pycityagent.cityagent.societyagent.PlanAndActionBlock.monthPlanBlock
 ```
 
 ````

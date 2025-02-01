@@ -15,10 +15,9 @@ import ray
 from langchain_core.embeddings import Embeddings
 
 from ..agent import Agent, InstitutionAgent
-from ..economy.econ_client import EconomyClient
-from ..environment import Simulator
+from ..configs import SimConfig
+from ..environment import EconomyClient, Simulator
 from ..llm.llm import LLM
-from ..llm.llmconfig import LLMConfig
 from ..memory import FaissQuery, Memory
 from ..message import Messager
 from ..metrics import MlflowClient
@@ -36,7 +35,7 @@ class AgentGroup:
         agent_class: Union[type[Agent], list[type[Agent]]],
         number_of_agents: Union[int, list[int]],
         memory_config_function_group: dict[type[Agent], Callable],
-        config: dict,
+        config: SimConfig,
         map_ref: ray.ObjectRef,
         exp_name: str,
         exp_id: Union[str, UUID],
@@ -65,7 +64,7 @@ class AgentGroup:
             - `agent_class` (Union[Type[Agent], List[Type[Agent]]]): A single or list of agent classes to instantiate.
             - `number_of_agents` (Union[int, List[int]]): Number of instances to create for each agent class.
             - `memory_config_function_group` (Dict[Type[Agent], Callable]): Functions to configure memory for each agent type.
-            - `config` (dict): Configuration settings for the agent group.
+            - `config` (SimConfig): Configuration settings for the agent group.
             - `map_ref` (ray.ObjectRef): Reference to the map object.
             - `exp_name` (str): Name of the experiment.
             - `exp_id` (str | UUID): Identifier for the experiment.
@@ -109,11 +108,11 @@ class AgentGroup:
         if self.enable_pgsql:
             pass
         # Mlflow
-        _mlflow_config = config.get("metric_request", {}).get("mlflow")
-        if _mlflow_config:
+        metric_config = config.prop_metric_request
+        if metric_config is not None and metric_config.mlflow is not None:
             logger.info(f"-----Creating Mlflow client in AgentGroup {self._uuid} ...")
             self.mlflow_client = MlflowClient(
-                config=_mlflow_config,
+                config=metric_config.mlflow,
                 experiment_uuid=self.exp_id,  # type:ignore
                 mlflow_run_name=f"{exp_name}_{1000*int(time.time())}",
                 experiment_name=exp_name,
@@ -123,12 +122,13 @@ class AgentGroup:
             self.mlflow_client = None
 
         # prepare Messager
-        if "mqtt" in config["simulator_request"]:
+        mqtt_config = config.prop_mqtt
+        if mqtt_config is not None:
             self.messager = Messager.remote(
-                hostname=config["simulator_request"]["mqtt"]["server"],  # type:ignore
-                port=config["simulator_request"]["mqtt"]["port"],
-                username=config["simulator_request"]["mqtt"].get("username", None),
-                password=config["simulator_request"]["mqtt"].get("password", None),
+                hostname=mqtt_config.server,  # type:ignore
+                port=mqtt_config.port,
+                username=mqtt_config.username,
+                password=mqtt_config.password,
             )
         else:
             self.messager = None
@@ -140,23 +140,20 @@ class AgentGroup:
         self.initialized = False
         self.id2agent = {}
         # prepare LLM client
-        llmConfig = LLMConfig(config["llm_request"])
         logger.info(f"-----Creating LLM client in AgentGroup {self._uuid} ...")
-        self.llm = LLM(llmConfig)
+        self.llm = LLM(config.prop_llm_request)
         self.llm.set_semaphore(llm_semaphore)
 
         # prepare Simulator
         logger.info(f"-----Initializing Simulator in AgentGroup {self._uuid} ...")
-        self.simulator = Simulator(config["simulator_request"])
+        self.simulator = Simulator(config)
         self.simulator.set_map(map_ref)
         self.projector = pyproj.Proj(
             ray.get(self.simulator.map.get_projector.remote())  # type:ignore
         )
         # prepare Economy client
         logger.info(f"-----Creating Economy client in AgentGroup {self._uuid} ...")
-        self.economy_client = EconomyClient(
-            config["simulator_request"]["simulator"]["server"]
-        )
+        self.economy_client = EconomyClient(config.prop_simulator_server_address)
 
         # set FaissQuery
         if self.embedding_model is not None:

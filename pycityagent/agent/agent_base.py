@@ -14,8 +14,7 @@ import fastavro
 import ray
 from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
-from ..economy import EconomyClient
-from ..environment import Simulator
+from ..environment import EconomyClient, Simulator
 from ..environment.sim.person_service import PersonService
 from ..llm import LLM
 from ..memory import Memory

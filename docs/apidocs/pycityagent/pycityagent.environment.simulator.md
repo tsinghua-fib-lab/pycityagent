@@ -15,6 +15,10 @@
 :class: autosummary longtable
 :align: left
 
+* - {py:obj}`CityMap <pycityagent.environment.simulator.CityMap>`
+  - ```{autodoc2-docstring} pycityagent.environment.simulator.CityMap
+    :summary:
+    ```
 * - {py:obj}`Simulator <pycityagent.environment.simulator.Simulator>`
   - ```{autodoc2-docstring} pycityagent.environment.simulator.Simulator
     :summary:
@@ -59,7 +63,77 @@
 
 ````
 
-`````{py:class} Simulator(config: dict, secure: bool = False)
+`````{py:class} CityMap(mongo_input: tuple[str, str, str, str], map_cache_path: str)
+:canonical: pycityagent.environment.simulator.CityMap
+
+```{autodoc2-docstring} pycityagent.environment.simulator.CityMap
+```
+
+```{rubric} Initialization
+```
+
+```{autodoc2-docstring} pycityagent.environment.simulator.CityMap.__init__
+```
+
+````{py:method} get_aoi(aoi_id: typing.Optional[int] = None)
+:canonical: pycityagent.environment.simulator.CityMap.get_aoi
+
+```{autodoc2-docstring} pycityagent.environment.simulator.CityMap.get_aoi
+```
+
+````
+
+````{py:method} get_poi(poi_id: typing.Optional[int] = None)
+:canonical: pycityagent.environment.simulator.CityMap.get_poi
+
+```{autodoc2-docstring} pycityagent.environment.simulator.CityMap.get_poi
+```
+
+````
+
+````{py:method} query_pois(**kwargs)
+:canonical: pycityagent.environment.simulator.CityMap.query_pois
+
+```{autodoc2-docstring} pycityagent.environment.simulator.CityMap.query_pois
+```
+
+````
+
+````{py:method} get_poi_cate()
+:canonical: pycityagent.environment.simulator.CityMap.get_poi_cate
+
+```{autodoc2-docstring} pycityagent.environment.simulator.CityMap.get_poi_cate
+```
+
+````
+
+````{py:method} get_map()
+:canonical: pycityagent.environment.simulator.CityMap.get_map
+
+```{autodoc2-docstring} pycityagent.environment.simulator.CityMap.get_map
+```
+
+````
+
+````{py:method} get_map_header()
+:canonical: pycityagent.environment.simulator.CityMap.get_map_header
+
+```{autodoc2-docstring} pycityagent.environment.simulator.CityMap.get_map_header
+```
+
+````
+
+````{py:method} get_projector()
+:canonical: pycityagent.environment.simulator.CityMap.get_projector
+
+```{autodoc2-docstring} pycityagent.environment.simulator.CityMap.get_projector
+```
+
+````
+
+`````
+
+`````{py:class} Simulator(config: dict, create_map: bool = False)
 :canonical: pycityagent.environment.simulator.Simulator
 
 ```{autodoc2-docstring} pycityagent.environment.simulator.Simulator
@@ -81,12 +155,12 @@
 
 ````
 
-````{py:attribute} map
-:canonical: pycityagent.environment.simulator.Simulator.map
+````{py:attribute} _map
+:canonical: pycityagent.environment.simulator.Simulator._map
 :value: >
-   'SimMap(...)'
+   None
 
-```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.map
+```{autodoc2-docstring} pycityagent.environment.simulator.Simulator._map
 ```
 
 ````
@@ -98,6 +172,30 @@
    0
 
 ```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.time
+```
+
+````
+
+````{py:method} set_map(map: ray.ObjectRef)
+:canonical: pycityagent.environment.simulator.Simulator.set_map
+
+```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.set_map
+```
+
+````
+
+````{py:method} _create_poi_id_2_aoi_id()
+:canonical: pycityagent.environment.simulator.Simulator._create_poi_id_2_aoi_id
+
+```{autodoc2-docstring} pycityagent.environment.simulator.Simulator._create_poi_id_2_aoi_id
+```
+
+````
+
+````{py:property} map
+:canonical: pycityagent.environment.simulator.Simulator.map
+
+```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.map
 ```
 
 ````
@@ -118,11 +216,27 @@
 
 ````
 
+````{py:method} get_poi_cate()
+:canonical: pycityagent.environment.simulator.Simulator.get_poi_cate
+
+```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.get_poi_cate
+```
+
+````
+
 ````{py:property} environment
 :canonical: pycityagent.environment.simulator.Simulator.environment
 :type: dict[str, str]
 
 ```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.environment
+```
+
+````
+
+````{py:method} get_server_addr()
+:canonical: pycityagent.environment.simulator.Simulator.get_server_addr
+
+```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.get_server_addr
 ```
 
 ````
@@ -221,7 +335,7 @@
 
 ````
 
-````{py:method} add_person(person: typing.Any) -> dict
+````{py:method} add_person(dict_person: dict) -> dict
 :canonical: pycityagent.environment.simulator.Simulator.add_person
 :async:
 

@@ -6,7 +6,7 @@ from typing import Optional
 
 from pycityagent import CitizenAgent, Simulator
 from pycityagent.agent import Agent
-from pycityagent.economy import EconomyClient
+from pycityagent.environment import EconomyClient
 from pycityagent.llm.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.tools import UpdateWithSimulator

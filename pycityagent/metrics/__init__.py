@@ -1,4 +1,4 @@
-from .mlflow_client import MlflowClient,init_mlflow_connection
+from .mlflow_client import MlflowClient, init_mlflow_connection
 
 __all__ = [
     "MlflowClient",

@@ -6,7 +6,7 @@ import warnings
 from subprocess import Popen
 from typing import Optional
 
-from pycitydata.map import Map
+import yaml
 
 from ..utils import encode_to_base64, find_free_port
 
@@ -16,29 +16,22 @@ __all__ = ["ControlSimEnv"]
 def _generate_yaml_config(
     map_file: str, max_day: int, start_step: int, total_step: int
 ) -> str:
-    map_file = os.path.abspath(map_file)
-    return f"""
-input:
-  # 地图
-  map:
-    file: "{map_file}"
-
-control:
-  day: {max_day}
-  step:
-    start: {start_step}
-    total: {total_step}
-    interval: 1
-  skip_overtime_trip_when_init: true
-  enable_platoon: false
-  enable_indoor: false
-  prefer_fixed_light: true
-  enable_collision_avoidance: false # 计算性能下降10倍，需要保证subloop>=5
-  enable_go_astray: true # 引入串行的路径规划调用，计算性能下降（幅度不确定）
-  lane_change_model: earliest # mobil （主动变道+强制变道，默认值） earliest （总是尽可能早地变道）
-
-output:
-"""
+    config_dict = {
+        "input": {"map": {"file": os.path.abspath(map_file)}},
+        "control": {
+            "day": max_day,
+            "step": {"start": start_step, "total": total_step, "interval": 1},
+            "skip_overtime_trip_when_init": True,
+            "enable_platoon": False,
+            "enable_indoor": False,
+            "prefer_fixed_light": True,
+            "enable_collision_avoidance": False,
+            "enable_go_astray": True,
+            "lane_change_model": "earliest",
+        },
+        "output": None,
+    }
+    return yaml.dump(config_dict, allow_unicode=True)
 
 
 class ControlSimEnv:

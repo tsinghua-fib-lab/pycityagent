@@ -3,7 +3,7 @@ from typing import Optional
 import numpy as np
 from pycityagent import Simulator, InstitutionAgent
 from pycityagent.llm import LLM
-from pycityagent.economy import EconomyClient
+from pycityagent.environment import EconomyClient
 from pycityagent.message import Messager
 from pycityagent.memory import Memory
 import logging

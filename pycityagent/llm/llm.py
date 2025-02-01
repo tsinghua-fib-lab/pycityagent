@@ -3,20 +3,15 @@
 import asyncio
 import json
 import logging
-import time
 import os
-from http import HTTPStatus
-from io import BytesIO
+import time
 from typing import Any, Optional, Union
 
-import dashscope
-import requests
-from dashscope import ImageSynthesis
 from openai import APIConnectionError, AsyncOpenAI, OpenAI, OpenAIError
-from PIL import Image
 from zhipuai import ZhipuAI
 
-from .llmconfig import *
+from ..configs import LLMRequestConfig
+from ..utils import LLMRequestType
 from .utils import *
 
 logging.getLogger("zhipuai").setLevel(logging.WARNING)
@@ -36,15 +31,15 @@ class LLM:
         - It initializes clients based on the specified request type and handles token usage and consumption reporting.
     """
 
-    def __init__(self, config: LLMConfig) -> None:
+    def __init__(self, config: LLMRequestConfig) -> None:
         """
         Initializes the LLM instance.
 
         - **Parameters**:
-            - `config`: An instance of `LLMConfig` containing configuration settings for the LLM.
+            - `config`: An instance of `LLMRequestConfig` containing configuration settings for the LLM.
         """
         self.config = config
-        if config.text["request_type"] not in ["openai", "deepseek", "qwen", "zhipuai", "siliconflow"]:
+        if config.request_type not in {t.value for t in LLMRequestType}:
             raise ValueError("Invalid request type for text request")
         self.prompt_tokens_used = 0
         self.completion_tokens_used = 0
@@ -53,7 +48,7 @@ class LLM:
         self._current_client_index = 0
         self._log_list = []
 
-        api_keys = self.config.text["api_key"]
+        api_keys = self.config.api_key
         if not isinstance(api_keys, list):
             api_keys = [api_keys]
 
@@ -61,42 +56,40 @@ class LLM:
         self._client_usage = []
 
         for api_key in api_keys:
-            if self.config.text["request_type"] == "openai":
+            if self.config.request_type == LLMRequestType.OpenAI:
                 client = AsyncOpenAI(api_key=api_key, timeout=300)
-            elif self.config.text["request_type"] == "deepseek":
+            elif self.config.request_type == LLMRequestType.DeepSeek:
                 client = AsyncOpenAI(
                     api_key=api_key,
                     base_url="https://api.deepseek.com/v1",
                     timeout=300,
                 )
-            elif self.config.text["request_type"] == "qwen":
+            elif self.config.request_type == LLMRequestType.Qwen:
                 client = AsyncOpenAI(
                     api_key=api_key,
                     base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
                     timeout=300,
                 )
-            elif self.config.text["request_type"] == "siliconflow":
+            elif self.config.request_type == LLMRequestType.SiliconFlow:
                 client = AsyncOpenAI(
                     api_key=api_key,
                     base_url="https://api.siliconflow.cn/v1",
                     timeout=300,
                 )
-            elif self.config.text["request_type"] == "zhipuai":
+            elif self.config.request_type == LLMRequestType.ZhipuAI:
                 client = ZhipuAI(api_key=api_key, timeout=300)
             else:
                 raise ValueError(
-                    f"Unsupported `request_type` {self.config.text['request_type']}!"
+                    f"Unsupported `request_type` {self.config.request_type}!"
                 )
             self._aclients.append(client)
-            self._client_usage.append({
-                "prompt_tokens": 0,
-                "completion_tokens": 0,
-                "request_number": 0
-            })
+            self._client_usage.append(
+                {"prompt_tokens": 0, "completion_tokens": 0, "request_number": 0}
+            )
 
     def get_log_list(self):
         return self._log_list
-    
+
     def clear_log_list(self):
         self._log_list = []
 
@@ -122,7 +115,7 @@ class LLM:
         """
         for usage in self._client_usage:
             usage["prompt_tokens"] = 0
-            usage["completion_tokens"] = 0 
+            usage["completion_tokens"] = 0
             usage["request_number"] = 0
 
     def get_consumption(self):
@@ -130,7 +123,7 @@ class LLM:
         for i, usage in enumerate(self._client_usage):
             consumption[f"api-key-{i+1}"] = {
                 "total_tokens": usage["prompt_tokens"] + usage["completion_tokens"],
-                "request_number": usage["request_number"]
+                "request_number": usage["request_number"],
             }
         return consumption
 
@@ -147,27 +140,24 @@ class LLM:
         - **Returns**:
             - A dictionary summarizing the token usage and, if applicable, the estimated cost.
         """
-        total_stats = {
-            "total": 0,
-            "prompt": 0,
-            "completion": 0,
-            "requests": 0
-        }
-        
+        total_stats = {"total": 0, "prompt": 0, "completion": 0, "requests": 0}
+
         for i, usage in enumerate(self._client_usage):
             prompt_tokens = usage["prompt_tokens"]
             completion_tokens = usage["completion_tokens"]
             requests = usage["request_number"]
             total_tokens = prompt_tokens + completion_tokens
-            
+
             total_stats["total"] += total_tokens
             total_stats["prompt"] += prompt_tokens
             total_stats["completion"] += completion_tokens
             total_stats["requests"] += requests
-            
-            rate = prompt_tokens / completion_tokens if completion_tokens != 0 else "nan"
+
+            rate = (
+                prompt_tokens / completion_tokens if completion_tokens != 0 else "nan"
+            )
             tokens_per_request = total_tokens / requests if requests != 0 else "nan"
-            
+
             print(f"\nAPI Key #{i+1}:")
             print(f"Request Number: {requests}")
             print("Token Usage:")
@@ -176,12 +166,14 @@ class LLM:
             print(f"    - Completion tokens: {completion_tokens}")
             print(f"    - Token per request: {tokens_per_request}")
             print(f"    - Prompt:Completion ratio: {rate}:1")
-            
+
             if input_price is not None and output_price is not None:
-                consumption = (prompt_tokens / 1000000 * input_price + 
-                             completion_tokens / 1000000 * output_price)
+                consumption = (
+                    prompt_tokens / 1000000 * input_price
+                    + completion_tokens / 1000000 * output_price
+                )
                 print(f"    - Cost Estimation: {consumption}")
-        
+
         return total_stats
 
     def _get_next_client(self):
@@ -238,18 +230,21 @@ class LLM:
         """
         start_time = time.time()
         log = {"request_time": start_time}
+        assert (
+            self.semaphore is not None
+        ), "Please set semaphore with `set_semaphore` first!"
         async with self.semaphore:
             if (
-                self.config.text["request_type"] == "openai"
-                or self.config.text["request_type"] == "deepseek"
-                or self.config.text["request_type"] == "qwen"
-                or self.config.text["request_type"] == "siliconflow"
+                self.config.request_type == "openai"
+                or self.config.request_type == "deepseek"
+                or self.config.request_type == "qwen"
+                or self.config.request_type == "siliconflow"
             ):
                 for attempt in range(retries):
                     try:
                         client = self._get_next_client()
                         response = await client.chat.completions.create(
-                            model=self.config.text["model"],
+                            model=self.config.model,
                             messages=dialog,
                             temperature=temperature,
                             max_tokens=max_tokens,
@@ -263,7 +258,9 @@ class LLM:
                         )  # type: ignore
                         self._client_usage[self._current_client_index]["prompt_tokens"] += response.usage.prompt_tokens  # type: ignore
                         self._client_usage[self._current_client_index]["completion_tokens"] += response.usage.completion_tokens  # type: ignore
-                        self._client_usage[self._current_client_index]["request_number"] += 1
+                        self._client_usage[self._current_client_index][
+                            "request_number"
+                        ] += 1
                         end_time = time.time()
                         log["consumption"] = end_time - start_time
                         log["input_tokens"] = response.usage.prompt_tokens
@@ -299,12 +296,12 @@ class LLM:
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e
-            elif self.config.text["request_type"] == "zhipuai":
+            elif self.config.request_type == "zhipuai":
                 for attempt in range(retries):
                     try:
                         client = self._get_next_client()
                         response = client.chat.asyncCompletions.create(  # type: ignore
-                            model=self.config.text["model"],
+                            model=self.config.model,
                             messages=dialog,
                             temperature=temperature,
                             top_p=top_p,
@@ -330,10 +327,12 @@ class LLM:
 
                         self._client_usage[self._current_client_index]["prompt_tokens"] += result_response.usage.prompt_tokens  # type: ignore
                         self._client_usage[self._current_client_index]["completion_tokens"] += result_response.usage.completion_tokens  # type: ignore
-                        self._client_usage[self._current_client_index]["request_number"] += 1
+                        self._client_usage[self._current_client_index][
+                            "request_number"
+                        ] += 1
                         end_time = time.time()
                         log["used_time"] = end_time - start_time
-                        log["token_consumption"] = result_response.usage.prompt_tokens + result_response.usage.completion_tokens
+                        log["token_consumption"] = result_response.usage.prompt_tokens + result_response.usage.completion_tokens  # type: ignore
                         self._log_list.append(log)
                         if tools and result_response.choices[0].message.tool_calls:  # type: ignore
                             return json.loads(
@@ -356,118 +355,4 @@ class LLM:
                         else:
                             raise e
             else:
-                print("ERROR: Wrong Config")
-                return "wrong config"
-
-    async def img_understand(
-        self, img_path: Union[str, list[str]], prompt: Optional[str] = None
-    ) -> str:
-        """
-        Analyzes and understands images using external APIs.
-
-        - **Args**:
-            img_path (Union[str, list[str]]): Path or list of paths to the images for analysis.
-            prompt (Optional[str]): Guidance text for understanding the images.
-
-        - **Returns**:
-            str: The content derived from understanding the images.
-        """
-        ppt = "如何理解这幅图像？"
-        if prompt != None:
-            ppt = prompt
-        if self.config.image_u["request_type"] == "openai":
-            if "api_base" in self.config.image_u.keys():
-                api_base = self.config.image_u["api_base"]
-            else:
-                api_base = None
-            client = OpenAI(
-                api_key=self.config.text["api_key"],
-                base_url=api_base,
-            )
-            content = []
-            content.append({"type": "text", "text": ppt})
-            if isinstance(img_path, str):
-                base64_image = encode_image(img_path)
-                content.append(
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
-                    }
-                )
-            elif isinstance(img_path, list) and all(
-                isinstance(item, str) for item in img_path
-            ):
-                for item in img_path:
-                    base64_image = encode_image(item)
-                    content.append(
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            },
-                        }
-                    )
-            response = client.chat.completions.create(
-                model=self.config.image_u["model"],
-                messages=[{"role": "user", "content": content}],
-            )
-            return response.choices[0].message.content  # type: ignore
-        elif self.config.image_u["request_type"] == "qwen":
-            content = []
-            if isinstance(img_path, str):
-                content.append({"image": "file://" + img_path})
-                content.append({"text": ppt})
-            elif isinstance(img_path, list) and all(
-                isinstance(item, str) for item in img_path
-            ):
-                for item in img_path:
-                    content.append({"image": "file://" + item})
-                content.append({"text": ppt})
-
-            dialog = [{"role": "user", "content": content}]
-            response = dashscope.MultiModalConversation.call(
-                model=self.config.image_u["model"],
-                api_key=self.config.image_u["api_key"],
-                messages=dialog,
-            )
-            if response.status_code == HTTPStatus.OK:  # type: ignore
-                return response.output.choices[0]["message"]["content"]  # type: ignore
-            else:
-                print(response.code)  # type: ignore # The error code.
-                return "Error"
-        else:
-            print(
-                "ERROR: wrong image understanding type, only 'openai' and 'openai' is available"
-            )
-            return "Error"
-
-    async def img_generate(self, prompt: str, size: str = "512*512", quantity: int = 1):
-        """
-        Generates images based on a given prompt.
-
-        - **Args**:
-            prompt (str): Prompt for generating images.
-            size (str): Size of the generated images, default is '512*512'.
-            quantity (int): Number of images to generate, default is 1.
-
-        - **Returns**:
-            list[PIL.Image.Image]: List of generated PIL Image objects.
-        """
-        rsp = ImageSynthesis.call(
-            model=self.config.image_g["model"],
-            api_key=self.config.image_g["api_key"],
-            prompt=prompt,
-            n=quantity,
-            size=size,
-        )
-        if rsp.status_code == HTTPStatus.OK:
-            res = []
-            for result in rsp.output.results:
-                res.append(Image.open(BytesIO(requests.get(result.url).content)))
-            return res
-        else:
-            print(
-                "Failed, status_code: %s, code: %s, message: %s"
-                % (rsp.status_code, rsp.code, rsp.message)
-            )
-            return None
+                raise ValueError("ERROR: Wrong Config")

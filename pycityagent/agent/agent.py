@@ -6,12 +6,10 @@ import random
 from copy import deepcopy
 from typing import Any, Optional
 
-from mosstool.util.format_converter import dict2pb
-from pycityproto.city.person.v2 import person_pb2 as person_pb2
 import ray
+from pycityproto.city.person.v2 import person_pb2 as person_pb2
 
-from ..economy import EconomyClient
-from ..environment import Simulator
+from ..environment import EconomyClient, Simulator
 from ..llm import LLM
 from ..memory import Memory
 from ..message import MessageInterceptor, Messager
@@ -281,7 +279,9 @@ class InstitutionAgent(Agent):
             _id = random.randint(100000, 999999)
             self._agent_id = _id
             self.status.set_agent_id(_id)
-            map_header = ray.get(self.simulator.map.get_map_header.remote())
+            map_header: dict = ray.get(
+                self.simulator.map.get_map_header.remote()  # type:ignore
+            )
             # TODO: remove random position assignment
             await self.status.update(
                 "position",

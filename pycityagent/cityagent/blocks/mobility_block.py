@@ -1,17 +1,18 @@
+import logging
 import math
+import random
+from operator import itemgetter
 from typing import List
 
+import numpy as np
 import ray
 
 from pycityagent.environment.simulator import Simulator
 from pycityagent.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.workflow.block import Block
-import numpy as np
-from operator import itemgetter
-import random
-import logging
 from pycityagent.workflow.prompt import FormatPrompt
+
 from .dispatcher import BlockDispatcher
 
 logger = logging.getLogger("pycityagent")
@@ -164,21 +165,25 @@ class PlaceSelectionBlock(Block):
         )
         radius = int(await self.llm.atext_request(self.radiusPrompt.to_dialog()))  # type: ignore
         try:
-            pois = ray.get(self.simulator.map.query_pois.remote(
-                center=center,
-                category_prefix=levelTwoType,
-                radius=radius,
-                limit=self.search_limit,
-            ))
+            pois = ray.get(
+                self.simulator.map.query_pois.remote(
+                    center=center,
+                    category_prefix=levelTwoType,
+                    radius=radius,
+                    limit=self.search_limit,
+                )
+            )
         except Exception as e:
             logger.warning(f"Error querying pois: {e}")
             levelTwoType = random.choice(sub_category)
-            pois = ray.get(self.simulator.map.query_pois.remote(
-                center=center,
-                category_prefix=levelTwoType,
-                radius=radius,
-                limit=self.search_limit,
-            ))
+            pois = ray.get(
+                self.simulator.map.query_pois.remote(
+                    center=center,
+                    category_prefix=levelTwoType,
+                    radius=radius,
+                    limit=self.search_limit,
+                )
+            )
         if len(pois) > 0:
             pois = gravity_model(pois)
             probabilities = [item[2] for item in pois]

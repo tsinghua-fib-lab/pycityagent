@@ -400,7 +400,7 @@ Bases: {py:obj}`str`, {py:obj}`enum.Enum`
 
 ````
 
-````{py:method} get_all() -> list[pycityagent.memory.memory.MemoryNode]
+````{py:method} get_all() -> list[dict]
 :canonical: pycityagent.memory.memory.StreamMemory.get_all
 :async:
 

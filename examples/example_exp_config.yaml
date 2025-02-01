@@ -1,0 +1,23 @@
+agent_config:
+  number_of_citizen: 100  # Number of citizens
+  enable_institution: false  # Whether institutions are enabled in the experiment
+
+workflow: [
+  {"type": "run", "days": 1}
+]
+
+environment:
+  weather: "The weather is normal"
+  crime: "The crime rate is low"
+  pollution: "The pollution level is low"
+  temperature: "The temperature is normal"
+  day: "Workday"
+
+message_intercept:
+  mode: "point"  # Mode can be 'point' or 'edge'
+  max_violation_time: 3  # Maximum violation time
+
+
+exp_name: "my_experiment"  # Experiment name
+
+llm_semaphore: 200  # Semaphore value for LLM operations

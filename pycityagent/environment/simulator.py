@@ -17,6 +17,7 @@ from pycityproto.city.person.v2 import person_service_pb2 as person_service
 from pymongo import MongoClient
 from shapely.geometry import Point
 
+from ..configs import SimConfig
 from .sim import CityClient, ControlSimEnv
 from .utils.const import *
 
@@ -29,19 +30,10 @@ __all__ = [
 
 @ray.remote
 class CityMap:
-    def __init__(self, mongo_input: tuple[str, str, str, str], map_cache_path: str):
-        if map_cache_path:
-            self.map = SimMap(
-                pb_path=map_cache_path,
-            )
-        else:
-            mongo_uri, mongo_db, mongo_coll, cache_dir = mongo_input
-            self.map = SimMap(
-                mongo_uri=mongo_uri,
-                mongo_db=mongo_db,
-                mongo_coll=mongo_coll,
-                cache_dir=cache_dir,
-            )
+    def __init__(self, map_cache_path: str):
+        self.map = SimMap(
+            pb_path=map_cache_path,
+        )
         self.poi_cate = POI_CATG_DICT
 
     def get_aoi(self, aoi_id: Optional[int] = None):
@@ -81,74 +73,41 @@ class Simulator:
         - It reads parameters from a configuration dictionary, initializes map data, and starts or connects to a simulation server as needed.
     """
 
-    def __init__(self, config: dict, create_map: bool = False) -> None:
-        self.config = config
+    def __init__(self, sim_config: SimConfig, create_map: bool = False) -> None:
+        self.sim_config = sim_config
         """
         - 模拟器配置
         - simulator config
         """
-        _map_request = config["map_request"]
-        if "file_path" not in _map_request:
-            # from mongo db
-            _mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir = (
-                _map_request["mongo_uri"],
-                _map_request["mongo_db"],
-                _map_request["mongo_coll"],
-                _map_request["cache_dir"],
+        _map_pb_path = sim_config.prop_map_request.file_path
+        config = sim_config.prop_simulator_request
+        if not sim_config.prop_status.simulator_activated:
+            self._sim_env = sim_env = ControlSimEnv(
+                task_name=config.task_name,  # type:ignore
+                map_file=_map_pb_path,
+                max_day=config.max_day,  # type:ignore
+                start_step=config.start_step,  # type:ignore
+                total_step=config.total_step,  # type:ignore
+                log_dir=config.log_dir,  # type:ignore
+                min_step_time=config.min_step_time,  # type:ignore
+                primary_node_ip=config.primary_node_ip,  # type:ignore
+                sim_addr=sim_config.simulator_server_address,
             )
-            _mongo_client = MongoClient(_mongo_uri)
-            os.makedirs(_map_cache_dir, exist_ok=True)
-            _map_pb_path = os.path.join(_map_cache_dir, f"{_mongo_db}.{_mongo_coll}.pb")  # type: ignore
-            _map_pb = map_pb2.Map()
-            if os.path.exists(_map_pb_path):
-                with open(_map_pb_path, "rb") as f:
-                    _map_pb.ParseFromString(f.read())
-            else:
-                _map_pb = coll2pb(_mongo_client[_mongo_db][_mongo_coll], _map_pb)
-                with open(_map_pb_path, "wb") as f:
-                    f.write(_map_pb.SerializeToString())
+            self.server_addr = sim_env.sim_addr
+            sim_config.SetServerAddress(self.server_addr)
+            sim_config.prop_status.simulator_activated = True
+            # using local client
+            self._client = CityClient(
+                sim_env.sim_addr, secure=self.server_addr.startswith("https")
+            )
+            """
+            - 模拟器grpc客户端
+            - grpc client of simulator
+            """
         else:
-            # from local file
-            _mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir = "", "", "", ""
-            _map_pb_path = _map_request["file_path"]
-
-        if "simulator" in config:
-            if config["simulator"] is None:
-                config["simulator"] = {}
-            if not config["simulator"].get("_server_activated", False):
-                self._sim_env = sim_env = ControlSimEnv(
-                    task_name=config["simulator"].get("task", "citysim"),
-                    map_file=_map_pb_path,
-                    max_day=config["simulator"].get("max_day", 1000),
-                    start_step=config["simulator"].get("start_step", 28800),
-                    total_step=config["simulator"].get(
-                        "total_step", 24 * 60 * 60 * 365
-                    ),
-                    log_dir=config["simulator"].get("log_dir", "./log"),
-                    min_step_time=config["simulator"].get("min_step_time", 1000),
-                    primary_node_ip=config["simulator"].get("primary_node_ip", "localhost"),
-                    sim_addr=config["simulator"].get("server", None),
-                )
-                self.server_addr = sim_env.sim_addr
-                config["simulator"]["server"] = self.server_addr
-                config["simulator"]["_server_activated"] = True
-                # using local client
-                self._client = CityClient(
-                    sim_env.sim_addr, secure=self.server_addr.startswith("https")
-                )
-                """
-                - 模拟器grpc客户端
-                - grpc client of simulator
-                """
-            else:
-                self.server_addr = config["simulator"]["server"]
-                self._client = CityClient(
-                    self.server_addr, secure=self.server_addr.startswith("https")
-                )
-        else:
-            self.server_addr = None
-            logger.warning(
-                "No simulator config found, no simulator client will be used"
+            self.server_addr: str = sim_config.simulator_server_address  # type:ignore
+            self._client = CityClient(
+                self.server_addr, secure=self.server_addr.startswith("https")
             )
         self._map = None
         """
@@ -157,7 +116,6 @@ class Simulator:
         """
         if create_map:
             self._map = CityMap.remote(
-                (_mongo_uri, _mongo_db, _mongo_coll, _map_cache_dir),
                 _map_pb_path,
             )
             self._create_poi_id_2_aoi_id()
@@ -205,8 +163,8 @@ class Simulator:
         """
         return self._environment_prompt
 
-    def get_server_addr(self):
-        return self.server_addr
+    def get_server_addr(self) -> str:
+        return self.server_addr  # type:ignore
 
     def set_environment(self, environment: dict[str, str]):
         """
@@ -238,41 +196,6 @@ class Simulator:
             - `value` (`str`): The new value to set.
         """
         self._environment_prompt[key] = value
-
-    # * Agent相关
-    def find_agents_by_area(self, req: dict, status=None):
-        """
-        Find agents/persons within a specified area.
-
-        - **Args**:
-            - `req` (`dict`): A dictionary that describes the area. Refer to
-              https://cityproto.sim.fiblab.net/#city.person.1.GetPersonByLongLatBBoxRequest.
-            - `status` (`Optional[int]`): An integer representing the status of the agents/persons to filter by.
-              If provided, only persons with the given status will be returned.
-              Refer to https://cityproto.sim.fiblab.net/#city.agent.v2.Status.
-
-        - **Returns**:
-            - The response from the GetPersonByLongLatBBox method, possibly filtered by status.
-              Refer to https://cityproto.sim.fiblab.net/#city.person.1.GetPersonByLongLatBBoxResponse.
-        """
-        start_time = time.time()
-        log = {"req": "find_agents_by_area", "start_time": start_time, "consumption": 0}
-        loop = asyncio.get_event_loop()
-        resp = loop.run_until_complete(
-            self._client.person_service.GetPersonByLongLatBBox(req=req)
-        )
-        loop.close()
-        if status == None:
-            return resp
-        else:
-            motions = []
-            for agent in resp.motions:  # type: ignore
-                if agent.status in status:
-                    motions.append(agent)
-            resp.motions = motions  # type: ignore
-            log["consumption"] = time.time() - start_time
-            self._log_list.append(log)
-            return resp
 
     def get_poi_categories(
         self,

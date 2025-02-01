@@ -1,0 +1,36 @@
+llm_request:
+  request_type: zhipuai
+  api_key: ""
+  model: GLM-4-Flash
+
+simulator_request:
+  task_name: "citysim"              
+  max_day: 1000                     
+  start_step: 28800                 
+  total_step: 31536000              
+  log_dir: "./log"                  
+  min_step_time: 1000               
+  primary_node_ip: "localhost"      
+
+mqtt:
+  server: "mqtt.example.com"
+  port: 1883 
+  username: "username"
+  password: "password"
+
+map_request:
+  file_path: "./ignore/map.pb"
+
+metric_request:
+  mlflow: 
+    username: "username"
+    password: "password"
+    mlflow_uri: "localhost:59000"
+
+pgsql:
+  enabled: false     
+  dsn: "postgresql://user:pass@localhost/db"         
+
+avro:
+  enabled: false
+  path: "./cache"          

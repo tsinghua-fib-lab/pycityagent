@@ -7,8 +7,6 @@ from typing import Any, Optional, Union
 import ray
 from aiomqtt import Client
 
-from .message_interceptor import MessageInterceptor
-
 __all__ = [
     "Messager",
 ]
@@ -69,10 +67,10 @@ class Messager:
             - `Union[None, ray.ObjectRef]`: The message interceptor reference.
         """
         return self._message_interceptor
-    
+
     def get_log_list(self):
         return self._log_list
-    
+
     def clear_log_list(self):
         self._log_list = []
 
@@ -213,7 +211,7 @@ class Messager:
             "from_uuid": from_uuid,
             "to_uuid": to_uuid,
             "start_time": start_time,
-            "consumption": 0
+            "consumption": 0,
         }
         message = json.dumps(payload, default=str)
         interceptor = self.message_interceptor

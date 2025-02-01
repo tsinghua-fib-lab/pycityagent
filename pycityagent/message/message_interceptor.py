@@ -10,7 +10,8 @@ from typing import Any, Optional, Union
 import ray
 from ray.util.queue import Queue
 
-from ..llm import LLM, LLMConfig
+from ..configs import LLMRequestConfig
+from ..llm import LLM
 from ..utils.decorators import lock_decorator
 
 DEFAULT_ERROR_STRING = """
@@ -95,7 +96,7 @@ class MessageInterceptor:
         self,
         blocks: Optional[list[MessageBlockBase]] = None,
         black_list: Optional[list[tuple[str, str]]] = None,
-        llm_config: Optional[dict] = None,
+        llm_config: Optional[LLMRequestConfig] = None,
         queue: Optional[Queue] = None,
     ) -> None:
         """
@@ -104,7 +105,7 @@ class MessageInterceptor:
         - **Args**:
             - `blocks` (Optional[list[MessageBlockBase]], optional): Initial list of message interception rules. Defaults to an empty list.
             - `black_list` (Optional[list[tuple[str, str]]], optional): Initial blacklist of communication pairs. Defaults to an empty list.
-            - `llm_config` (Optional[dict], optional): Configuration dictionary for initializing the LLM instance. Defaults to None.
+            - `llm_config` (Optional[LLMRequestConfig], optional): Configuration dictionary for initializing the LLM instance. Defaults to None.
             - `queue` (Optional[Queue], optional): Queue for message processing. Defaults to None.
         """
         if blocks is not None:
@@ -119,7 +120,7 @@ class MessageInterceptor:
                 []
             )  # list[tuple(from_uuid, to_uuid)] `None` means forbidden for everyone.
         if llm_config:
-            self._llm = LLM(LLMConfig(llm_config))
+            self._llm = LLM(llm_config)
         else:
             self._llm = None
         self._queue = queue
