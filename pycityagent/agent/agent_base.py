@@ -260,20 +260,16 @@ class Agent(ABC):
             - Recursively updates or creates top-level Blocks as specified in the configuration.
             - Raises a `KeyError` if a required Block is not found in the agent.
         """
-        # 使用配置更新当前Agent实例的Block层次结构。
-        # 更新当前Agent的基础参数
         for field in self.configurable_fields:
             if field in config["config"]:
                 if config["config"][field] != "default_value":
                     setattr(self, field, config["config"][field])
 
-        # 递归更新或创建顶层Block
         for block_data in config.get("blocks", []):
             block_name = block_data["name"]
             existing_block = getattr(self, block_name, None)  # type:ignore
 
             if existing_block:
-                # 如果Block已经存在，则递归更新
                 existing_block.load_from_config(block_data)
             else:
                 raise KeyError(

@@ -29,7 +29,7 @@ class AgentConfig(BaseModel):
     number_of_nbs: int = Field(1, description="Number of neighborhood-based services")
     group_size: int = Field(100, description="Size of agent groups")
     embedding_model: Any = Field(None, description="Embedding model")
-    agent_class_configs: Optional[dict[Any, dict[str, list[dict]]]] = None
+    agent_class_configs: Optional[dict[Any, dict[str, Any]]] = None
     memory_config_func: Optional[dict[type["Any"], Callable]] = None
     memory_config_init_func: Optional[Callable] = Field(None)
     init_func: Optional[list[Callable[["AgentSimulation"], None]]] = None
@@ -47,7 +47,7 @@ class AgentConfig(BaseModel):
         number_of_nbs: int = 1,
         group_size: int = 100,
         embedding_model: Any = None,
-        agent_class_configs: Optional[dict[Any, dict[str, list[dict]]]] = None,
+        agent_class_configs: Optional[dict[Any, dict[str, Any]]] = None,
         enable_institution: bool = True,
         memory_config_func: Optional[dict[type["Any"], Callable]] = None,
         memory_config_init_func: Optional[Callable] = None,

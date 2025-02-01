@@ -192,7 +192,7 @@ class AgentGroup:
                     self.agent_config_file is not None
                     and self.agent_config_file[agent_class_i]
                 ):
-                    agent.load_from_file(self.agent_config_file[agent_class_i])
+                    agent.load_from_config(self.agent_config_file[agent_class_i])
                 if self._message_interceptor is not None:
                     agent.set_message_interceptor(self._message_interceptor)
                 self.agents.append(agent)
