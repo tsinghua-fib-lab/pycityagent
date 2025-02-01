@@ -31,7 +31,7 @@ Please evaluate and select the most appropriate option based on these three dime
 2. Subjective Norm: Social environment and others' views on this behavior
 3. Perceived Control: Difficulty and controllability of executing this option
 
-Please return the evaluation results in JSON format (Do not return any other text):
+Please response in json format (Do not return any other text), example:
 {{
     "selected_option": "Select the most suitable option from available options",
     "evaluation": {{
@@ -54,19 +54,6 @@ Current time: {current_time}
 Your emotion: {emotion_types}
 Your thought: {thought}
 
-Please generate specific execution steps and return in JSON format:
-{{
-    "plan": {{
-        "target": "Specific goal",
-        "steps": [
-            {{
-                "intention": "Specific intention",
-                "type": "Step type"
-            }}
-        ]
-    }}
-}}
-
 Notes:
 1. type can only be one of these four: mobility, social, economy, other
     1.1 mobility: Decisions or behaviors related to large-scale spatial movement, such as location selection, going to a place, etc.
@@ -76,7 +63,7 @@ Notes:
 2. steps should only include steps necessary to fulfill the target (limited to {max_plan_steps} steps)
 3. intention in each step should be concise and clear
 
-Example outputs (Do not return any other text):
+Please response in json format (Do not return any other text), example:
 {{
     "plan": {{
         "target": "Eat at home",
@@ -172,10 +159,10 @@ class PlanBlock(Block):
         self.token_consumption = 0
         self.guidance_options = {
             "hungry": ["Eat at home", "Eat outside"],
-            "tired": ["Sleep", "Take a nap"],
+            "tired": ["Sleep"],
             "safe": ["Go to work"],
             "social": ["Contact with friends", "Shopping"],
-            "whatever": ["Contact with friends", "Hang out"],
+            "whatever": ["Contact with friends", "Hang out", "Entertainment"],
         }
 
         # configurable fields
@@ -211,7 +198,7 @@ class PlanBlock(Block):
         )
 
         response = await self.llm.atext_request(
-            self.guidance_prompt.to_dialog()
+            self.guidance_prompt.to_dialog(), response_format={"type": "json_object"}
         )  # type: ignore
         retry = 3
         while retry > 0:
@@ -235,7 +222,7 @@ class PlanBlock(Block):
         return None
 
     async def generate_detailed_plan(
-        self, current_need: str, selected_option: str
+        self, selected_option: str
     ) -> Dict:
         """Generate detailed execution plan"""
         position_now = await self.memory.status.get("position")
@@ -293,10 +280,10 @@ class PlanBlock(Block):
 
         # Step 2: Generate detailed plan
         detailed_plan = await self.generate_detailed_plan(
-            current_need, guidance_result["selected_option"]
+            guidance_result["selected_option"]
         )
 
-        if not detailed_plan or "plan" not in detailed_plan:
+        if not detailed_plan:
             await self.memory.status.update("current_plan", None)
             await self.memory.status.update(
                 "current_step", {"intention": "", "type": ""}

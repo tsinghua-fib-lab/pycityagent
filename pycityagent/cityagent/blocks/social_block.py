@@ -18,12 +18,10 @@ logger = logging.getLogger("pycityagent")
 
 
 class MessagePromptManager:
-    def __init__(self, template: str, to_discuss: List[str]):
-        self.template = template
-        self.format_prompt = FormatPrompt(self.template)
-        self.to_discuss = to_discuss
+    def __init__(self):
+        pass
 
-    async def get_prompt(self, memory, step: Dict[str, Any], target: str) -> str:
+    async def get_prompt(self, memory, step: Dict[str, Any], target: str, template: str) -> str:
         """在这里改给模板输入的数据"""
         # 获取数据
         relationships = await memory.status.get("relationships") or {}
@@ -31,14 +29,17 @@ class MessagePromptManager:
 
         # 构建讨论话题约束
         discussion_constraint = ""
-        if self.to_discuss:
-            topics = ", ".join(f'"{topic}"' for topic in self.to_discuss)
+        topics = await memory.status.get("attitude")
+        topics = topics.keys()
+        if topics:
+            topics = ", ".join(f'"{topic}"' for topic in topics)
             discussion_constraint = (
                 f"Limit your discussion to the following topics: {topics}."
             )
 
         # 格式化提示
-        self.format_prompt.format(
+        format_prompt = FormatPrompt(template)
+        format_prompt.format(
             gender=await memory.status.get("gender") or "",
             education=await memory.status.get("education") or "",
             personality=await memory.status.get("personality") or "",
@@ -55,7 +56,7 @@ class MessagePromptManager:
             discussion_constraint=discussion_constraint,
         )
 
-        return self.format_prompt.to_dialog()
+        return format_prompt.to_dialog()
 
 
 class SocialNoneBlock(Block):
@@ -75,7 +76,7 @@ class SocialNoneBlock(Block):
             intention=step["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),
         )
-        result = await self.llm.atext_request(self.guidance_prompt.to_dialog())
+        result = await self.llm.atext_request(self.guidance_prompt.to_dialog(), response_format={"type": "json_object"})
         result = clean_json_response(result)
         try:
             result = json.loads(result)
@@ -270,11 +271,8 @@ class MessageBlock(Block):
         The message should reflect my personality and background.
         {discussion_constraint}
         """
-        self.to_discuss = []
 
-        self.prompt_manager = MessagePromptManager(
-            self.default_message_template, self.to_discuss
-        )
+        self.prompt_manager = MessagePromptManager()
 
     def _serialize_message(self, message: str, propagation_count: int) -> str:
         try:
@@ -305,7 +303,7 @@ class MessageBlock(Block):
 
             # Get formatted prompt using prompt manager
             formatted_prompt = await self.prompt_manager.get_prompt(
-                self.memory, step, target
+                self.memory, step, target, self.default_message_template
             )
 
             # Generate message
@@ -319,8 +317,8 @@ class MessageBlock(Block):
                 chat_histories = {}
             if target not in chat_histories:
                 chat_histories[target] = ""
-            if chat_histories[target]:
-                chat_histories[target] += "，"
+            elif len(chat_histories[target]) > 0:
+                chat_histories[target] += ", "
             chat_histories[target] += f"me: {message}"
 
             await self.memory.status.update("chat_histories", chat_histories)

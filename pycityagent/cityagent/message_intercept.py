@@ -10,13 +10,13 @@ async def check_message(
     print(f"\n Checking Message: {from_uuid} -> {to_uuid}: {content}")
     is_valid = True
     prompt = f"""
-    Please determine whether the following message is emotionally inflammatory:
-    Sender ID: {from_uuid}
-    Receiver ID: {to_uuid}
-    Message content: {content}
-
-    If the message is emotionally inflammatory, please return False; if the message is normal, please return True.
-    """
+        Please determine if the following message is emotionally provocative:
+        Sender ID: {from_uuid}
+        Receiver ID: {to_uuid}
+        Message content: {content}
+        
+        If the message is emotionally provocative, please return False; if the message is normal, please return True.
+        """
     for _ in range(10):
         try:
             response: str = await llm_client.atext_request(

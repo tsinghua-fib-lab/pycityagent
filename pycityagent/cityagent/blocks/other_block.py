@@ -25,7 +25,7 @@ class SleepBlock(Block):
             intention=step["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),
         )
-        result = await self.llm.atext_request(self.guidance_prompt.to_dialog())
+        result = await self.llm.atext_request(self.guidance_prompt.to_dialog(), response_format={"type": "json_object"})
         result = clean_json_response(result)
         node_id = await self.memory.stream.add_other(description=f"I slept")
         try:
@@ -63,7 +63,7 @@ class OtherNoneBlock(Block):
             intention=step["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),
         )
-        result = await self.llm.atext_request(self.guidance_prompt.to_dialog())
+        result = await self.llm.atext_request(self.guidance_prompt.to_dialog(), response_format={"type": "json_object"})
         result = clean_json_response(result)
         node_id = await self.memory.stream.add_other(
             description=f"I {step['intention']}"

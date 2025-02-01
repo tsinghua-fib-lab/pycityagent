@@ -195,6 +195,7 @@ class LLM:
     async def atext_request(
         self,
         dialog: Any,
+        response_format: Optional[dict[str, Any]] = None,
         temperature: float = 1,
         max_tokens: Optional[int] = None,
         top_p: Optional[float] = None,
@@ -214,6 +215,7 @@ class LLM:
 
         - **Parameters**:
             - `dialog`: Messages to send as part of the chat completion request.
+            - `response_format`: JSON schema for the response. Default is None.
             - `temperature`: Controls randomness in the model's output. Default is 1.
             - `max_tokens`: Maximum number of tokens to generate in the response. Default is None.
             - `top_p`: Limits the next token selection to a subset of tokens with a cumulative probability above this value. Default is None.
@@ -246,6 +248,7 @@ class LLM:
                         response = await client.chat.completions.create(
                             model=self.config.model,
                             messages=dialog,
+                            response_format=response_format,
                             temperature=temperature,
                             max_tokens=max_tokens,
                             top_p=top_p,
@@ -292,7 +295,6 @@ class LLM:
                     except Exception as e:
                         print("LLM Error (OpenAI):", e)
                         if attempt < retries - 1:
-                            print(dialog)
                             await asyncio.sleep(2**attempt)
                         else:
                             raise e

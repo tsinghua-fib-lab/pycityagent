@@ -17,9 +17,9 @@ Examples:
 - "Read a book": {{"time": 90}}
 - "Exercise": {{"time": 45}}
 
-Please return the result in JSON format (Do not return any other text):
+Please return the result in JSON format (Do not return any other text), example:
 {{
-    "time": estimated completion time (integer, in minutes)
+    "time": 10
 }}
 """
 

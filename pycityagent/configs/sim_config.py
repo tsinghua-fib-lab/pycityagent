@@ -13,12 +13,12 @@ class LLMRequestConfig(BaseModel):
     request_type: LLMRequestType = Field(
         ..., description="The type of the request or provider"
     )
-    api_key: str = Field(..., description="API key for accessing the service")
+    api_key: list[str] = Field(..., description="API key for accessing the service")
     model: str = Field(..., description="The model to use")
 
     @classmethod
     def create(
-        cls, request_type: LLMRequestType, api_key: str, model: str
+        cls, request_type: LLMRequestType, api_key: list[str], model: str
     ) -> "LLMRequestConfig":
         return cls(request_type=request_type, api_key=api_key, model=model)
 
@@ -107,11 +107,11 @@ class PostgreSQLConfig(BaseModel):
 
 
 class AvroConfig(BaseModel):
-    enabled: Optional[bool] = Field(True, description="Whether Avro storage is enabled")
+    enabled: Optional[bool] = Field(False, description="Whether Avro storage is enabled")
     path: str = Field(..., description="Avro file storage path")
 
     @classmethod
-    def create(cls, path: str, enabled: bool = False) -> "AvroConfig":
+    def create(cls, path: Optional[str] = None, enabled: bool = False) -> "AvroConfig":
         return cls(enabled=enabled, path=path)
 
 
@@ -156,7 +156,7 @@ class SimConfig(BaseModel):
 
     @property
     def prop_avro_config(self) -> "AvroConfig":
-        return self.avro_config  # type:ignore
+        return self.avro  # type:ignore
 
     @property
     def prop_postgre_sql_config(self) -> "PostgreSQLConfig":
@@ -171,7 +171,7 @@ class SimConfig(BaseModel):
         return self.metric_request  # type:ignore
 
     def SetLLMRequest(
-        self, request_type: LLMRequestType, api_key: str, model: str
+        self, request_type: LLMRequestType, api_key: list[str], model: str
     ) -> "SimConfig":
         self.llm_request = LLMRequestConfig.create(request_type, api_key, model)
         return self

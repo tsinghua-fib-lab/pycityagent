@@ -31,7 +31,7 @@ Current satisfaction levels (0-1 float values, lower means less satisfied):
 - safety_satisfaction: Safety satisfaction level (Normally, the agent will be more satisfied with safety when they have high income and currency)
 - social_satisfaction: Social satisfaction level
 
-Example response format (Do not return any other text):
+Please response in json format (Do not return any other text), example:
 {{
     "current_satisfaction": {{
         "hunger_satisfaction": 0.8,
@@ -64,12 +64,12 @@ Notes:
 2. If the current need is not "whatever", only return the new value for the current need. Otherwise, return both safe and social need values.
 3. Ensure the return value is in valid JSON format, examples below:
 
-Example response format for specific need (hungry here) adjustment (Do not return any other text):
+Please response in json format for specific need (hungry here) adjustment (Do not return any other text), example:
 {{
     "hunger_satisfaction": new_need_value
 }}
 
-Example response format for whatever need adjustment (Do not return any other text):
+Please response in json format for whatever need adjustment (Do not return any other text), example:
 {{
     "safety_satisfaction": new_safe_value,
     "social_satisfaction": new_social_value
@@ -93,23 +93,22 @@ class NeedsBlock(Block):
         self.token_consumption = 0
         self.initialized = False
         self.alpha_H, self.alpha_D, self.alpha_P, self.alpha_C = (
-            0.2,
+            0.15,
             0.08,
             0.05,
             0.1,
         )  # Hunger decay rate, Energy decay rate, Safety decay rate, Social decay rate
         self.T_H, self.T_D, self.T_P, self.T_C = (
-            0.1,
             0.2,
             0.2,
-            0.4,
+            0.2,
+            0.3,
         )  # Hunger threshold, Energy threshold, Safety threshold, Social threshold
 
     async def initialize(self):
         day = await self.simulator.get_simulator_day()
         if day != self.now_day:
             self.now_day = day
-            self.initialized = False
             workday = self.simulator.sence("day")
             if workday == "Workday":
                 self.need_work = True
@@ -126,7 +125,7 @@ class NeedsBlock(Block):
                 income=await self.memory.status.get("income"),
                 now_time=await self.simulator.get_time(format_time=True),
             )
-            response = await self.llm.atext_request(self.initial_prompt.to_dialog())
+            response = await self.llm.atext_request(self.initial_prompt.to_dialog(), response_format={"type": "json_object"})
             response = self.clean_json_response(response)
             retry = 3
             while retry > 0:
@@ -229,13 +228,13 @@ class NeedsBlock(Block):
                 await self.memory.status.update("current_need", "hungry")
             elif energy_satisfaction <= self.T_D:
                 await self.memory.status.update("current_need", "tired")
+            elif self.need_work:
+                await self.memory.status.update("current_need", "safe")
+                self.need_work = False
             elif safety_satisfaction <= self.T_P:
                 await self.memory.status.update("current_need", "safe")
             elif social_satisfaction <= self.T_C:
                 await self.memory.status.update("current_need", "social")
-            elif self.need_work:
-                await self.memory.status.update("current_need", "safe")
-                self.need_work = False
             else:
                 await self.memory.status.update("current_need", "whatever")
         else:
@@ -308,7 +307,7 @@ class NeedsBlock(Block):
 
         retry = 3
         while retry > 0:
-            response = await self.llm.atext_request(self.evaluation_prompt.to_dialog())
+            response = await self.llm.atext_request(self.evaluation_prompt.to_dialog(), response_format={"type": "json_object"})
             try:
                 new_satisfaction = json.loads(self.clean_json_response(response))  # type: ignore
                 # 更新所有需求的数值

@@ -141,7 +141,7 @@ class AgentSimulation:
         self._loop = asyncio.get_event_loop()
         self._total_steps = 0
         self._simulator_day = 0
-        # self._last_asyncio_pg_task = None  # 将SQL写入的IO隐藏到计算任务后
+        # self._last_asyncio_pg_task = None  # hide SQL write IO to calculation task
 
         mqtt_config = config.prop_mqtt
         self._messager = Messager.remote(
@@ -164,6 +164,8 @@ class AgentSimulation:
                 self._avro_path = Path(avro_config.path) / f"{self.exp_id}"
                 self._avro_path.mkdir(parents=True, exist_ok=True)
         else:
+            self._avro_path = None
+            logger.warning("AVRO is not enabled, NO AVRO LOCAL STORAGE")
             self._enable_avro = False
 
         # mlflow
@@ -203,13 +205,13 @@ class AgentSimulation:
         else:
             self._enable_pgsql = False
 
-        # 添加实验信息相关的属性
+        # add experiment info related properties
         self._exp_created_time = datetime.now(timezone.utc)
         self._exp_updated_time = datetime.now(timezone.utc)
         self._exp_info = {
             "id": self.exp_id,
             "name": exp_name,
-            "num_day": 0,  # 将在 run 方法中更新
+            "num_day": 0,  # will be updated in run method
             "status": 0,
             "cur_day": 0,
             "cur_t": 0.0,
@@ -219,7 +221,7 @@ class AgentSimulation:
             "updated_at": self._exp_updated_time.isoformat(),
         }
 
-        # 创建异步任务保存实验信息
+        # create async task to save experiment info
         if self._enable_avro:
             assert self._avro_path is not None
             self._exp_info_file = self._avro_path / "experiment_info.yaml"
@@ -421,13 +423,13 @@ class AgentSimulation:
         return self._message_interceptors[0]  # type:ignore
 
     async def _save_exp_info(self) -> None:
-        """异步保存实验信息到YAML文件"""
+        """Async save experiment info to YAML file"""
         try:
             if self.enable_avro:
                 with open(self._exp_info_file, "w") as f:
                     yaml.dump(self._exp_info, f)
         except Exception as e:
-            logger.error(f"Avro保存实验信息失败: {str(e)}")
+            logger.error(f"Avro save experiment info failed: {str(e)}")
         try:
             if self.enable_pgsql:
                 worker: ray.ObjectRef = self._pgsql_writers[0]  # type:ignore
@@ -440,51 +442,51 @@ class AgentSimulation:
                     pg_exp_info
                 )
         except Exception as e:
-            logger.error(f"PostgreSQL保存实验信息失败: {str(e)}")
+            logger.error(f"PostgreSQL save experiment info failed: {str(e)}")
 
     async def _update_exp_status(self, status: int, error: str = "") -> None:
         self._exp_updated_time = datetime.now(timezone.utc)
-        """更新实验状态并保存"""
+        """Update experiment status and save"""
         self._exp_info["status"] = status
         self._exp_info["error"] = error
         self._exp_info["updated_at"] = self._exp_updated_time.isoformat()
         await self._save_exp_info()
 
     async def _monitor_exp_status(self, stop_event: asyncio.Event):
-        """监控实验状态并更新
+        """Monitor experiment status and update
 
         - **Args**:
-            stop_event: 用于通知监控任务停止的事件
+            stop_event: event for notifying monitor task to stop
         """
         try:
             while not stop_event.is_set():
-                # 更新实验状态
-                # 假设所有group的cur_day和cur_t是同步的，取第一个即可
+                # update experiment status
+                # assume all groups' cur_day and cur_t are synchronized, take the first one
                 self._exp_info["cur_day"] = await self._simulator.get_simulator_day()
                 self._exp_info["cur_t"] = (
                     await self._simulator.get_simulator_second_from_start_of_day()
                 )
                 await self._save_exp_info()
 
-                await asyncio.sleep(1)  # 避免过于频繁的更新
+                await asyncio.sleep(1)  # avoid too frequent updates
         except asyncio.CancelledError:
-            # 正常取消，不需要特殊处理
+            # normal cancellation, no special handling needed
             pass
         except Exception as e:
-            logger.error(f"监控实验状态时发生错误: {str(e)}")
+            logger.error(f"Error monitoring experiment status: {str(e)}")
             raise
 
     async def __aenter__(self):
-        """异步上下文管理器入口"""
+        """Async context manager entry"""
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """异步上下文管理器出口"""
+        """Async context manager exit"""
         if exc_type is not None:
-            # 如果发生异常，更新状态为错误
+            # if exception occurs, update status to error
             await self._update_exp_status(3, str(exc_val))
         elif self._exp_info["status"] != 3:
-            # 如果没有发生异常且状态不是错误，则更新为完成
+            # if no exception and status is not error, update to finished
             await self._update_exp_status(2)
 
     async def pause_simulator(self):
@@ -536,7 +538,6 @@ class AgentSimulation:
             - `None`
         """
         self.agent_count = agent_count
-
         if len(self.agent_class) != len(agent_count):
             raise ValueError("The length of agent_class and agent_count does not match")
 
@@ -545,14 +546,14 @@ class AgentSimulation:
         if memory_config_func is None:
             memory_config_func = self.default_memory_config_func  # type:ignore
 
-        # 使用线程池并行创建 AgentGroup
+        # use thread pool to create AgentGroup
         group_creation_params = []
 
-        # 分别处理机构智能体和普通智能体
+        # process institution agent and citizen agent
         institution_params = []
         citizen_params = []
 
-        # 收集所有参数
+        # collect all parameters
         for i in range(len(self.agent_class)):
             agent_class = self.agent_class[i]
             agent_count_i = agent_count[agent_class]
@@ -575,7 +576,7 @@ class AgentSimulation:
                     (agent_class, agent_count_i, memory_config_func_i, config_file)
                 )
 
-        # 处理机构智能体组
+        # process institution group
         if institution_params:
             total_institution_count = sum(p[1] for p in institution_params)
             num_institution_groups = (
@@ -592,7 +593,7 @@ class AgentSimulation:
                 memory_config_funcs = {}
                 config_files = {}
 
-                # 分配每种类型的机构智能体到当前组
+                # assign each type of institution agent to current group
                 curr_start = start_idx
                 for agent_class, count, mem_func, conf_file in institution_params:
                     if curr_start < count:
@@ -612,7 +613,7 @@ class AgentSimulation:
                     )
                 )
 
-        # 处理普通智能体组
+        # process citizen group
         if citizen_params:
             total_citizen_count = sum(p[1] for p in citizen_params)
             num_citizen_groups = (total_citizen_count + group_size - 1) // group_size
@@ -627,7 +628,7 @@ class AgentSimulation:
                 memory_config_funcs = {}
                 config_files = {}
 
-                # 分配每种类型的普通智能体到当前组
+                # assign each type of citizen agent to current group
                 curr_start = start_idx
                 for agent_class, count, mem_func, conf_file in citizen_params:
                     if curr_start < count:
@@ -646,7 +647,7 @@ class AgentSimulation:
                         config_files,
                     )
                 )
-        # 初始化mlflow连接
+        # initialize mlflow connection
         metric_config = self.config.prop_metric_request
         if metric_config is not None and metric_config.mlflow is not None:
             mlflow_run_id, _ = init_mlflow_connection(
@@ -657,7 +658,7 @@ class AgentSimulation:
             )
         else:
             mlflow_run_id = None
-        # 建表
+        # create table
         if self.enable_pgsql:
             _num_workers = min(1, pg_sql_writers)
             create_pg_tables(
@@ -705,7 +706,7 @@ class AgentSimulation:
             group_name,
             config_file,
         ) in enumerate(group_creation_params):
-            # 直接创建异步任务
+            # create async task directly
             group = AgentGroup.remote(
                 agent_class,
                 number_of_agents,
@@ -728,7 +729,7 @@ class AgentSimulation:
             )
             creation_tasks.append((group_name, group))
 
-        # 更新数据结构
+        # update data structure
         for group_name, group in creation_tasks:
             self._groups[group_name] = group
             group_agent_uuids = ray.get(group.get_agent_uuids.remote())
@@ -747,7 +748,7 @@ class AgentSimulation:
                     self._type2group[agent_type] = []
                 self._type2group[agent_type].append(group)
 
-        # 并行初始化所有组的agents
+        # parallel initialize all groups' agents
         await self.resume_simulator()
         init_tasks = []
         for group in self._groups.values():
@@ -1017,7 +1018,7 @@ class AgentSimulation:
         except Exception as e:
             import traceback
 
-            logger.error(f"模拟器运行错误: {str(e)}\n{traceback.format_exc()}")
+            logger.error(f"Simulation error: {str(e)}\n{traceback.format_exc()}")
             raise RuntimeError(str(e)) from e
 
     async def run(
@@ -1047,27 +1048,19 @@ class AgentSimulation:
         agent_time_log_lists = []
         try:
             self._exp_info["num_day"] += day
-            await self._update_exp_status(1)  # 更新状态为运行中
+            await self._update_exp_status(1)  # Update status to running
 
-            # 创建停止事件
+            # Create stop event
             stop_event = asyncio.Event()
-            # 创建监控任务
+            # Create monitor task
             monitor_task = asyncio.create_task(self._monitor_exp_status(stop_event))
 
             try:
                 end_day = self._simulator_day + day
                 while True:
                     current_day = await self._simulator.get_simulator_day()
-                    # check whether insert agents
-                    need_insert_agents = False
                     if current_day > self._simulator_day:
                         self._simulator_day = current_day
-                    # if need_insert_agents:
-                    #     insert_tasks = []
-                    #     for group in self._groups.values():
-                    #         insert_tasks.append(group.insert_agent.remote())
-                    #     await asyncio.gather(*insert_tasks)
-
                     if current_day >= end_day:  # type:ignore
                         break
                     (
@@ -1081,12 +1074,12 @@ class AgentSimulation:
                     simulator_log_lists.extend(simulator_log_list)
                     agent_time_log_lists.extend(agent_time_log_list)
             finally:
-                # 设置停止事件
+                # Set stop event
                 stop_event.set()
-                # 等待监控任务结束
+                # Wait for monitor task to finish
                 await monitor_task
 
-            # 运行成功后更新状态
+            # Update experiment status after successful run
             await self._update_exp_status(2)
             return (
                 llm_log_lists,
@@ -1095,7 +1088,7 @@ class AgentSimulation:
                 agent_time_log_lists,
             )
         except Exception as e:
-            error_msg = f"模拟器运行错误: {str(e)}"
+            error_msg = f"Simulation error: {str(e)}"
             logger.error(error_msg)
             await self._update_exp_status(3, error_msg)
             raise RuntimeError(error_msg) from e

@@ -113,7 +113,7 @@ class CognitionBlock(Block):
             for retry in range(10):
                 try:
                     _response = await self.llm.atext_request(
-                        question_prompt.to_dialog(), timeout=300
+                        question_prompt.to_dialog(), timeout=300, response_format={"type": "json_object"}
                     )
                     response = json.loads(extract_json(_response))  # type:ignore
                     evaluation = False
@@ -189,7 +189,7 @@ class CognitionBlock(Block):
         for retry in range(10):
             try:
                 _response = await self.llm.atext_request(
-                    question_prompt.to_dialog(), timeout=300
+                    question_prompt.to_dialog(), timeout=300, response_format={"type": "json_object"}
                 )
                 response = json.loads(extract_json(_response))  # type:ignore
                 evaluation = False
@@ -283,7 +283,7 @@ class CognitionBlock(Block):
         for retry in range(10):
             try:
                 _response = await self.llm.atext_request(
-                    question_prompt.to_dialog(), timeout=300
+                    question_prompt.to_dialog(), timeout=300, response_format={"type": "json_object"}
                 )
                 response = json.loads(extract_json(_response))  # type:ignore
                 evaluation = False

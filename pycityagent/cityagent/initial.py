@@ -63,7 +63,7 @@ async def initialize_social_network(simulation):
 
             # Initialize empty chat histories and interaction records
             await simulation.update(
-                agent_id, "chat_histories", {friend_id: [] for friend_id in friends}
+                agent_id, "chat_histories", {friend_id: "" for friend_id in friends}
             )
             await simulation.update(
                 agent_id, "interactions", {friend_id: [] for friend_id in friends}

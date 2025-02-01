@@ -45,7 +45,7 @@ class WorkBlock(Block):
             intention=step["intention"],
             emotion_types=await self.memory.status.get("emotion_types"),
         )
-        result = await self.llm.atext_request(self.guidance_prompt.to_dialog())
+        result = await self.llm.atext_request(self.guidance_prompt.to_dialog(), response_format={"type": "json_object"})
         result = clean_json_response(result)
         try:
             result = json.loads(result)

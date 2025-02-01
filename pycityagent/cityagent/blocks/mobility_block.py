@@ -1,3 +1,4 @@
+import json
 import logging
 import math
 import random
@@ -23,6 +24,11 @@ As an intelligent decision system, please determine the type of place the user n
 User Plan: {plan}
 User requirement: {intention}
 Your output must be a single selection from {poi_category} without any additional text or explanation.
+
+Please response in json format (Do not return any other text), example:
+{{
+    "place_type": "shopping"
+}}
 """
 
 PLACE_SECOND_TYPE_SELECTION_PROMPT = """
@@ -30,6 +36,11 @@ As an intelligent decision system, please determine the type of place the user n
 User Plan: {plan}
 User requirement: {intention}
 Your output must be a single selection from {poi_category} without any additional text or explanation.
+
+Please response in json format (Do not return any other text), example:
+{{
+    "place_type": "shopping"
+}}
 """
 
 PLACE_ANALYSIS_PROMPT = """
@@ -38,6 +49,11 @@ User Plan: {plan}
 User requirement: {intention}
 
 Your output must be a single selection from ['home', 'workplace', 'other'] without any additional text or explanation.
+
+Please response in json format (Do not return any other text), example:
+{{
+    "place_type": "home"
+}}
 """
 
 RADIUS_PROMPT = """As an intelligent decision system, please determine the maximum travel radius (in meters) based on the current emotional state.
@@ -49,7 +65,11 @@ Your current thought: {thought}
 
 Please analyze how these emotions would affect travel willingness and return only a single integer number between 3000-200000 representing the maximum travel radius in meters. A more positive emotional state generally leads to greater willingness to travel further.
 
-Return only the integer number without any additional text or explanation."""
+Please response in json format (Do not return any other text), example:
+{{
+    "radius": 10000
+}}
+"""
 
 
 def gravity_model(pois):
@@ -122,7 +142,7 @@ class PlaceSelectionBlock(Block):
     """
 
     configurable_fields: List[str] = ["search_limit"]
-    default_values = {"search_limit": 1000}
+    default_values = {"search_limit": 50}
 
     def __init__(self, llm: LLM, memory: Memory, simulator: Simulator):
         super().__init__(
@@ -135,7 +155,7 @@ class PlaceSelectionBlock(Block):
         )
         self.radiusPrompt = FormatPrompt(RADIUS_PROMPT)
         # configurable fields
-        self.search_limit = 1000
+        self.search_limit = 50
 
     async def forward(self, step, context):
         poi_cate = self.simulator.get_poi_cate()
@@ -144,8 +164,9 @@ class PlaceSelectionBlock(Block):
             intention=step["intention"],
             poi_category=list(poi_cate.keys()),
         )
-        levelOneType = await self.llm.atext_request(self.typeSelectionPrompt.to_dialog())  # type: ignore
+        levelOneType = await self.llm.atext_request(self.typeSelectionPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
+            levelOneType = json.loads(levelOneType)["place_type"]
             sub_category = poi_cate[levelOneType]
         except Exception as e:
             logger.warning(f"Wrong type of poi, raw response: {levelOneType}")
@@ -154,7 +175,12 @@ class PlaceSelectionBlock(Block):
         self.secondTypeSelectionPrompt.format(
             plan=context["plan"], intention=step["intention"], poi_category=sub_category
         )
-        levelTwoType = await self.llm.atext_request(self.secondTypeSelectionPrompt.to_dialog())  # type: ignore
+        levelTwoType = await self.llm.atext_request(self.secondTypeSelectionPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
+        try:
+            levelTwoType = json.loads(levelTwoType)["place_type"]
+        except Exception as e:
+            logger.warning(f"Wrong type of poi, raw response: {levelTwoType}")
+            levelTwoType = random.choice(sub_category)
         center = await self.memory.status.get("position")
         center = (center["xy_position"]["x"], center["xy_position"]["y"])
         self.radiusPrompt.format(
@@ -163,8 +189,9 @@ class PlaceSelectionBlock(Block):
             weather=self.simulator.sence("weather"),
             temperature=self.simulator.sence("temperature"),
         )
-        radius = int(await self.llm.atext_request(self.radiusPrompt.to_dialog()))  # type: ignore
+        radius = await self.llm.atext_request(self.radiusPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
+            radius = int(json.loads(radius)["radius"])
             pois = ray.get(
                 self.simulator.map.query_pois.remote(
                     center=center,
@@ -175,7 +202,7 @@ class PlaceSelectionBlock(Block):
             )
         except Exception as e:
             logger.warning(f"Error querying pois: {e}")
-            levelTwoType = random.choice(sub_category)
+            radius = 10000
             pois = ray.get(
                 self.simulator.map.query_pois.remote(
                     center=center,
@@ -238,10 +265,12 @@ class MoveBlock(Block):
         self.placeAnalysisPrompt.format(
             plan=context["plan"], intention=step["intention"]
         )
-        number_poi_visited = await self.memory.status.get("number_poi_visited")
-        number_poi_visited += 1
-        await self.memory.status.update("number_poi_visited", number_poi_visited)
-        response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog())  # type: ignore
+        response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
+        try:
+            response = json.loads(response)["place_type"]
+        except Exception as e:
+            logger.warning(f"Wrong type of poi, raw response: {response}")
+            response = "home"
         if response == "home":
             # 返回到家
             home = await self.memory.status.get("home")
@@ -265,6 +294,9 @@ class MoveBlock(Block):
                 person_id=agent_id,
                 target_positions=home,
             )
+            number_poi_visited = await self.memory.status.get("number_poi_visited")
+            number_poi_visited += 1
+            await self.memory.status.update("number_poi_visited", number_poi_visited)
             return {
                 "success": True,
                 "evaluation": f"Successfully returned home",
@@ -295,6 +327,9 @@ class MoveBlock(Block):
                 person_id=agent_id,
                 target_positions=work,
             )
+            number_poi_visited = await self.memory.status.get("number_poi_visited")
+            number_poi_visited += 1
+            await self.memory.status.update("number_poi_visited", number_poi_visited)
             return {
                 "success": True,
                 "evaluation": f"Successfully reached the workplace",
@@ -327,6 +362,9 @@ class MoveBlock(Block):
                     person_id=agent_id,
                     target_positions=next_place[1],
                 )
+            number_poi_visited = await self.memory.status.get("number_poi_visited")
+            number_poi_visited += 1
+            await self.memory.status.update("number_poi_visited", number_poi_visited)
             return {
                 "success": True,
                 "evaluation": f"Successfully reached the destination: {next_place}",

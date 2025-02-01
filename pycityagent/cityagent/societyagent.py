@@ -427,7 +427,6 @@ class SocietyAgent(CitizenAgent):
                 )
 
                 if should_respond.strip().upper() != "YES":  # type:ignore
-                    await self.memory.status.update("chat_histories", chat_histories)
                     return ""
 
                 response_prompt = f"""Based on:

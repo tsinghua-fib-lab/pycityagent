@@ -147,6 +147,7 @@ class AgentGroup:
         # prepare Simulator
         logger.info(f"-----Initializing Simulator in AgentGroup {self._uuid} ...")
         self.simulator = Simulator(config)
+        self.simulator.set_environment(environment)
         self.simulator.set_map(map_ref)
         self.projector = pyproj.Proj(
             ray.get(self.simulator.map.get_projector.remote())  # type:ignore

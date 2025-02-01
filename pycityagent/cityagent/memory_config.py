@@ -88,7 +88,6 @@ def memory_config_societyagent():
         "relation_types": (dict, {}, False),
         "chat_histories": (dict, {}, False),  # all chat histories
         "interactions": (dict, {}, False),  # all interaction records
-        "to_discuss": (dict, {}, False),
         # mobility
         "number_poi_visited": (int, 1, False),
     }

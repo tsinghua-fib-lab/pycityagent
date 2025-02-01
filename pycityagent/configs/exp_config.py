@@ -23,10 +23,10 @@ class WorkflowStep(BaseModel):
 class AgentConfig(BaseModel):
 
     number_of_citizen: int = Field(1, description="Number of citizens")
-    number_of_firm: int = Field(0, description="Number of firms")
-    number_of_government: int = Field(0, description="Number of governments")
-    number_of_bank: int = Field(0, description="Number of banks")
-    number_of_nbs: int = Field(0, description="Number of neighborhood-based services")
+    number_of_firm: int = Field(1, description="Number of firms")
+    number_of_government: int = Field(1, description="Number of governments")
+    number_of_bank: int = Field(1, description="Number of banks")
+    number_of_nbs: int = Field(1, description="Number of neighborhood-based services")
     group_size: int = Field(100, description="Size of agent groups")
     embedding_model: Any = Field(None, description="Embedding model")
     agent_class_configs: Optional[dict[Any, dict[str, list[dict]]]] = None
@@ -34,21 +34,21 @@ class AgentConfig(BaseModel):
     memory_config_init_func: Optional[Callable] = Field(None)
     init_func: Optional[list[Callable[["AgentSimulation"], None]]] = None
     enable_institution: bool = Field(
-        False, description="Whether institutions are enabled in the experiment"
+        True, description="Whether institutions are enabled in the experiment"
     )
 
     @classmethod
     def create(
         cls,
         number_of_citizen: int = 1,
-        number_of_firm: int = 0,
-        number_of_government: int = 0,
-        number_of_bank: int = 0,
-        number_of_nbs: int = 0,
+        number_of_firm: int = 1,
+        number_of_government: int = 1,
+        number_of_bank: int = 1,
+        number_of_nbs: int = 1,
         group_size: int = 100,
         embedding_model: Any = None,
         agent_class_configs: Optional[dict[Any, dict[str, list[dict]]]] = None,
-        enable_institution: bool = False,
+        enable_institution: bool = True,
         memory_config_func: Optional[dict[type["Any"], Callable]] = None,
         memory_config_init_func: Optional[Callable] = None,
         init_func: Optional[list[Callable[["AgentSimulation"], None]]] = None,
@@ -138,14 +138,14 @@ class ExpConfig(BaseModel):
     def SetAgentConfig(
         self,
         number_of_citizen: int = 1,
-        number_of_firm: int = 0,
-        number_of_government: int = 0,
-        number_of_bank: int = 0,
-        number_of_nbs: int = 0,
+        number_of_firm: int = 1,
+        number_of_government: int = 1,
+        number_of_bank: int = 1,
+        number_of_nbs: int = 1,
         group_size: int = 100,
         embedding_model: Any = None,
         agent_class_configs: Optional[dict[Any, dict[str, list[dict]]]] = None,
-        enable_institution: bool = False,
+        enable_institution: bool = True,
         memory_config_func: Optional[dict[type["Any"], Callable]] = None,
         memory_config_init_func: Optional[Callable] = None,
         init_func: Optional[list[Callable[["AgentSimulation"], None]]] = None,

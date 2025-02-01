@@ -490,7 +490,7 @@ class EconomyClient:
         return (float(response.taxes_due), list(response.updated_incomes))
 
     async def calculate_consumption(
-        self, org_ids: Union[int, list[int]], agent_id: int, demands: list[int]
+        self, org_ids: Union[int, list[int]], agent_id: int, demands: list[int], consumption_accumulation: bool = True
     ):
         """
         Calculate consumption for agents based on their demands.
@@ -499,6 +499,7 @@ class EconomyClient:
             - `org_ids` (`Union[int, list[int]]`): The ID of the firm providing goods or services.
             - `agent_id` (`int`): The ID of the agent whose consumption is being calculated.
             - `demands` (`List[int]`): A list of demand quantities corresponding to each agent.
+            - `consumption_accumulation` (`bool`): Weather accumulation.
 
         - **Returns**:
             - `Tuple[int, List[float]]`: A tuple containing the remaining inventory and updated currencies for each agent.
@@ -515,6 +516,7 @@ class EconomyClient:
             firm_ids=org_ids,
             agent_id=agent_id,
             demands=demands,
+            consumption_accumulation = consumption_accumulation,
         )
         response: org_service.CalculateConsumptionResponse = (
             await self._aio_stub.CalculateConsumption(request)
@@ -668,3 +670,40 @@ class EconomyClient:
         log["consumption"] = time.time() - start_time
         self._log_list.append(log)
         return list(response.org_ids)
+
+    async def add_delta_value(
+        self,
+        id: Union[int, list[int]],
+        key: str,
+        value: Any,
+    ) -> Any:
+        """
+        Add value pair
+
+        - **Args**:
+            - `id` (`int`): The id of `Org` or `Agent`.
+            - `key` (`str`): The attribute to update. Can only be `inventory`, `price`, `interest_rate` and `currency`
+
+        - **Returns**:
+            - Any
+        """
+        start_time = time.time()
+        log = {"req": "add_delta_value", "start_time": start_time, "consumption": 0}
+        pascal_key = ''.join(x.title() for x in key.split('_'))
+        _request_type = getattr(org_service, f"Add{pascal_key}Request")
+        _request_func = getattr(self._aio_stub, f"Add{pascal_key}")
+
+        _available_keys = {"inventory", "price", "interest_rate", "currency", "income"}
+        if key not in _available_keys:
+            raise ValueError(f"Invalid key `{key}`, can only be {_available_keys}!")
+        response = await _request_func(
+            _request_type(
+                **{
+                    "org_id": id,
+                    f"delta_{key}": value,
+                }
+            )
+        )
+        log["consumption"] = time.time() - start_time
+        self._log_list.append(log)
+        return response
