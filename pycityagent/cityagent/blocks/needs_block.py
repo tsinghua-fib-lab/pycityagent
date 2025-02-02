@@ -8,6 +8,7 @@ from pycityagent.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.workflow.block import Block
 from pycityagent.workflow.prompt import FormatPrompt
+from .utils import clean_json_response
 
 logger = logging.getLogger("pycityagent")
 
@@ -126,7 +127,7 @@ class NeedsBlock(Block):
                 now_time=await self.simulator.get_time(format_time=True),
             )
             response = await self.llm.atext_request(self.initial_prompt.to_dialog(), response_format={"type": "json_object"})
-            response = self.clean_json_response(response)
+            response = clean_json_response(response)
             retry = 3
             while retry > 0:
                 try:
@@ -309,7 +310,7 @@ class NeedsBlock(Block):
         while retry > 0:
             response = await self.llm.atext_request(self.evaluation_prompt.to_dialog(), response_format={"type": "json_object"})
             try:
-                new_satisfaction = json.loads(self.clean_json_response(response))  # type: ignore
+                new_satisfaction = json.loads(clean_json_response(response))  # type: ignore
                 # 更新所有需求的数值
                 for need_type, new_value in new_satisfaction.items():
                     if need_type in [
@@ -329,11 +330,6 @@ class NeedsBlock(Block):
                 logger.warning(f"Error processing evaluation response: {str(e)}")
                 logger.warning(f"Original response: {response}")
                 retry -= 1
-
-    def clean_json_response(self, response: str) -> str:
-        """清理LLM响应中的特殊字符"""
-        response = response.replace("```json", "").replace("```", "")
-        return response.strip()
 
     async def forward(self):
         await self.initialize()

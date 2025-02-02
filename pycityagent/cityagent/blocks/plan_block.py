@@ -10,7 +10,7 @@ from pycityagent.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.workflow import Block
 from pycityagent.workflow.prompt import FormatPrompt
-
+from .utils import clean_json_response
 logger = logging.getLogger("pycityagent")
 
 GUIDANCE_SELECTION_PROMPT = """As an intelligent agent's decision system, please select the most suitable option from the following choices to satisfy the current need.
@@ -203,7 +203,7 @@ class PlanBlock(Block):
         retry = 3
         while retry > 0:
             try:
-                result = json.loads(self.clean_json_response(response))  # type: ignore
+                result = json.loads(clean_json_response(response))  # type: ignore
                 if "selected_option" not in result or "evaluation" not in result:
                     raise ValueError("Invalid guidance selection format")
                 if (
@@ -255,7 +255,7 @@ class PlanBlock(Block):
         retry = 3
         while retry > 0:
             try:
-                result = json.loads(self.clean_json_response(response))  # type: ignore
+                result = json.loads(clean_json_response(response))  # type: ignore
                 if (
                     "plan" not in result
                     or "target" not in result["plan"]
@@ -316,8 +316,3 @@ Execution Steps: \n{formated_steps}
             "current_step", steps[0] if steps else {"intention": "", "type": ""}
         )
         await self.memory.status.update("execution_context", {"plan": formated_plan})
-
-    def clean_json_response(self, response: str) -> str:
-        """Clean special characters in LLM response"""
-        response = response.replace("```json", "").replace("```", "")
-        return response.strip()

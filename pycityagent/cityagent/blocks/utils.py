@@ -57,6 +57,6 @@ def extract_dict_from_string(input_string):
 
 
 def clean_json_response(response: str) -> str:
-    """清理LLM响应中的特殊字符"""
+    """remove the special characters in the response"""
     response = response.replace("```json", "").replace("```", "")
     return response.strip()

@@ -13,8 +13,9 @@ from pycityagent.llm import LLM
 from pycityagent.memory import Memory
 from pycityagent.workflow.block import Block
 from pycityagent.workflow.prompt import FormatPrompt
-
+from .utils import clean_json_response
 from .dispatcher import BlockDispatcher
+
 
 logger = logging.getLogger("pycityagent")
 
@@ -166,10 +167,11 @@ class PlaceSelectionBlock(Block):
         )
         levelOneType = await self.llm.atext_request(self.typeSelectionPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
+            levelOneType = clean_json_response(levelOneType)
             levelOneType = json.loads(levelOneType)["place_type"]
             sub_category = poi_cate[levelOneType]
         except Exception as e:
-            logger.warning(f"Wrong type of poi, raw response: {levelOneType}")
+            logger.warning(f"Level One Type Selection: wrong type of poi, raw response: {levelOneType}")
             levelOneType = random.choice(list(poi_cate.keys()))
             sub_category = poi_cate[levelOneType]
         self.secondTypeSelectionPrompt.format(
@@ -177,9 +179,10 @@ class PlaceSelectionBlock(Block):
         )
         levelTwoType = await self.llm.atext_request(self.secondTypeSelectionPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
+            levelTwoType = clean_json_response(levelTwoType)
             levelTwoType = json.loads(levelTwoType)["place_type"]
         except Exception as e:
-            logger.warning(f"Wrong type of poi, raw response: {levelTwoType}")
+            logger.warning(f"Level Two Type Selection: wrong type of poi, raw response: {levelTwoType}")
             levelTwoType = random.choice(sub_category)
         center = await self.memory.status.get("position")
         center = (center["xy_position"]["x"], center["xy_position"]["y"])
@@ -260,19 +263,18 @@ class MoveBlock(Block):
         self.placeAnalysisPrompt = FormatPrompt(PLACE_ANALYSIS_PROMPT)
 
     async def forward(self, step, context):
-        # 这里应该添加移动的具体逻辑
         agent_id = await self.memory.status.get("id")
         self.placeAnalysisPrompt.format(
             plan=context["plan"], intention=step["intention"]
         )
         response = await self.llm.atext_request(self.placeAnalysisPrompt.to_dialog(), response_format={"type": "json_object"})  # type: ignore
         try:
+            response = clean_json_response(response)
             response = json.loads(response)["place_type"]
         except Exception as e:
-            logger.warning(f"Wrong type of poi, raw response: {response}")
+            logger.warning(f"Place Analysis: wrong type of place, raw response: {response}")
             response = "home"
         if response == "home":
-            # 返回到家
             home = await self.memory.status.get("home")
             home = home["aoi_position"]["aoi_id"]
             nowPlace = await self.memory.status.get("position")

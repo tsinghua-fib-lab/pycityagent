@@ -374,7 +374,7 @@ class AgentSimulation:
                 await simulation.pause_simulator()
             elif step.type == WorkflowType.RESUME:
                 await simulation.resume_simulator()
-            elif step.type == WorkflowType.FUNCTION:
+            else:
                 _func = cast(Callable, step.func)
                 await _func(simulation)
         logger.info("Simulation finished")
