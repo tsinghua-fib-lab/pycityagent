@@ -15,6 +15,7 @@
 
 pycityagent.environment.sim
 pycityagent.environment.utils
+pycityagent.environment.economy
 ```
 
 ## Submodules
@@ -45,7 +46,7 @@ pycityagent.environment.simulator
 ````{py:data} __all__
 :canonical: pycityagent.environment.__all__
 :value: >
-   ['Simulator', 'PersonService', 'AoiService']
+   ['Simulator', 'PersonService', 'AoiService', 'EconomyClient']
 
 ```{autodoc2-docstring} pycityagent.environment.__all__
 ```

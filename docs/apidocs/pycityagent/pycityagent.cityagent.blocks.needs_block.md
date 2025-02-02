@@ -130,14 +130,6 @@ Bases: {py:obj}`pycityagent.workflow.block.Block`
 
 ````
 
-````{py:method} clean_json_response(response: str) -> str
-:canonical: pycityagent.cityagent.blocks.needs_block.NeedsBlock.clean_json_response
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.needs_block.NeedsBlock.clean_json_response
-```
-
-````
-
 ````{py:method} forward()
 :canonical: pycityagent.cityagent.blocks.needs_block.NeedsBlock.forward
 :async:

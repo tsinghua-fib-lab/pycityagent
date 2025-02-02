@@ -19,6 +19,6 @@ pip install pycityagent
 01-quick-start
 02-custom-agents
 03-experiment-design
-04-advanced-usage/index
+04-advanced-usage
 apidocs/index
 ```

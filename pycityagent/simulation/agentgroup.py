@@ -47,7 +47,7 @@ class AgentGroup:
         mlflow_run_id: str,
         embedding_model: Embeddings,
         logging_level: int,
-        agent_config_file: Optional[dict[type[Agent], str]] = None,
+        agent_config_file: Optional[dict[type[Agent], Any]] = None,
         llm_semaphore: int = 200,
         environment: Optional[dict] = None,
     ):
@@ -76,7 +76,7 @@ class AgentGroup:
             - `mlflow_run_id` (str): Run identifier for MLflow tracking.
             - `embedding_model` (Embeddings): Model used for generating embeddings.
             - `logging_level` (int): Logging level for the agent group.
-            - `agent_config_file` (Optional[Dict[Type[Agent], str]], optional): File paths for loading agent configurations. Defaults to None.
+            - `agent_config_file` (Optional[Dict[Type[Agent], Any]], optional): File paths for loading agent configurations. Defaults to None.
             - `environment` (Optional[Dict[str, str]], optional): Environment variables for the simulator. Defaults to None.
         """
         logger.setLevel(logging_level)
@@ -105,8 +105,6 @@ class AgentGroup:
                 "status": self.avro_path / f"status.avro",
                 "survey": self.avro_path / f"survey.avro",
             }
-        if self.enable_pgsql:
-            pass
         # Mlflow
         metric_config = config.prop_metric_request
         if metric_config is not None and metric_config.mlflow is not None:
@@ -147,7 +145,7 @@ class AgentGroup:
         # prepare Simulator
         logger.info(f"-----Initializing Simulator in AgentGroup {self._uuid} ...")
         self.simulator = Simulator(config)
-        self.simulator.set_environment(environment)
+        self.simulator.set_environment(environment if environment else {})
         self.simulator.set_map(map_ref)
         self.projector = pyproj.Proj(
             ray.get(self.simulator.map.get_projector.remote())  # type:ignore

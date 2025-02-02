@@ -16,6 +16,7 @@
 pycityagent.agent
 pycityagent.environment
 pycityagent.tools
+pycityagent.configs
 pycityagent.workflow
 pycityagent.memory
 pycityagent.llm
@@ -25,7 +26,6 @@ pycityagent.survey
 pycityagent.metrics
 pycityagent.message
 pycityagent.utils
-pycityagent.economy
 ```
 
 ## Package Contents

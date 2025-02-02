@@ -364,7 +364,7 @@ Bases: {py:obj}`str`, {py:obj}`enum.Enum`
 
 ````
 
-````{py:method} get_by_ids(memory_ids: typing.Union[int, list[int]]) -> collections.abc.Coroutine[typing.Any, typing.Any, str]
+````{py:method} get_by_ids(memory_ids: typing.Union[int, list[int]]) -> str
 :canonical: pycityagent.memory.memory.StreamMemory.get_by_ids
 :async:
 

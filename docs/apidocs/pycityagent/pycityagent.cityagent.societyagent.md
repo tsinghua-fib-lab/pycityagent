@@ -51,7 +51,7 @@
 
 ````
 
-`````{py:class} PlanAndActionBlock(agent: pycityagent.agent.Agent, llm: pycityagent.llm.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.Simulator, economy_client: pycityagent.economy.EconomyClient, enable_mobility: bool = True, enable_social: bool = True, enable_economy: bool = True, enable_cognition: bool = True)
+`````{py:class} PlanAndActionBlock(agent: pycityagent.agent.Agent, llm: pycityagent.llm.llm.LLM, memory: pycityagent.memory.Memory, simulator: pycityagent.Simulator, economy_client: pycityagent.environment.EconomyClient, enable_mobility: bool = True, enable_social: bool = True, enable_economy: bool = True, enable_cognition: bool = True)
 :canonical: pycityagent.cityagent.societyagent.PlanAndActionBlock
 
 Bases: {py:obj}`pycityagent.workflow.Block`
@@ -201,7 +201,7 @@ Bases: {py:obj}`pycityagent.workflow.Block`
 
 `````
 
-`````{py:class} SocietyAgent(name: str, llm_client: typing.Optional[pycityagent.llm.llm.LLM] = None, simulator: typing.Optional[pycityagent.Simulator] = None, memory: typing.Optional[pycityagent.memory.Memory] = None, economy_client: typing.Optional[pycityagent.economy.EconomyClient] = None)
+`````{py:class} SocietyAgent(name: str, llm_client: typing.Optional[pycityagent.llm.llm.LLM] = None, simulator: typing.Optional[pycityagent.Simulator] = None, memory: typing.Optional[pycityagent.memory.Memory] = None, economy_client: typing.Optional[pycityagent.environment.EconomyClient] = None)
 :canonical: pycityagent.cityagent.societyagent.SocietyAgent
 
 Bases: {py:obj}`pycityagent.CitizenAgent`

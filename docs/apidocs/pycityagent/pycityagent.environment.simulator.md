@@ -63,7 +63,7 @@
 
 ````
 
-`````{py:class} CityMap(mongo_input: tuple[str, str, str, str], map_cache_path: str)
+`````{py:class} CityMap(map_cache_path: str)
 :canonical: pycityagent.environment.simulator.CityMap
 
 ```{autodoc2-docstring} pycityagent.environment.simulator.CityMap
@@ -133,7 +133,7 @@
 
 `````
 
-`````{py:class} Simulator(config: dict, create_map: bool = False)
+`````{py:class} Simulator(sim_config: pycityagent.configs.SimConfig, create_map: bool = False)
 :canonical: pycityagent.environment.simulator.Simulator
 
 ```{autodoc2-docstring} pycityagent.environment.simulator.Simulator
@@ -145,12 +145,12 @@
 ```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.__init__
 ```
 
-````{py:attribute} config
-:canonical: pycityagent.environment.simulator.Simulator.config
+````{py:attribute} sim_config
+:canonical: pycityagent.environment.simulator.Simulator.sim_config
 :value: >
    None
 
-```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.config
+```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.sim_config
 ```
 
 ````
@@ -233,7 +233,7 @@
 
 ````
 
-````{py:method} get_server_addr()
+````{py:method} get_server_addr() -> str
 :canonical: pycityagent.environment.simulator.Simulator.get_server_addr
 
 ```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.get_server_addr
@@ -261,14 +261,6 @@
 :canonical: pycityagent.environment.simulator.Simulator.update_environment
 
 ```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.update_environment
-```
-
-````
-
-````{py:method} find_agents_by_area(req: dict, status=None)
-:canonical: pycityagent.environment.simulator.Simulator.find_agents_by_area
-
-```{autodoc2-docstring} pycityagent.environment.simulator.Simulator.find_agents_by_area
 ```
 
 ````

@@ -16,7 +16,6 @@
 pycityagent.llm.llm
 pycityagent.llm.embeddings
 pycityagent.llm.utils
-pycityagent.llm.llmconfig
 ```
 
 ## Package Contents
@@ -38,7 +37,7 @@ pycityagent.llm.llmconfig
 ````{py:data} __all__
 :canonical: pycityagent.llm.__all__
 :value: >
-   ['LLM', 'LLMConfig', 'SentenceEmbedding', 'SimpleEmbedding']
+   ['LLM', 'SentenceEmbedding', 'SimpleEmbedding']
 
 ```{autodoc2-docstring} pycityagent.llm.__all__
 ```

@@ -59,7 +59,7 @@
 
 ````
 
-`````{py:class} AgentSimulation(config: dict, agent_class: typing.Union[None, type[pycityagent.agent.Agent], list[type[pycityagent.agent.Agent]]] = None, agent_config_file: typing.Optional[dict] = None, metric_extractors: typing.Optional[list[tuple[int, collections.abc.Callable]]] = None, enable_institution: bool = True, agent_prefix: str = 'agent_', exp_name: str = 'default_experiment', logging_level: int = logging.WARNING)
+`````{py:class} AgentSimulation(config: pycityagent.configs.SimConfig, agent_class: typing.Union[None, type[pycityagent.agent.Agent], list[type[pycityagent.agent.Agent]]] = None, agent_class_configs: typing.Optional[dict] = None, metric_extractors: typing.Optional[list[tuple[int, collections.abc.Callable]]] = None, enable_institution: bool = True, agent_prefix: str = 'agent_', exp_name: str = 'default_experiment', logging_level: int = logging.WARNING)
 :canonical: pycityagent.simulation.simulation.AgentSimulation
 
 ```{autodoc2-docstring} pycityagent.simulation.simulation.AgentSimulation
@@ -71,7 +71,7 @@
 ```{autodoc2-docstring} pycityagent.simulation.simulation.AgentSimulation.__init__
 ```
 
-````{py:method} run_from_config(config: dict)
+````{py:method} run_from_config(config: pycityagent.configs.ExpConfig, sim_config: pycityagent.configs.SimConfig)
 :canonical: pycityagent.simulation.simulation.AgentSimulation.run_from_config
 :async:
 :classmethod:

@@ -45,7 +45,7 @@
 
 ````
 
-`````{py:class} LLM(config: pycityagent.llm.llmconfig.LLMConfig)
+`````{py:class} LLM(config: pycityagent.configs.LLMRequestConfig)
 :canonical: pycityagent.llm.llm.LLM
 
 ```{autodoc2-docstring} pycityagent.llm.llm.LLM
@@ -121,29 +121,11 @@
 
 ````
 
-````{py:method} atext_request(dialog: typing.Any, temperature: float = 1, max_tokens: typing.Optional[int] = None, top_p: typing.Optional[float] = None, frequency_penalty: typing.Optional[float] = None, presence_penalty: typing.Optional[float] = None, timeout: int = 300, retries=10, tools: typing.Optional[list[dict[str, typing.Any]]] = None, tool_choice: typing.Optional[dict[str, typing.Any]] = None)
+````{py:method} atext_request(dialog: typing.Any, response_format: typing.Optional[dict[str, typing.Any]] = None, temperature: float = 1, max_tokens: typing.Optional[int] = None, top_p: typing.Optional[float] = None, frequency_penalty: typing.Optional[float] = None, presence_penalty: typing.Optional[float] = None, timeout: int = 300, retries=10, tools: typing.Optional[list[dict[str, typing.Any]]] = None, tool_choice: typing.Optional[dict[str, typing.Any]] = None)
 :canonical: pycityagent.llm.llm.LLM.atext_request
 :async:
 
 ```{autodoc2-docstring} pycityagent.llm.llm.LLM.atext_request
-```
-
-````
-
-````{py:method} img_understand(img_path: typing.Union[str, list[str]], prompt: typing.Optional[str] = None) -> str
-:canonical: pycityagent.llm.llm.LLM.img_understand
-:async:
-
-```{autodoc2-docstring} pycityagent.llm.llm.LLM.img_understand
-```
-
-````
-
-````{py:method} img_generate(prompt: str, size: str = '512*512', quantity: int = 1)
-:canonical: pycityagent.llm.llm.LLM.img_generate
-:async:
-
-```{autodoc2-docstring} pycityagent.llm.llm.LLM.img_generate
 ```
 
 ````

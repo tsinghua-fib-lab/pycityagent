@@ -103,7 +103,7 @@ Bases: {py:obj}`enum.Enum`
 
 `````
 
-`````{py:class} Agent(name: str, type: pycityagent.agent.agent_base.AgentType = AgentType.Unspecified, llm_client: typing.Optional[pycityagent.llm.LLM] = None, economy_client: typing.Optional[pycityagent.economy.EconomyClient] = None, messager: typing.Optional[ray.ObjectRef] = None, message_interceptor: typing.Optional[ray.ObjectRef] = None, simulator: typing.Optional[pycityagent.environment.Simulator] = None, memory: typing.Optional[pycityagent.memory.Memory] = None, avro_file: typing.Optional[dict[str, str]] = None, copy_writer: typing.Optional[ray.ObjectRef] = None)
+`````{py:class} Agent(name: str, type: pycityagent.agent.agent_base.AgentType = AgentType.Unspecified, llm_client: typing.Optional[pycityagent.llm.LLM] = None, economy_client: typing.Optional[pycityagent.environment.EconomyClient] = None, messager: typing.Optional[ray.ObjectRef] = None, message_interceptor: typing.Optional[ray.ObjectRef] = None, simulator: typing.Optional[pycityagent.environment.Simulator] = None, memory: typing.Optional[pycityagent.memory.Memory] = None, avro_file: typing.Optional[dict[str, str]] = None, copy_writer: typing.Optional[ray.ObjectRef] = None)
 :canonical: pycityagent.agent.agent_base.Agent
 
 Bases: {py:obj}`abc.ABC`
@@ -203,7 +203,7 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:method} load_from_config(config: dict[str, list[dict]]) -> None
+````{py:method} load_from_config(config: dict[str, typing.Any]) -> None
 :canonical: pycityagent.agent.agent_base.Agent.load_from_config
 
 ```{autodoc2-docstring} pycityagent.agent.agent_base.Agent.load_from_config
@@ -243,7 +243,7 @@ Bases: {py:obj}`abc.ABC`
 
 ````
 
-````{py:method} set_economy_client(economy_client: pycityagent.economy.EconomyClient)
+````{py:method} set_economy_client(economy_client: pycityagent.environment.EconomyClient)
 :canonical: pycityagent.agent.agent_base.Agent.set_economy_client
 
 ```{autodoc2-docstring} pycityagent.agent.agent_base.Agent.set_economy_client

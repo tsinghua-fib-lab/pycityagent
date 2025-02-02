@@ -245,12 +245,12 @@ class Agent(ABC):
             config = json.load(f)
             return cls.import_block_config(config)
 
-    def load_from_config(self, config: dict[str, list[dict]]) -> None:
+    def load_from_config(self, config: dict[str, Any]) -> None:
         """
         Update the current Agent instance's Block hierarchy using the provided configuration.
 
         - **Args**:
-            - `config` (`dict[str, list[dict]]`): A dictionary containing the configuration for updating the agent and its blocks.
+            - `config` (`dict[str, Any]`): A dictionary containing the configuration for updating the agent and its blocks.
 
         - **Returns**:
             - `None`

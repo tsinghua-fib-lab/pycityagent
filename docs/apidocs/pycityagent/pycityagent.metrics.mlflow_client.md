@@ -71,14 +71,14 @@
 
 ````
 
-````{py:function} init_mlflow_connection(config: dict, experiment_uuid: str, mlflow_run_name: typing.Optional[str] = None, experiment_name: typing.Optional[str] = None, experiment_description: typing.Optional[str] = None, experiment_tags: typing.Optional[dict[str, typing.Any]] = None) -> tuple[str, tuple[str, mlflow.MlflowClient, mlflow.entities.Run, str]]
+````{py:function} init_mlflow_connection(config: pycityagent.configs.MlflowConfig, experiment_uuid: str, mlflow_run_name: typing.Optional[str] = None, experiment_name: typing.Optional[str] = None, experiment_description: typing.Optional[str] = None, experiment_tags: typing.Optional[dict[str, typing.Any]] = None) -> tuple[str, tuple[str, mlflow.MlflowClient, mlflow.entities.Run, str]]
 :canonical: pycityagent.metrics.mlflow_client.init_mlflow_connection
 
 ```{autodoc2-docstring} pycityagent.metrics.mlflow_client.init_mlflow_connection
 ```
 ````
 
-`````{py:class} MlflowClient(config: dict, experiment_uuid: str, mlflow_run_name: typing.Optional[str] = None, experiment_name: typing.Optional[str] = None, experiment_description: typing.Optional[str] = None, experiment_tags: typing.Optional[dict[str, typing.Any]] = None, run_id: typing.Optional[str] = None)
+`````{py:class} MlflowClient(config: pycityagent.configs.MlflowConfig, experiment_uuid: str, mlflow_run_name: typing.Optional[str] = None, experiment_name: typing.Optional[str] = None, experiment_description: typing.Optional[str] = None, experiment_tags: typing.Optional[dict[str, typing.Any]] = None, run_id: typing.Optional[str] = None)
 :canonical: pycityagent.metrics.mlflow_client.MlflowClient
 
 ```{autodoc2-docstring} pycityagent.metrics.mlflow_client.MlflowClient

@@ -149,7 +149,7 @@ Bases: {py:obj}`abc.ABC`
 
 `````
 
-`````{py:class} MessageInterceptor(blocks: typing.Optional[list[pycityagent.message.message_interceptor.MessageBlockBase]] = None, black_list: typing.Optional[list[tuple[str, str]]] = None, llm_config: typing.Optional[dict] = None, queue: typing.Optional[ray.util.queue.Queue] = None)
+`````{py:class} MessageInterceptor(blocks: typing.Optional[list[pycityagent.message.message_interceptor.MessageBlockBase]] = None, black_list: typing.Optional[list[tuple[str, str]]] = None, llm_config: typing.Optional[pycityagent.configs.LLMRequestConfig] = None, queue: typing.Optional[ray.util.queue.Queue] = None)
 :canonical: pycityagent.message.message_interceptor.MessageInterceptor
 
 ```{autodoc2-docstring} pycityagent.message.message_interceptor.MessageInterceptor

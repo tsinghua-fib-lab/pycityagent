@@ -61,7 +61,7 @@
 
 ````
 
-`````{py:class} MessagePromptManager(template: str, to_discuss: typing.List[str])
+`````{py:class} MessagePromptManager()
 :canonical: pycityagent.cityagent.blocks.social_block.MessagePromptManager
 
 ```{autodoc2-docstring} pycityagent.cityagent.blocks.social_block.MessagePromptManager
@@ -73,7 +73,7 @@
 ```{autodoc2-docstring} pycityagent.cityagent.blocks.social_block.MessagePromptManager.__init__
 ```
 
-````{py:method} get_prompt(memory, step: typing.Dict[str, typing.Any], target: str) -> str
+````{py:method} get_prompt(memory, step: typing.Dict[str, typing.Any], target: str, template: str) -> str
 :canonical: pycityagent.cityagent.blocks.social_block.MessagePromptManager.get_prompt
 :async:
 

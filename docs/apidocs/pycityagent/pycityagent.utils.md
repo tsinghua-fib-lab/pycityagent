@@ -22,6 +22,7 @@ pycityagent.utils.parsers
 :titlesonly:
 :maxdepth: 1
 
+pycityagent.utils.config_const
 pycityagent.utils.pg_query
 pycityagent.utils.survey_util
 pycityagent.utils.avro_schema

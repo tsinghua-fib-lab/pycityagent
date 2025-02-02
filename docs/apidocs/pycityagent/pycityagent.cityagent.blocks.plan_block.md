@@ -114,7 +114,7 @@ Bases: {py:obj}`pycityagent.workflow.Block`
 
 ````
 
-````{py:method} generate_detailed_plan(current_need: str, selected_option: str) -> typing.Dict
+````{py:method} generate_detailed_plan(selected_option: str) -> typing.Dict
 :canonical: pycityagent.cityagent.blocks.plan_block.PlanBlock.generate_detailed_plan
 :async:
 
@@ -126,14 +126,6 @@ Bases: {py:obj}`pycityagent.workflow.Block`
 ````{py:method} forward()
 :canonical: pycityagent.cityagent.blocks.plan_block.PlanBlock.forward
 :async:
-
-````
-
-````{py:method} clean_json_response(response: str) -> str
-:canonical: pycityagent.cityagent.blocks.plan_block.PlanBlock.clean_json_response
-
-```{autodoc2-docstring} pycityagent.cityagent.blocks.plan_block.PlanBlock.clean_json_response
-```
 
 ````
 

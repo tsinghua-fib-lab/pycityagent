@@ -59,7 +59,7 @@
 
 ````
 
-`````{py:class} AgentGroup(agent_class: typing.Union[type[pycityagent.agent.Agent], list[type[pycityagent.agent.Agent]]], number_of_agents: typing.Union[int, list[int]], memory_config_function_group: dict[type[pycityagent.agent.Agent], collections.abc.Callable], config: dict, map_ref: ray.ObjectRef, exp_name: str, exp_id: typing.Union[str, uuid.UUID], enable_avro: bool, avro_path: pathlib.Path, enable_pgsql: bool, pgsql_writer: ray.ObjectRef, message_interceptor: ray.ObjectRef, mlflow_run_id: str, embedding_model: langchain_core.embeddings.Embeddings, logging_level: int, agent_config_file: typing.Optional[dict[type[pycityagent.agent.Agent], str]] = None, llm_semaphore: int = 200, environment: typing.Optional[dict] = None)
+`````{py:class} AgentGroup(agent_class: typing.Union[type[pycityagent.agent.Agent], list[type[pycityagent.agent.Agent]]], number_of_agents: typing.Union[int, list[int]], memory_config_function_group: dict[type[pycityagent.agent.Agent], collections.abc.Callable], config: pycityagent.configs.SimConfig, map_ref: ray.ObjectRef, exp_name: str, exp_id: typing.Union[str, uuid.UUID], enable_avro: bool, avro_path: pathlib.Path, enable_pgsql: bool, pgsql_writer: ray.ObjectRef, message_interceptor: ray.ObjectRef, mlflow_run_id: str, embedding_model: langchain_core.embeddings.Embeddings, logging_level: int, agent_config_file: typing.Optional[dict[type[pycityagent.agent.Agent], typing.Any]] = None, llm_semaphore: int = 200, environment: typing.Optional[dict] = None)
 :canonical: pycityagent.simulation.agentgroup.AgentGroup
 
 ```{autodoc2-docstring} pycityagent.simulation.agentgroup.AgentGroup

@@ -63,7 +63,7 @@
 
 ````
 
-`````{py:class} CitizenAgent(name: str, llm_client: typing.Optional[pycityagent.llm.LLM] = None, simulator: typing.Optional[pycityagent.environment.Simulator] = None, memory: typing.Optional[pycityagent.memory.Memory] = None, economy_client: typing.Optional[pycityagent.economy.EconomyClient] = None, messager: typing.Optional[pycityagent.message.Messager] = None, message_interceptor: typing.Optional[pycityagent.message.MessageInterceptor] = None, avro_file: typing.Optional[dict] = None)
+`````{py:class} CitizenAgent(name: str, llm_client: typing.Optional[pycityagent.llm.LLM] = None, simulator: typing.Optional[pycityagent.environment.Simulator] = None, memory: typing.Optional[pycityagent.memory.Memory] = None, economy_client: typing.Optional[pycityagent.environment.EconomyClient] = None, messager: typing.Optional[pycityagent.message.Messager] = None, message_interceptor: typing.Optional[pycityagent.message.MessageInterceptor] = None, avro_file: typing.Optional[dict] = None)
 :canonical: pycityagent.agent.agent.CitizenAgent
 
 Bases: {py:obj}`pycityagent.agent.agent_base.Agent`
@@ -132,7 +132,7 @@ Bases: {py:obj}`pycityagent.agent.agent_base.Agent`
 
 `````
 
-`````{py:class} InstitutionAgent(name: str, llm_client: typing.Optional[pycityagent.llm.LLM] = None, simulator: typing.Optional[pycityagent.environment.Simulator] = None, memory: typing.Optional[pycityagent.memory.Memory] = None, economy_client: typing.Optional[pycityagent.economy.EconomyClient] = None, messager: typing.Optional[pycityagent.message.Messager] = None, message_interceptor: typing.Optional[pycityagent.message.MessageInterceptor] = None, avro_file: typing.Optional[dict] = None)
+`````{py:class} InstitutionAgent(name: str, llm_client: typing.Optional[pycityagent.llm.LLM] = None, simulator: typing.Optional[pycityagent.environment.Simulator] = None, memory: typing.Optional[pycityagent.memory.Memory] = None, economy_client: typing.Optional[pycityagent.environment.EconomyClient] = None, messager: typing.Optional[pycityagent.message.Messager] = None, message_interceptor: typing.Optional[pycityagent.message.MessageInterceptor] = None, avro_file: typing.Optional[dict] = None)
 :canonical: pycityagent.agent.agent.InstitutionAgent
 
 Bases: {py:obj}`pycityagent.agent.agent_base.Agent`
