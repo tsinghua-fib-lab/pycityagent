@@ -148,10 +148,10 @@ Similar to `EdgeMessageBlock`, also an implementation of `MessageBlockBase`.
 
 Any messages intercepted will be popped to the queue of `MessageBlockListener`.
 
-- It checks if messages are emotionally provocative and evaluates whether the sender has exceeded the violation limit, this block adds the exact sender-receiver pair (from_uuid, None) to the blacklist. It means the sender can no longer send out any messages.
+- It checks if messages are emotionally provocative and evaluates whether the sender has exceeded the violation limit, this block adds the exact sender-receiver pair (from_uuid, None) to the blacklist. (from_uuid, None) in a blacklist means the sender can no longer send out any messages.
 
 ### `MessageBlockListener` Class
 
 A listener class that processes values from the blocked message queue asynchronously.
 
-Get value from the queue every `get_queue_period` seconds.
+Get value from the queue every `get_queue_period` seconds continually.

@@ -242,8 +242,6 @@ Assign SimConfig with `SimConfig.SetAvro`, e.g. `SimConfig().SetAvro(path="cache
 
 ```
 
-## Agent Group Configuration
-
 ## Distributed Simulation
 
 Here is a simple example to run simulation in the same LAN.
