@@ -1,17 +1,17 @@
 
 
 <div style="text-align: center; background-color: white; padding: 20px; border-radius: 30px;">
-  <img src="./static/cityagent_logo.png" alt="CityAgent Logo" width="200" style="display: block; margin: 0 auto;">
-  <h1 style="color: black; margin: 0; font-size: 3em;">CityAgent: LLM Agents in City</h1>
+  <img src="./static/agentsociety_logo.png" alt="AgentSociety Logo" width="200" style="display: block; margin: 0 auto;">
+  <h1 style="color: black; margin: 0; font-size: 3em;">AgentSociety: LLM Agents in City</h1>
 </div>
 
 
-# 🚀 CityAgent
+# 🚀 AgentSociety
 ![License](https://img.shields.io/badge/license-MIT-green) &ensp;
 [![Online Documentation](https://img.shields.io/badge/docs-online-blue)](https://docs.fiblab.net/agentsociety) &ensp;
 
 
-CityAgent is an advanced framework specifically designed for building intelligent agents in urban simulation environments. With CityAgent, you can easily create and manage agents, enabling complex urban scenarios to be modeled and simulated efficiently.
+AgentSociety is an advanced framework specifically designed for building intelligent agents in urban simulation environments. With AgentSociety, you can easily create and manage agents, enabling complex urban scenarios to be modeled and simulated efficiently.
 
 ## 🌟 Features
 - **Modular Design**: Plug-and-play components for agent behavior.
@@ -39,9 +39,9 @@ Stay tuned for upcoming updates!
 <a id="framework"></a>
 ## 🛠️ Framework
 
-CityAgent is built with a multi-layered architecture that allows users to create and manage intelligent agents for urban environments in a scalable and flexible manner. The framework is divided into several key layers, each responsible for different functionalities as depicted in the diagram below:
+AgentSociety is built with a multi-layered architecture that allows users to create and manage intelligent agents for urban environments in a scalable and flexible manner. The framework is divided into several key layers, each responsible for different functionalities as depicted in the diagram below:
 
-<img src="./static/framework.png" alt="CityAgent Framework Overview" width="600" style="display: block; margin: 20px auto;">
+<img src="./static/framework.png" alt="AgentSociety Framework Overview" width="600" style="display: block; margin: 20px auto;">
 
 ### Architectural Layers
 - **Model Layer**: Handles agent configuration, task definitions, logging setup, and result aggregation.
@@ -76,11 +76,11 @@ CityAgent is built with a multi-layered architecture that allows users to create
 <a id="setup"></a>
 ## ⚙️ Setup
 
-You can set up CityAgent in two different ways:
+You can set up AgentSociety in two different ways:
 
 ### 1. From Scratch
 
-Follow these steps to set up CityAgent from scratch by cloning the repository. The project is built using Python and managed with Poetry.
+Follow these steps to set up AgentSociety from scratch by cloning the repository. The project is built using Python and managed with Poetry.
 
 1. **Clone the Repository**
    ```bash
@@ -110,10 +110,10 @@ This method is not yet available. Stay tuned for future updates!
 <a id="quickstart"></a>
 ## 🚀 QuickStart
 
-Get started with CityAgent in just a few minutes!
+Get started with AgentSociety in just a few minutes!
 
 ### 1. Config Configuration
-CityAgent uses a configuration file written in `.yaml` format to manage settings for various components. Below is a sample configuration file (`config_template.yaml`) that showcases the structure:
+AgentSociety uses a configuration file written in `.yaml` format to manage settings for various components. Below is a sample configuration file (`config_template.yaml`) that showcases the structure:
 
 ```yaml
 llm_request:
@@ -138,7 +138,7 @@ We welcome contributions from the community!.
 <a id="license"></a>
 ## 📄 License
 
-CityAgent is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+AgentSociety is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
 
 ---
 
