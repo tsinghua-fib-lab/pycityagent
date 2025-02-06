@@ -96,7 +96,7 @@ Assign SimConfig with `SimConfig.SetAvro`, e.g. `SimConfig().SetAvro(path="cache
 {
     "type": "record",
     "name": "ExperimentInfo",
-    "namespace": "pycityagent.simulation",
+    "namespace": "agentsociety.simulation",
     "fields": [
         {"name": "id", "type": "string"},
         {"name": "name", "type": "string"},
@@ -252,13 +252,13 @@ import logging
 
 import ray
 
-from pycityagent import AgentSimulation
-from pycityagent.cityagent import (BankAgent, FirmAgent, GovernmentAgent,
+from agentsociety import AgentSimulation
+from agentsociety.cityagent import (BankAgent, FirmAgent, GovernmentAgent,
                                    NBSAgent, SocietyAgent)
-from pycityagent.cityagent.initial import (bind_agent_info,
+from agentsociety.cityagent.initial import (bind_agent_info,
                                            initialize_social_network)
-from pycityagent.configs import SimConfig
-from pycityagent.simulation import AgentSimulation
+from agentsociety.configs import SimConfig
+from agentsociety.simulation import AgentSimulation
 
 sim_config = (
     SimConfig()

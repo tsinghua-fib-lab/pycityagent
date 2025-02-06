@@ -4,14 +4,14 @@ from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
 import stat
 
-PACKAGE_NAME = "pycityagent"
+PACKAGE_NAME = "agentsociety"
 
 BIN_SOURCES = {
-    "pycityagent-sim": {
+    "agentsociety-sim": {
         "linux_x86_64": "https://git.fiblab.net/api/v4/projects/195/packages/generic/socialcity-sim/v1.0.18/socialcity-sim-noproj-linux-amd64",
         "darwin_arm64": "https://git.fiblab.net/api/v4/projects/195/packages/generic/socialcity-sim/v1.0.18/socialcity-sim-noproj-darwin-arm64",
     },
-    "pycityagent-ui": {
+    "agentsociety-ui": {
         "linux_x86_64": "https://git.fiblab.net/api/v4/projects/188/packages/generic/socialcity-web/v0.3.1/socialcity-web-linux-amd64",
         "darwin_arm64": "https://git.fiblab.net/api/v4/projects/188/packages/generic/socialcity-web/v0.3.1/socialcity-web-darwin-arm64",
     },
@@ -80,7 +80,7 @@ class DownloadBin(build_ext):
             raise Exception(f"No binary found for {binary_name}")
 
 setup(
-    ext_modules=[BinExtension("pycityagent-sim"), BinExtension("pycityagent-ui"),],
+    ext_modules=[BinExtension("agentsociety-sim"), BinExtension("agentsociety-ui"),],
     cmdclass=dict(build_ext=DownloadBin),
 )
 

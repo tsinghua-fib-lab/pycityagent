@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "requests>=2", "cibuildwheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pycityagent"
+name = "agentsociety"
 version = "2.0.0a98" # change it for each release
 description = "LLM-based city environment agent building library"
 authors = [
@@ -53,17 +53,17 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tsinghua-fib-lab/pycityagent"
-Repository = "https://github.com/tsinghua-fib-lab/pycityagent.git"
-Issues = "https://github.com/tsinghua-fib-lab/pycityagent/issues"
+Homepage = "https://github.com/tsinghua-fib-lab/agentsociety"
+Repository = "https://github.com/tsinghua-fib-lab/agentsociety.git"
+Issues = "https://github.com/tsinghua-fib-lab/agentsociety/issues"
 
 [project.scripts]
-pycityagent-sim = "pycityagent.cli.wrapper:pycityagent_sim"
-pycityagent-ui = "pycityagent.cli.wrapper:pycityagent_ui"
+agentsociety-sim = "agentsociety.cli.wrapper:agentsociety_sim"
+agentsociety-ui = "agentsociety.cli.wrapper:agentsociety_ui"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["pycityagent*"]
+include = ["agentsociety*"]
 
 [tool.cibuildwheel]
 build = ["cp3*manylinux_x86_64", "cp3*macosx_arm64"]

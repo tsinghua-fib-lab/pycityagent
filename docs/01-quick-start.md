@@ -29,9 +29,9 @@ To use this framework, you **need access to LLM APIs**. We support multiple prov
 #### 1. File-based Configuration
 
 ```python
-from pycityagent.configs import (ExpConfig, SimConfig, WorkflowStep,
+from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
                                  load_config_from_file)
-from pycityagent.simulation import AgentSimulation
+from agentsociety.simulation import AgentSimulation
 
 sim_config = load_config_from_file("examples/example_sim_config.yaml", SimConfig)
 exp_config = load_config_from_file("examples/example_exp_config.yaml", ExpConfig)
@@ -121,9 +121,9 @@ llm_semaphore: 200  # Semaphore value for LLM operations
 #### 2. Fluent API Configuration
 
 ```python
-from pycityagent.configs import (ExpConfig, SimConfig, WorkflowStep,
+from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
                                  load_config_from_file)
-from pycityagent.simulation import AgentSimulation
+from agentsociety.simulation import AgentSimulation
 
 sim_config = (
     SimConfig()
@@ -181,13 +181,13 @@ To design your own experiment with interaction and intervene methods provided, p
 
 ### Visualization with Web Interface
 
-We provide `pycityagent-ui` as our visualization tool within the python package.
+We provide `agentsociety-ui` as our visualization tool within the python package.
 
 You can either visualize a running simulation process in real-time or replay one completed simulation.
 
 To activate the ui interface, you simply need to code these in your terminal. 
 ```bash
-pycityagent-ui --pg-dsn=postgres://postgres:postgres@localhost:5432/socialcity?sslmode=disable --mqtt-broker=tcp://localhost:1883 --mqtt-username=username --mqtt-password=password --addr=localhost:8080 --mlflow-url=http://localhost:5000
+agentsociety-ui --pg-dsn=postgres://postgres:postgres@localhost:5432/socialcity?sslmode=disable --mqtt-broker=tcp://localhost:1883 --mqtt-username=username --mqtt-password=password --addr=localhost:8080 --mlflow-url=http://localhost:5000
 ```
 
 - `--addr`: Address for the UI service (default: `localhost:8080`).
@@ -252,7 +252,7 @@ Customize your citizens and institutions for simulation.
 Configure the number of citizen agents using `ExpConfig.SetAgentConfig`.
 
 ```python
-from pycityagent.configs import (ExpConfig, SimConfig, WorkflowStep,
+from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
                                  load_config_from_file)
 
 exp_config = (
@@ -294,7 +294,7 @@ To use a different city map:
 2. Configure the map in your simulation:
 
 ```python
-from pycityagent.configs import (ExpConfig, SimConfig, WorkflowStep,
+from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
                                  load_config_from_file)
 sim_config = SimConfig(
     .SetMapRequest(file_path="path/to_your_city_map.pb")
@@ -304,7 +304,7 @@ sim_config = SimConfig(
 ##### Simulation Time Configuration
 
 ```python
-from pycityagent.configs import (ExpConfig, SimConfig, WorkflowStep,
+from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
                                  load_config_from_file)
 sim_config = (
     SimConfig()
@@ -323,7 +323,7 @@ sim_config = (
 Set environment parameters with `ExpConfig.SetEnvironment`.
 
 ```python
-from pycityagent.configs import (ExpConfig, SimConfig, WorkflowStep,
+from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
                                  load_config_from_file)
 
 exp_config = (

@@ -12,9 +12,9 @@ The simulation provides a comprehensive survey system for gathering structured f
 # Example of creating and sending a survey
 import asyncio
 
-from pycityagent import AgentSimulation
-from pycityagent.configs import SimConfig
-from pycityagent.survey import SurveyManager
+from agentsociety import AgentSimulation
+from agentsociety.configs import SimConfig
+from agentsociety.survey import SurveyManager
 
 
 async def main():
@@ -56,8 +56,8 @@ The interview system allows direct interaction with agents through messages.
 # Example of conducting an interview
 import asyncio
 
-from pycityagent import AgentSimulation
-from pycityagent.configs import SimConfig
+from agentsociety import AgentSimulation
+from agentsociety.configs import SimConfig
 
 
 async def main():
@@ -113,7 +113,7 @@ await simulation.mlflow_client.log_batch(
 ##### Use the Tool `ExportMlflowMetrics` 
 
 ```python
-from pycityagent.tools import ExportMlflowMetrics
+from agentsociety.tools import ExportMlflowMetrics
 
 
 class CustomAgent(Agent):

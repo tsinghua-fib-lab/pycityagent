@@ -53,9 +53,9 @@ Embedding Model is used in the memory to:
 To change the embedding model within the `Memory`, you simply need to assign it with `ExpConfig.SetAgentConfig`.
 
 ```python
-from pycityagent.configs import (ExpConfig, SimConfig, WorkflowStep,
+from agentsociety.configs import (ExpConfig, SimConfig, WorkflowStep,
                                  load_config_from_file)
-from pycityagent.llm import SimpleEmbedding
+from agentsociety.llm import SimpleEmbedding
 
 exp_config = ExpConfig(exp_name="test",).SetAgentConfig(
     embedding_model=SimpleEmbedding()
@@ -178,7 +178,7 @@ A simple example is as follows.
 ```python
 import asyncio
 
-from pycityagent import Agent, AgentType
+from agentsociety import Agent, AgentType
 
 
 class CustomAgent(Agent):
@@ -209,11 +209,11 @@ For complex behaviors, use `Block` to organize logic.
 import asyncio
 from typing import Optional
 
-from pycityagent import Simulator
-from pycityagent.agent import Agent
-from pycityagent.llm import LLM
-from pycityagent.memory import Memory
-from pycityagent.workflow import Block
+from agentsociety import Simulator
+from agentsociety.agent import Agent
+from agentsociety.llm import LLM
+from agentsociety.memory import Memory
+from agentsociety.workflow import Block
 
 
 class SecondCustomBlock(Block):
@@ -307,7 +307,7 @@ if __name__ == "__main__":
 Tools provide reusable functionality that can be automatically bound to `Agent` or `Block`.
 
 ```python
-from pycityagent.tools import Tool
+from agentsociety.tools import Tool
 
 
 class CustomTool(Tool):

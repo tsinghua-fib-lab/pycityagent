@@ -8,7 +8,7 @@
 
 # 🚀 CityAgent
 ![License](https://img.shields.io/badge/license-MIT-green) &ensp;
-[![Online Documentation](https://img.shields.io/badge/docs-online-blue)](https://docs.fiblab.net/pycityagent) &ensp;
+[![Online Documentation](https://img.shields.io/badge/docs-online-blue)](https://docs.fiblab.net/agentsociety) &ensp;
 
 
 CityAgent is an advanced framework specifically designed for building intelligent agents in urban simulation environments. With CityAgent, you can easily create and manage agents, enabling complex urban scenarios to be modeled and simulated efficiently.
@@ -88,7 +88,7 @@ Follow these steps to set up CityAgent from scratch by cloning the repository. T
    ```
 2. **Navigate to the Project Directory**
    ```bash
-   cd pycityagent
+   cd agentsociety
    ```
 3. **Install Poetry** (if not installed)
    ```bash
