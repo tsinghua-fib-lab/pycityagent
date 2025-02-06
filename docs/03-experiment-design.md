@@ -155,3 +155,23 @@ Any messages intercepted will be popped to the queue of `MessageBlockListener`.
 A listener class that processes values from the blocked message queue asynchronously.
 
 Get value from the queue every `get_queue_period` seconds continually.
+
+## Examples
+
+Here we provide examples on how to perform typical social experiments with our framework.
+
+### 1.
+
+PLACE-HOLDER
+
+### 2.
+
+PLACE-HOLDER
+
+### 3.
+
+PLACE-HOLDER
+
+### 4.
+
+PLACE-HOLDER
